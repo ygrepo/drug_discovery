@@ -61,7 +61,7 @@ def main():
 
     # Load the dataset
     df = pd.read_csv(
-        Path("../mutadescribe_data/structural_split/train.csv"), low_memory=False
+        Path("mutadescribe_data/structural_split/train.csv"), low_memory=False
     )
     df.drop(columns=["Unnamed: 0"], inplace=True)
     # Drop missing sequences
@@ -86,7 +86,7 @@ def main():
     df["protein1_embedding"] = protein1_embeddings
     df["protein2_embedding"] = protein2_embeddings
     df.to_csv(
-        Path("../output/data/structural_split_train_with_embeddings.csv"), index=False
+        Path("output/data/structural_split_train_with_embeddings.csv"), index=False
     )
 
 
