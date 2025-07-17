@@ -49,6 +49,8 @@ def main():
     # Set up logging
     logger = setup_logging(Path("logs"), "DEBUG")
 
+    logger.info(f"Current working directory: {os.getcwd()}")
+
     # Load ESM model
     model_name = "facebook/esm2_t6_8M_UR50D"
     tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -57,7 +59,9 @@ def main():
     logger.info(f"Loaded model: {model_name}")
 
     # Load the dataset
-    df = pd.read_csv(Path("dataset/structural_split/train.csv"), low_memory=False)
+    df = pd.read_csv(
+        Path("../mutadescribe_data/structural_split/train.csv"), low_memory=False
+    )
     df.drop(columns=["Unnamed: 0"], inplace=True)
     # Drop missing sequences
     df = df.dropna(subset=["protein1", "protein2"])
@@ -80,7 +84,9 @@ def main():
     # Save embeddings
     df["protein1_embedding"] = protein1_embeddings
     df["protein2_embedding"] = protein2_embeddings
-    df.to_csv(Path("dataset/structural_split/train_with_embeddings.csv"), index=False)
+    df.to_csv(
+        Path("../output/data/structural_split_train_with_embeddings.csv"), index=False
+    )
 
 
 if __name__ == "__main__":
