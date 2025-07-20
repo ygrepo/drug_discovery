@@ -9,6 +9,13 @@ import torch
 from tqdm import tqdm
 import argparse
 
+from numpy import dot
+from numpy.linalg import norm
+
+
+def cosine_similarity(vec1, vec2):
+    return dot(vec1, vec2) / (norm(vec1) * norm(vec2))
+
 
 def setup_logging(log_dir: Path, log_level: str = "INFO") -> logging.Logger:
     """Set up logging configuration.
@@ -167,6 +174,14 @@ def main():
         # Save embeddings
         df["protein1_embedding"] = protein1_embeddings
         df["protein2_embedding"] = protein2_embeddings
+
+        # Compute cosine similarity
+        logger.info("Computing cosine similarity...")
+        df["cosine_similarity"] = [
+            cosine_similarity(emb1, emb2)
+            for emb1, emb2 in zip(protein1_embeddings, protein2_embeddings)
+        ]
+
         logger.info(f"{df.head()}")
         df.to_csv(
             Path(project_root / args.output_fn),
