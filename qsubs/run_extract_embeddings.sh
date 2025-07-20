@@ -16,6 +16,7 @@ for entry in "${params[@]}"; do
   # Job name based on input filename
   jobname="embed_$(basename "$data_fn" .csv)"
 
+
   bsub \
     -J "$jobname" \
     -P acc_DiseaseGeneCell \
@@ -26,7 +27,7 @@ for entry in "${params[@]}"; do
     -W 2:00 \
     -o "logs/${jobname}.%J.out" \
     -e "logs/${jobname}.%J.err" \
-    "module purge; module load python/3.10.12 cuda cudnn; \
+    "module purge; module load python/3.12.5 cuda cudnn; \
      python run/extract_embeddings.py \
        --data_fn \"$data_fn\" \
        --output_fn \"$output_fn\" \
