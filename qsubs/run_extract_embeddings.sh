@@ -28,7 +28,8 @@ for entry in "${params[@]}"; do
     -o "logs/${jobname}.%J.out" \
     -e "logs/${jobname}.%J.err" \
     "module purge; module load python/3.12.5 cuda cudnn; \
-     python src/extract_embeddings.py \
+    source ~/.venvs/drug_discovery/bin/activate; \
+    python src/extract_embeddings.py \
        --data_fn \"$data_fn\" \
        --output_fn \"$output_fn\" \
        --model_name facebook/esm2_t6_8M_UR50D \
