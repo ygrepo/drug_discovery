@@ -1,37 +1,38 @@
 #!/bin/bash
-# submit_embeddings.sh — submit extract_embeddings.sh as a GPU job
+# submit_embeddings.sh — submit embedding jobs to LSF GPU queue
 
-# Create log directory if it doesn't exist
-mkdir -p logs
+# Create log directory
+mkdir -p ../logs
 
-# Optional: customize multiple input/output combos like this
+# Define dataset input/output combinations
 params=(
   "mutadescribe_data/structural_split/train.csv output/data/structural_split_train_with_embeddings.csv"
-  # Add more combinations here if needed
 )
 
-# Loop through all jobs
+# Loop through each job definition
 for entry in "${params[@]}"; do
   read -r data_fn output_fn <<< "$entry"
 
+  # Job name based on input filename
   jobname="embed_$(basename "$data_fn" .csv)"
 
   bsub \
     -J "$jobname" \
     -P acc_DiseaseGeneCell \
     -q gpu \
-    -gpu "num=1:mode=exclusive_process" \
+    -gpu "num=4" \
     -n 1 \
     -R "rusage[mem=32000]" \
     -W 2:00 \
     -o "logs/${jobname}.%J.out" \
-    -eo "logs/${jobname}.%J.err" \
-    "bash run/extract_embeddings.sh \
-      --data_fn '$data_fn' \
-      --output_fn '$output_fn' \
-      --model_name 'facebook/esm2_t6_8M_UR50D' \
-      --n 15 \
-      --log_dir logs \
-      --log_level INFO \
-      --seed 42"
+    -e "logs/${jobname}.%J.err" \
+    "module purge; module load python/3.10.12 cuda cudnn; \
+     python run/extract_embeddings.py \
+       --data_fn \"$data_fn\" \
+       --output_fn \"$output_fn\" \
+       --model_name facebook/esm2_t6_8M_UR50D \
+       --n 15 \
+       --log_dir logs \
+       --log_level INFO \
+       --seed 42"
 done
