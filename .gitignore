@@ -9,6 +9,7 @@ wheels/
 dataset
 output
 logs
+mutadescribe_data/
 
 # Virtual environments
 .venv
