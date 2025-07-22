@@ -15,6 +15,15 @@ for entry in "${params[@]}"; do
 
   jobname="embed_$(basename "$data_fn" .csv)"
 
+  # Load the necessary modules
+module purge
+module load cuda/11.8 cudnn
+# Activate Conda environment
+module load anaconda3/latest
+source /hpc/packages/minerva-centos7/anaconda3/2023.09/etc/profile.d/conda.sh
+conda activate drug_discovery_env
+
+
   bsub \
     -J "$jobname" \
     -P acc_DiseaseGeneCell \
@@ -25,10 +34,7 @@ for entry in "${params[@]}"; do
     -W 2:00 \
     -o "logs/${jobname}.%J.out" \
     -e "logs/${jobname}.%J.err" \
-    "module purge; module load python/3.12.5 cuda cudnn; \
-     source ~/.venvs/drug_discovery/bin/activate && \
-     which python && \
-     python src/extract_embeddings.py \
+    "python src/extract_embeddings.py \
        --data_fn \"$data_fn\" \
        --output_fn \"$output_fn\" \
        --model_name facebook/esm2_t6_8M_UR50D \
