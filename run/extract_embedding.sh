@@ -16,9 +16,9 @@ echo "Project root: $PROJECT_ROOT"
 cd "$PROJECT_ROOT"
 
 
-module load anaconda3/latest
-source /hpc/packages/minerva-centos7/anaconda3/2023.09/etc/profile.d/conda.sh
-conda activate drug_discovery_env
+# module load anaconda3/latest
+# source /hpc/packages/minerva-centos7/anaconda3/2023.09/etc/profile.d/conda.sh
+# conda activate drug_discovery_env
 
 # Default configuration
 DATASET_DIR="mutadescribe_data"
