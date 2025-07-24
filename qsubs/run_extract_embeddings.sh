@@ -17,7 +17,6 @@ module load cuda/11.8 cudnn
 module load anaconda3/latest
 source /hpc/packages/minerva-centos7/anaconda3/2023.09/etc/profile.d/conda.sh
 conda activate drug_discovery_env
-which python
 
 DATASET_DIR="mutadescribe_data"
 DATA_FN="${DATASET_DIR}/structural_split/train.csv"

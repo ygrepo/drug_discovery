@@ -32,7 +32,7 @@ def setup_logging(log_dir: Path, log_level: str = "INFO") -> logging.Logger:
 
     # Set up log file path with timestamp
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_file = log_dir / f"create_features_{timestamp}.log"
+    log_file = log_dir / f"extract_embeddings_{timestamp}.log"
 
     # Configure logging
     logging.basicConfig(
@@ -69,7 +69,7 @@ def embed_sequence(tokenizer, model, seq):
 def parse_args():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
-        description="Train Favorita Grocery Sales Forecasting model"
+        description="Extract embeddings from protein sequences"
     )
     parser.add_argument(
         "--n",
