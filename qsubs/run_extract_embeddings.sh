@@ -18,14 +18,21 @@ source /hpc/packages/minerva-centos7/anaconda3/2023.09/etc/profile.d/conda.sh
 conda activate drug_discovery_env
 which python
 
-# python src/extract_embeddings.py \
-#   --data_fn "$data_fn" \
-#   --output_fn "$output_fn" \
-#   --model_name facebook/esm2_t6_8M_UR50D \
-#   --n 15 \
-#   --log_dir logs \
-#   --log_level INFO \
-#   --seed 42
-# EOF
+DATASET_DIR="mutadescribe_data"
+DATA_FN="${DATASET_DIR}/structural_split/train.csv"
+OUTPUT_DIR="output/data"
+OUTPUT_FN="${OUTPUT_DIR}/structural_split_train_with_embeddings.csv"
+MODEL_NAME="facebook/esm2_t6_8M_UR50D"
+N=15
+LOG_DIR="logs"
+LOG_LEVEL="INFO"
+SEED=42
 
-# done
+python src/extract_embeddings.py \
+  --data_fn "$DATA_FN" \
+  --output_fn "$OUTPUT_FN" \
+  --model_name "$MODEL_NAME" \
+  --n "$N" \
+  --log_dir "$LOG_DIR" \
+  --log_level "$LOG_LEVEL" \
+  --seed "$SEED"
