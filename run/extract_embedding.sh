@@ -53,7 +53,7 @@ mkdir -p "$LOG_DIR"
 
 # Set up log file with timestamp
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-LOG_FILE="${LOG_DIR}/training_${TIMESTAMP}.log"
+LOG_FILE="${LOG_DIR}/extract_embeddings_${TIMESTAMP}.log"
 
 echo "Starting training at $(date)" | tee -a "$LOG_FILE"
 echo "Project root: $PROJECT_ROOT" | tee -a "$LOG_FILE"
