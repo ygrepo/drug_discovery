@@ -17,6 +17,7 @@ module load cuda/11.8 cudnn
 module load anaconda3/latest
 source /hpc/packages/minerva-centos7/anaconda3/2023.09/etc/profile.d/conda.sh
 conda activate drug_discovery_env
+which python
 
 DATASET_DIR="mutadescribe_data"
 DATA_FN="${DATASET_DIR}/structural_split/train.csv"
@@ -28,7 +29,7 @@ LOG_DIR="logs"
 LOG_LEVEL="INFO"
 SEED=42
 
-python src/extract_embeddings.py \
+/hpc/users/greaty01/.conda/envs/drug_discovery_env/bin/python src/extract_embeddings.py \
   --data_fn "$DATA_FN" \
   --output_fn "$OUTPUT_FN" \
   --model_name "$MODEL_NAME" \
