@@ -1,9 +1,8 @@
 #!/bin/bash
 # submit_embeddings.sh — submit embedding jobs to LSF GPU queue
 
-jobname="embeddings"
 
-#BSUB -J $jobname
+#BSUB -J embeddings
 #BSUB -P acc_DiseaseGeneCell
 #BSUB -q gpu
 #BSUB -gpu "num=1"
