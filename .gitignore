@@ -10,6 +10,9 @@ dataset
 output
 logs
 mutadescribe_data/
+Doc
+checkpoints/
+notebook/ckpts/
 
 # Virtual environments
 .venv
