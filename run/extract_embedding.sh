@@ -18,7 +18,6 @@ set -euo pipefail
 module purge
 module load cuda/11.8 cudnn
 module load anaconda3/latest
-#module load anaconda3/2024.06
 
 ml proxies/1 || true
 
