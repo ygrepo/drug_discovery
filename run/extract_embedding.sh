@@ -24,7 +24,7 @@ cd "$PROJECT_ROOT"
 DATASET_DIR="mutadescribe_data"
 DATA_FN="${DATASET_DIR}/structural_split/train.csv"
 OUTPUT_DIR="output/data"
-OUTPUT_FN="${OUTPUT_DIR}/structural_split_train_with_embeddings.csv"
+OUTPUT_FN="${OUTPUT_DIR}/esm1v_structural_split_train_with_embeddings.csv"
 MODEL_NAME="facebook/esm1v_t33_650M_UR90S_5"
 #MODEL_NAME="facebook/esm2_t6_8M_UR50D"
 N=2000
