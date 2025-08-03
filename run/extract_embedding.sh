@@ -86,11 +86,6 @@ echo "  N: ${N}" | tee -a "$LOG_FILE"
 echo "  Log level: ${LOG_LEVEL}" | tee -a "$LOG_FILE"
 echo "  Log file: ${LOG_FILE}" | tee -a "$LOG_FILE"
 
-module purge
-module load cuda/11.8 cudnn
-module load anaconda3/latest
-source /hpc/packages/minerva-centos7/anaconda3/2023.09/etc/profile.d/conda.sh
-conda activate drug_discovery_env
 /sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.conda/envs/mutaplm_env/bin/python \
 "$SCRIPT_DIR/extract_embeddings.py" \
     --data_fn "$DATA_FN" \
@@ -99,4 +94,17 @@ conda activate drug_discovery_env
     --n "$N" \
     --log_dir "$LOG_DIR" \
     --log_level "$LOG_LEVEL" \
-    --seed "$SEED"
+    --seed "$SEED"\
+2>&1 | tee -a "$LOG_FILE"
+
+# Check the exit status of the Python script
+EXIT_CODE=${PIPESTATUS[0]}
+
+if [ $EXIT_CODE -eq 0 ]; then
+    echo "Script completed successfully at $(date)" | tee -a "$LOG_FILE"
+    exit 0
+else
+    echo "Error: Script failed with exit code $EXIT_CODE" | tee -a "$LOG_FILE"
+    echo "Check the log file for details: $LOG_FILE"
+    exit $EXIT_CODE
+fi
