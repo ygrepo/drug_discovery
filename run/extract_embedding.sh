@@ -26,15 +26,6 @@ module load anaconda3/latest
 source $(conda info --base)/etc/profile.d/conda.sh
 conda activate drug_discovery_env
 
-python - <<'EOF'
-import numpy
-if int(numpy.__version__.split('.')[0]) >= 2:
-    import os
-    print("Detected NumPy >= 2.x, reinstalling 1.26.x for compatibility...")
-    os.system("pip uninstall -y numpy")
-    os.system("conda install -y numpy=1.26 pandas pyarrow")
-EOF
-
 ml proxies/1 || true
 
 # Get the directory of this script
@@ -49,16 +40,20 @@ SCRIPT_DIR="$PROJECT_ROOT/src"
 echo "Project root: $PROJECT_ROOT"
 cd "$PROJECT_ROOT"
 
+# --- Verify environment ---
+echo "Python: $(which python)"
+python -c "import sys, torch, transformers; print('Python', sys.version); print('Torch', torch.__version__); print('Transformers', transformers.__version__)"
+
+
 export HF_HOME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.cache/huggingface"
-mkdir -p "$HF_HOME"
+MODEL_NAME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/esm1v_t33_650M_UR90S_5_safe"
+
 
 # Default configuration
 DATASET_DIR="mutadescribe_data"
 DATA_FN="${DATASET_DIR}/structural_split/train.csv"
 OUTPUT_DIR="output/data"
 OUTPUT_FN="${OUTPUT_DIR}/esm1v_structural_split_train_with_embeddings.csv"
-MODEL_NAME="facebook/esm1v_t33_650M_UR90S_5"
-#MODEL_NAME="facebook/esm2_t6_8M_UR50D"
 N=2000
 LOG_DIR="logs"
 LOG_LEVEL="INFO"

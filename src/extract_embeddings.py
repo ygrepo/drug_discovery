@@ -12,6 +12,9 @@ import argparse
 from numpy import dot
 from numpy.linalg import norm
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
 
 def cosine_similarity(vec1, vec2):
     return dot(vec1, vec2) / (norm(vec1) * norm(vec2))
@@ -46,10 +49,46 @@ def setup_logging(log_dir: Path, log_level: str = "INFO") -> logging.Logger:
     return logger
 
 
+# def load_model(model_name: str) -> AutoModel:
+#     """Load ESM model."""
+#     model = AutoModel.from_pretrained(model_name, add_pooling_layer=False).eval()
+#     return model
+# from transformers import AutoModel
+# import os
+
+
 def load_model(model_name: str) -> AutoModel:
-    """Load ESM model."""
-    model = AutoModel.from_pretrained(model_name, add_pooling_layer=False).eval()
-    return model
+    """
+    Load an ESM model safely.
+
+    - Prefers safetensors if available (no torch.load / pickle)
+    - Works offline with local paths
+    - Enforces HF_HOME for caching on HPC
+    """
+    # Ensure Hugging Face cache points to project space
+    os.environ.setdefault(
+        "HF_HOME",
+        "/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.cache/huggingface",
+    )
+
+    # Prefer safe serialization
+    try:
+        model = AutoModel.from_pretrained(
+            model_name,
+            add_pooling_layer=False,
+            trust_remote_code=True,  # some ESM models need this
+            local_files_only=os.path.isabs(model_name),  # offline if local path
+        ).eval()
+        logger.info(f"✅ Loaded model: {model_name}")
+        return model
+    except ValueError as e:
+        # Catch CVE / torch.load errors
+        if "torch.load" in str(e):
+            raise RuntimeError(
+                f"Model '{model_name}' requires safetensors or PyTorch ≥2.6.\n"
+                "Convert the model to safetensors and use the local path instead."
+            ) from e
+        raise
 
 
 def load_tokenizer(model_name: str) -> AutoTokenizer:
