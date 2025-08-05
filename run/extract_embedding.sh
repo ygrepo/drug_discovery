@@ -49,6 +49,9 @@ SCRIPT_DIR="$PROJECT_ROOT/src"
 echo "Project root: $PROJECT_ROOT"
 cd "$PROJECT_ROOT"
 
+export HF_HOME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.cache/huggingface"
+export TRANSFORMERS_CACHE="$HF_HOME/transformers"
+mkdir -p "$HF_HOME"
 
 # Default configuration
 DATASET_DIR="mutadescribe_data"
