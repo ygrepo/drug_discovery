@@ -18,6 +18,7 @@ set -euo pipefail
 module purge
 module load cuda/11.8 cudnn
 module load anaconda3/latest
+conda init
 conda activate drug_discovery_env
 
 ml proxies/1 || true
