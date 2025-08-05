@@ -26,7 +26,6 @@ module load anaconda3/latest
 source $(conda info --base)/etc/profile.d/conda.sh
 conda activate drug_discovery_env
 
- --- Force NumPy < 2 if needed (one-time) ---
 python - <<'EOF'
 import numpy
 if int(numpy.__version__.split('.')[0]) >= 2:
