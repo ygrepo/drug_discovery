@@ -42,7 +42,8 @@ cd "$PROJECT_ROOT"
 
 # --- Verify environment ---
 echo "Python: $(which python)"
-python -c "import sys, torch, transformers; print('Python', sys.version); print('Torch', torch.__version__); print('Transformers', transformers.__version__)"
+/hpc/users/greaty01/.conda/envs/drug_discovery_env/bin/python -c \
+    "import sys, torch, transformers; print('Python', sys.version); print('Torch', torch.__version__); print('Transformers', transformers.__version__)"
 
 
 export HF_HOME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.cache/huggingface"
