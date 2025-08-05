@@ -18,6 +18,7 @@ set -euo pipefail
 module purge
 module load cuda/11.8 cudnn
 module load anaconda3/latest
+conda activate drug_discovery_env
 
 ml proxies/1 || true
 
@@ -84,8 +85,8 @@ echo "  N: ${N}" | tee -a "$LOG_FILE"
 echo "  Log level: ${LOG_LEVEL}" | tee -a "$LOG_FILE"
 echo "  Log file: ${LOG_FILE}" | tee -a "$LOG_FILE"
 
-/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.conda/envs/mutaplm_env/bin/python \
-"$SCRIPT_DIR/extract_embeddings.py" \
+#/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.conda/envs/mutaplm_env/bin/python \
+python "$SCRIPT_DIR/extract_embeddings.py" \
     --data_fn "$DATA_FN" \
     --output_fn "$OUTPUT_FN" \
     --model_name "$MODEL_NAME" \
