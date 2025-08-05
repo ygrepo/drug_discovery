@@ -18,7 +18,7 @@ set -euo pipefail
 module purge
 module load cuda/11.8 cudnn
 module load anaconda3/latest
-conda init
+source $(conda info --base)/etc/profile.d/conda.sh
 conda activate drug_discovery_env
 
 ml proxies/1 || true
