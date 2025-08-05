@@ -70,6 +70,8 @@ def load_model(model_name: str) -> AutoModel:
         "HF_HOME",
         "/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.cache/huggingface",
     )
+    logger.info(f"HF_HOME: {os.environ['HF_HOME']}")
+    logger.info(f"Loading model: {model_name}")
 
     # Prefer safe serialization
     try:
