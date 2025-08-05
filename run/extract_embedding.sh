@@ -102,15 +102,15 @@ echo "  Log file: ${LOG_FILE}" | tee -a "$LOG_FILE"
 
 #/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.conda/envs/mutaplm_env/bin/python \
 /hpc/users/greaty01/.conda/envs/drug_discovery_env/bin/python \
-    $SCRIPT_DIR/extract_embeddings.py" ...
+    "$SCRIPT_DIR/extract_embeddings.py" \
     --data_fn "$DATA_FN" \
     --output_fn "$OUTPUT_FN" \
     --model_name "$MODEL_NAME" \
     --n "$N" \
     --log_dir "$LOG_DIR" \
     --log_level "$LOG_LEVEL" \
-    --seed "$SEED"\
-2>&1 | tee -a "$LOG_FILE"
+    --seed "$SEED" \
+    2>&1 | tee -a "$LOG_FILE"
 
 # Check the exit status of the Python script
 EXIT_CODE=${PIPESTATUS[0]}
