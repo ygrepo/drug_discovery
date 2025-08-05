@@ -15,11 +15,26 @@
 
 set -euo pipefail
 
+# --- Clean environment to avoid ~/.local issues ---
+export PYTHONNOUSERSITE=1
+unset PYTHONPATH
+unset PYTHONUSERBASE
+
 module purge
 module load cuda/11.8 cudnn
 module load anaconda3/latest
 source $(conda info --base)/etc/profile.d/conda.sh
 conda activate drug_discovery_env
+
+ --- Force NumPy < 2 if needed (one-time) ---
+python - <<'EOF'
+import numpy
+if int(numpy.__version__.split('.')[0]) >= 2:
+    import os
+    print("Detected NumPy >= 2.x, reinstalling 1.26.x for compatibility...")
+    os.system("pip uninstall -y numpy")
+    os.system("conda install -y numpy=1.26 pandas pyarrow")
+EOF
 
 ml proxies/1 || true
 
