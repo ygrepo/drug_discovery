@@ -101,7 +101,8 @@ echo "  Log level: ${LOG_LEVEL}" | tee -a "$LOG_FILE"
 echo "  Log file: ${LOG_FILE}" | tee -a "$LOG_FILE"
 
 #/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.conda/envs/mutaplm_env/bin/python \
-python "$SCRIPT_DIR/extract_embeddings.py" \
+/hpc/users/greaty01/.conda/envs/drug_discovery_env/bin/python \
+    "$SCRIPT_DIR/extract_embeddings.py" ...
     --data_fn "$DATA_FN" \
     --output_fn "$OUTPUT_FN" \
     --model_name "$MODEL_NAME" \
