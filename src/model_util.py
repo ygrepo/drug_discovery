@@ -21,6 +21,8 @@ def load_model(model_name: str) -> AutoModel:
     logger.info(f"Loading model: {model_name}")
 
     model = AutoModel.from_pretrained(model_name, add_pooling_layer=False)
+    max_len = getattr(model.config, "max_position_embeddings", 1024)
+    logger.info(f"Model max token length (from config): {max_len}")
     return model
 
 
@@ -30,53 +32,46 @@ def load_tokenizer(model_name: str) -> AutoTokenizer:
     logger.info(f"Loading Tokenizer: {model_name}")
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
-    max_len = tokenizer.model_max_length
-    logger.info(f"Model max token length: {max_len}")
     return tokenizer
 
 
-def embed_sequence_sliding(
-    tokenizer, model, seq, window_size=None, overlap=64
-):
-    """
-    Embed a protein sequence using mean-pooled ESM embeddings with sliding windows.
-
-    - Handles sequences longer than model max length
-    - Uses overlapping windows and mean-pools across windows
-    - Excludes padding tokens from mean-pooling
-    """
-    max_len = tokenizer.model_max_length
+def embed_sequence_sliding(tokenizer, model, seq, window_size=None, overlap=64):
+    max_len = getattr(model.config, "max_position_embeddings", 1024)
     if window_size is None:
-        window_size = max_len - 2  # Leave room for BOS/EOS tokens
+        window_size = max_len - 2
 
-    # Short sequence: no sliding required
     if len(seq) <= window_size:
-        return _embed_single_sequence(tokenizer, model, seq)
+        return _embed_single_sequence(tokenizer, model, seq, logger)
 
-    logger.warning(
-        f"Sequence length {len(seq)} exceeds model max {max_len}, using sliding windows."
-    )
+    if logger:
+        logger.warning(
+            f"Sequence length {len(seq)} exceeds model max {max_len}, using sliding windows."
+        )
 
     embeddings = []
     positions = range(0, len(seq), window_size - overlap)
 
     for start in positions:
-        window_seq = seq[start:start + window_size]
-        emb = _embed_single_sequence(tokenizer, model, window_seq)
+        window_seq = seq[start : start + window_size]
+        emb = _embed_single_sequence(tokenizer, model, window_seq, logger)
         embeddings.append(emb)
-
         if start + window_size >= len(seq):
             break
 
-    # Mean-pool across all windows
     return np.mean(embeddings, axis=0)
 
 
-def _embed_single_sequence(tokenizer, model, seq):
-    """Helper to embed a single sequence without sliding window."""
+def _embed_single_sequence(tokenizer, model, seq, logger=None):
+    max_len = getattr(model.config, "max_position_embeddings", 1024)
+    if len(seq) > max_len - 2:
+        if logger:
+            logger.warning(f"Truncating sequence from {len(seq)} to {max_len - 2}")
+        seq = seq[: max_len - 2]
+
     tokens = tokenizer(seq, return_tensors="pt", truncation=True, padding=False)
+
     with torch.no_grad():
-        outputs = model(**tokens).last_hidden_state  # [1, L, H]
+        outputs = model(**tokens).last_hidden_state
 
     if "attention_mask" in tokens:
         mask = tokens["attention_mask"]
@@ -85,6 +80,5 @@ def _embed_single_sequence(tokenizer, model, seq):
         embedding = sum_embeddings / lengths
     else:
         embedding = outputs.mean(dim=1)
-
 
     return embedding.squeeze().cpu().numpy()

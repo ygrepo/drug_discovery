@@ -159,7 +159,7 @@ def main():
         logger.info(f"Saved embeddings to {args.output_fn}")
 
     except Exception as e:
-        logger.exception("Training failed", e)
+        logger.exception("Script failed", e)
         sys.exit(1)
 
 

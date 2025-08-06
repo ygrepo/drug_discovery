@@ -30,3 +30,10 @@ mkdir -p "$HF_HOME"
 
 # Must export for Python to see it
 export MODEL_NAME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/esm1v_t33_650M_UR90S_5"
+
+# ---------------- Configuration ----------------
+export MODELS_DIR = "/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models"
+export MODEL_DIR =${MODELS_DIR}/esm1v_t33_650M_UR90S_5
+export SAFE_DIR =${MODELS_DIR}/esm1v_t33_650M_UR90S_5_safe
+
+

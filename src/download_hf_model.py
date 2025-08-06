@@ -14,47 +14,36 @@ import sys
 from pathlib import Path
 from transformers import AutoModel, AutoTokenizer
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT))
+
+from src.model_util import load_model, load_tokenizer, embed_sequence_sliding
+from src.utils import setup_logging
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-# ---------------- Configuration ----------------
-MODEL_NAME = "facebook/esm1v_t33_650M_UR90S_5"
-PROJECT_MODELS_DIR = Path("/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models")
 
-# Directories for raw and safe models
-LOCAL_MODEL_DIR = PROJECT_MODELS_DIR / "esm1v_t33_650M_UR90S_5"
-LOCAL_SAFE_DIR = PROJECT_MODELS_DIR / "esm1v_t33_650M_UR90S_5_safe"
+def load(
+    model_name: str,
+    model_dir: Path,
+    safe_dir: Path,
+) -> None:
+    logger.info(f"Downloading model '{model_name}' to {model_dir} ...")
 
-LOCAL_MODEL_DIR.mkdir(parents=True, exist_ok=True)
-LOCAL_SAFE_DIR.mkdir(parents=True, exist_ok=True)
+    # This will cache weights in model_dir
+    model = AutoModel.from_pretrained(model_name, cache_dir=str(model_dir))
+    tokenizer = AutoTokenizer.from_pretrained(model_name, cache_dir=str(model_dir))
+    logger.info(f"✅ Model and tokenizer downloaded to {model_dir}")
 
-def main():
-print(f"Downloading model '{MODEL_NAME}' to {LOCAL_MODEL_DIR} ...")
+    # ---------------- Step 2: Save with Safe Serialization ----------------
+    logger.info(f"Saving model and tokenizer to {safe_dir} as safetensors...")
 
-# ---------------- Step 1: Download & Load Model ----------------
-# This will cache weights in LOCAL_MODEL_DIR
-model = AutoModel.from_pretrained(MODEL_NAME, cache_dir=str(LOCAL_MODEL_DIR))
-tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, cache_dir=str(LOCAL_MODEL_DIR))
-
-print(f"✅ Model and tokenizer downloaded to {LOCAL_MODEL_DIR}")
-
-
-# ---------------- Step 2: Save with Safe Serialization ----------------
-print(f"Saving model and tokenizer to {LOCAL_SAFE_DIR} as safetensors...")
-
-# This automatically handles shared weights
-model.save_pretrained(LOCAL_SAFE_DIR, safe_serialization=True)
-tokenizer.save_pretrained(LOCAL_SAFE_DIR)
+    # This automatically handles shared weights
+    model.save_pretrained(safe_dir, safe_serialization=True)
+    tokenizer.save_pretrained(safe_dir)
 
 
-model = AutoModel.from_pretrained(LOCAL_SAFE_DIR).eval()
-
-print(f"✅ Conversion complete! Safe model directory: {LOCAL_SAFE_DIR}")
-print("You can now load the model like this in your script:")
-print(
-    f"  from transformers import AutoModel\n"
-    f"  model = AutoModel.from_pretrained('{LOCAL_SAFE_DIR}').eval()"
-)
 def parse_args():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
@@ -71,7 +60,7 @@ def parse_args():
         type=str,
         default="models",
         help="Output directory for the downloaded model",
-    )  
+    )
     parser.add_argument(
         "--safe_dir",
         type=str,
@@ -86,28 +75,28 @@ def parse_args():
     )
     return parser.parse_args()
 
+
 def main():
     args = parse_args()
-        # Convert paths to absolute paths relative to project root
+    # Convert paths to absolute paths relative to project root
     logger = setup_logging(Path(args.log_fn), args.log_level)
 
     try:
         # Log configuration
         logger.info("Starting training with configuration:")
         logger.info(f"Current working directory: {os.getcwd()}")
-        logger.info(f"  Data fn: {args.data_fn}")
-        logger.info(f"  Output fn: {args.output_fn}")
         logger.info(f"  Model name: {args.model_name}")
+        logger.info(f"  Model dir: {args.model_dir}")
+        logger.info(f"  Safe dir: {args.safe_dir}")
         logger.info(f"  Log file: {args.log_fn}")
         logger.info(f"  Log level: {args.log_level}")
-        logger.info(f"  Random seed: {args.seed}")
 
-        logger.info("Extracting embeddings...")
+        logger.info("Loading model and tokenizer and saving safe embeddings")
+        load(args.model_name, Path(args.model_dir), Path(args.safe_dir))
 
     except Exception as e:
-        logger.exception("Training failed", e)
+        logger.exception("Script failed", e)
         sys.exit(1)
-
 
 
 if __name__ == "__main__":
