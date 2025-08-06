@@ -5,6 +5,8 @@ import logging
 import numpy as np
 import torch
 
+from transformers import AutoTokenizer, AutoModel
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
@@ -41,19 +43,17 @@ def embed_sequence_sliding(tokenizer, model, seq, window_size=None, overlap=64):
         window_size = max_len - 2
 
     if len(seq) <= window_size:
-        return _embed_single_sequence(tokenizer, model, seq)
+        return _embed_single_sequence(tokenizer, model, seq, max_len)
 
-    if logger:
-        logger.warning(
-            f"Sequence length {len(seq)} exceeds model max {max_len}, using sliding windows."
-        )
+    logger.warning(
+        f"Sequence length {len(seq)} exceeds model max {max_len}, using sliding windows..."
+    )
 
     embeddings = []
-    positions = range(0, len(seq), window_size - overlap)
-
-    for start in positions:
+    step = window_size - overlap
+    for start in range(0, len(seq), step):
         window_seq = seq[start : start + window_size]
-        emb = _embed_single_sequence(tokenizer, model, window_seq)
+        emb = _embed_single_sequence(tokenizer, model, window_seq, max_len)
         embeddings.append(emb)
         if start + window_size >= len(seq):
             break
@@ -61,18 +61,22 @@ def embed_sequence_sliding(tokenizer, model, seq, window_size=None, overlap=64):
     return np.mean(embeddings, axis=0)
 
 
-def _embed_single_sequence(tokenizer, model, seq):
-    max_len = getattr(model.config, "max_position_embeddings", 1024)
+def _embed_single_sequence(tokenizer, model, seq, max_len):
+    max_input_length = max_len - 2
+    if len(seq) > max_input_length:
+        logger.warning(f"Truncating sequence from {len(seq)} to {max_input_length}")
+        seq = seq[:max_input_length]
 
-    # Manual truncation to account for BOS/EOS
-    if len(seq) > max_len - 2:
-        if logger:
-            logger.warning(f"Truncating sequence from {len(seq)} to {max_len - 2}")
-        seq = seq[: max_len - 2]
+    tokens = tokenizer(
+        seq,
+        return_tensors="pt",
+        padding=False,
+        truncation=True,
+        max_length=max_len,
+    )
 
-    tokens = tokenizer(seq, return_tensors="pt", padding=False)
     with torch.no_grad():
-        outputs = model(**tokens).last_hidden_state
+        outputs = model(**tokens).last_hidden_state  # [1, L, H]
 
     if "attention_mask" in tokens:
         mask = tokens["attention_mask"]
