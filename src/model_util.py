@@ -61,74 +61,45 @@ def embed_sequence_sliding(tokenizer, model, seq, window_size=None, overlap=64):
     return np.mean(embeddings, axis=0)
 
 
-def _embed_single_sequence(tokenizer, model, seq, max_len):
-    """
-    Embed a single protein sequence, safely handling long sequences and tokenizer expansion.
-
-    Args:
-        tokenizer: ESM tokenizer.
-        model: ESM model.
-        seq: Amino acid sequence string.
-        max_len: Model's max positional embeddings (usually from config).
-    Returns:
-        A numpy array of the mean-pooled embedding.
-    """
-    # 1. Sanitize sequence (remove unknown or lowercase residues)
-    valid_aa = set("ACDEFGHIKLMNPQRSTVWY")
-    seq = "".join([aa for aa in seq if aa in valid_aa])
-    max_input_aa = max_len - 2  # Leave space for special tokens
-
-    if len(seq) > max_input_aa:
-        logger.warning(f"Truncating sequence from {len(seq)} to {max_input_aa}")
-        seq = seq[:max_input_aa]
-
-    # 2. Tokenize
-    tokens = tokenizer(
-        seq,
-        return_tensors="pt",
-        padding=False,
-        truncation=True,
-        max_length=max_len,
-        return_attention_mask=True,
-    )
-
-    input_ids = tokens["input_ids"]
-    token_len = input_ids.shape[1]
-
-    # 3. Post-tokenization check — truncate again if needed
-    max_positions = getattr(
-        model.embeddings.position_embeddings, "num_embeddings", max_len
-    )
-    if token_len > max_positions:
-        logger.warning(
-            f"Tokenized input too long ({token_len} > {max_positions}), truncating..."
-        )
-        tokens["input_ids"] = input_ids[:, :max_positions]
-        if "attention_mask" in tokens:
-            tokens["attention_mask"] = tokens["attention_mask"][:, :max_positions]
-
-    # 4. Forward pass
+def _embed_single_sequence(tokenizer, model, seq, max_len, *, return_nan_on_error=True):
     try:
+        max_input_length = max_len - 2  # Leave room for BOS/EOS
+        if len(seq) > max_input_length:
+            logger.warning(f"Truncating sequence from {len(seq)} to {max_input_length}")
+            seq = seq[:max_input_length]
+
+        tokens = tokenizer(
+            seq,
+            return_tensors="pt",
+            padding=False,
+            truncation=True,
+            max_length=max_len,
+            return_attention_mask=True,
+        )
+
+        input_ids = tokens["input_ids"]
+        if input_ids.shape[1] > max_len:
+            logger.error(f"Tokenized input too long: {input_ids.shape[1]} > {max_len}")
+            raise ValueError("Tokenized input exceeds model max length.")
+
         with torch.no_grad():
             outputs = model(**tokens).last_hidden_state  # [1, L, H]
-    except IndexError as e:
-        logger.error(f"IndexError for sequence at token length {token_len}")
-        logger.debug(f"Exception: {e}")
-        logger.debug(f"Input IDs:\n{tokens['input_ids']}")
-        return np.full(model.config.hidden_size, np.nan)
+
+        if "attention_mask" in tokens:
+            mask = tokens["attention_mask"]
+            sum_embeddings = (outputs * mask.unsqueeze(-1)).sum(dim=1)
+            lengths = mask.sum(dim=1, keepdim=True)
+            embedding = sum_embeddings / lengths
+        else:
+            embedding = outputs.mean(dim=1)
+
+        logger.debug(f"Embedding shape: {embedding.shape}")
+        return embedding.squeeze().cpu().numpy()
+
     except Exception as e:
-        logger.error(f"Exception for sequence at token length {token_len}")
-        logger.debug(f"Exception: {e}")
-        logger.debug(f"Input IDs:\n{tokens['input_ids']}")
-        return np.full(model.config.hidden_size, np.nan)
-
-    # 5. Mean pooling (masked)
-    if "attention_mask" in tokens:
-        mask = tokens["attention_mask"]
-        sum_embeddings = (outputs * mask.unsqueeze(-1)).sum(dim=1)
-        lengths = mask.sum(dim=1, keepdim=True)
-        embedding = sum_embeddings / lengths
-    else:
-        embedding = outputs.mean(dim=1)
-
-    return embedding.squeeze().cpu().numpy()
+        logger.error(f"IndexError for sequence:\n{seq}")
+        logger.error(f"Input IDs:\n{tokens.get('input_ids', 'Unavailable')}")
+        if return_nan_on_error:
+            return np.full(model.config.hidden_size, np.nan)
+        else:
+            raise
