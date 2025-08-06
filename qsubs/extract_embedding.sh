@@ -23,20 +23,25 @@ unset PYTHONUSERBASE
 module purge
 module load cuda/11.8 cudnn
 module load anaconda3/latest
-source $(conda info --base)/etc/profile.d/conda.sh
-conda activate drug_discovery_env
+export PROJ=/sc/arion/projects/DiseaseGeneCell/Huang_lab_data
+export CONDARC="$PROJ/conda/condarc"
+conda activate mutaplm_env
+
+# source $(conda info --base)/etc/profile.d/conda.sh
+# conda activate drug_discovery_env
 
 ml proxies/1 || true
 
 
 # --- Verify environment ---
-echo "Python: $(which python)"
-/hpc/users/greaty01/.conda/envs/drug_discovery_env/bin/python -c \
-    "import sys, torch, transformers; print('Python', sys.version); print('Torch', torch.__version__); print('Transformers', transformers.__version__)"
+# echo "Python: $(which python)"
+# /hpc/users/greaty01/.conda/envs/drug_discovery_env/bin/python -c \
+#     "import sys, torch, transformers; print('Python', sys.version); print('Torch', torch.__version__); print('Transformers', transformers.__version__)"
 
 
 export HF_HOME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.cache/huggingface"
-MODEL_NAME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/esm1v_t33_650M_UR90S_5_safe"
+mkdir -p "$HF_HOME"
+MODEL_NAME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/esm1v_t33_650M_UR90S_5"
 
 
 # Default configuration
