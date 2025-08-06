@@ -62,18 +62,22 @@ def embed_sequence_sliding(tokenizer, model, seq, window_size=None, overlap=64):
 
 
 def _embed_single_sequence(tokenizer, model, seq, max_len):
-    max_input_length = max_len - 2
-    if len(seq) > max_input_length:
-        logger.warning(f"Truncating sequence from {len(seq)} to {max_input_length}")
-        seq = seq[:max_input_length]
-
     tokens = tokenizer(
         seq,
         return_tensors="pt",
         padding=False,
         truncation=True,
         max_length=max_len,
+        return_attention_mask=True,
     )
+
+    input_ids = tokens["input_ids"]
+    if input_ids.shape[1] > max_len:
+        logger.error(f"Tokenized input too long: {input_ids.shape[1]} > {max_len}")
+        raise ValueError("Tokenized input exceeds model max length.")
+
+    device = next(model.parameters()).device
+    tokens = {k: v.to(device) for k, v in tokens.items()}
 
     with torch.no_grad():
         outputs = model(**tokens).last_hidden_state  # [1, L, H]
@@ -86,4 +90,9 @@ def _embed_single_sequence(tokenizer, model, seq, max_len):
     else:
         embedding = outputs.mean(dim=1)
 
-    return embedding.squeeze().cpu().numpy()
+    embedding = embedding.squeeze().cpu().numpy()
+    if embedding.ndim == 0:
+        logger.warning("Embedding reduced to scalar — returning NaNs.")
+        return np.full(model.config.hidden_size, np.nan)
+
+    return embedding
