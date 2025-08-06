@@ -101,7 +101,6 @@ echo "  N: ${N}" | tee -a "$LOG_FILE"
 echo "  Log level: ${LOG_LEVEL}" | tee -a "$LOG_FILE"
 echo "  Log file: ${LOG_FILE}" | tee -a "$LOG_FILE"
 
-#/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.conda/envs/mutaplm_env/bin/python \
 python \
     "src/extract_embeddings.py" \
     --data_fn "$DATA_FN" \
