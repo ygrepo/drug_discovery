@@ -76,17 +76,18 @@ done
 mkdir -p "$OUTPUT_DIR"
 mkdir -p "$LOG_DIR"
 
+
 # Set up log file with timestamp
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 LOG_FILE="${LOG_DIR}/extract_embeddings_${TIMESTAMP}.log"
 
 echo "Starting training at $(date)" | tee -a "$LOG_FILE"
-echo "Project root: $PROJECT_ROOT" | tee -a "$LOG_FILE"
 echo "Logging to: $LOG_FILE" | tee -a "$LOG_FILE"
+echo "Project root: $THIS_DIR" | tee -a "$LOG_FILE"
 
 # Run the training script
 set +e  # Disable exit on error to handle the error message
-echo "Starting training with the following configuration:" | tee -a "$LOG_FILE"
+echo "Starting with the following configuration:" | tee -a "$LOG_FILE"
 echo "  Data fn: ${DATA_FN}" | tee -a "$LOG_FILE"
 echo "  Random seed: ${SEED}" | tee -a "$LOG_FILE"
 echo "  Model name: ${MODEL_NAME}" | tee -a "$LOG_FILE"
