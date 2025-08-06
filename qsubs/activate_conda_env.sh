@@ -30,7 +30,7 @@ export HF_HOME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.cache/hugging
 mkdir -p "$HF_HOME"
 MODEL_NAME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/esm1v_t33_650M_UR90S_5"
 
- ------------------ Torch + Model Test ----------------
+# ------------------ Torch + Model Test ----------------
 python <<'PYCODE'
 import os, torch
 from transformers import AutoModel
