@@ -25,14 +25,15 @@ conda activate /sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.conda/envs/dru
 
 ml proxies/1 || true
 
-
 export HF_HOME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.cache/huggingface"
 mkdir -p "$HF_HOME"
-MODEL_NAME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/esm1v_t33_650M_UR90S_5"
+
+# Must export for Python to see it
+export MODEL_NAME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/esm1v_t33_650M_UR90S_5"
 
 # ------------------ Torch + Model Test ----------------
 python <<'PYCODE'
-import os, torch
+import os, torch, sys
 from transformers import AutoModel
 
 print("="*40)
@@ -47,6 +48,6 @@ model_path = os.environ.get("MODEL_NAME")
 print(f"Attempting to load model from: {model_path}")
 model = AutoModel.from_pretrained(model_path, local_files_only=True).eval()
 print("✅ Model loaded successfully")
-
 print("✅ All tests passed!")
 PYCODE
+
