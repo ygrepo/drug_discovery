@@ -8,7 +8,7 @@ import torch
 from transformers import AutoTokenizer, AutoModel
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 
 def load_model(model_name: str) -> AutoModel:
@@ -62,6 +62,16 @@ def embed_sequence_sliding(tokenizer, model, seq, window_size=None, overlap=64):
 
 
 def _embed_single_sequence(tokenizer, model, seq, max_len):
+    max_input_length = max_len - 2  # reserve space for BOS and EOS
+
+    # Sanitize sequence: keep only valid amino acids
+    valid_aa = set("ACDEFGHIKLMNPQRSTVWY")
+    seq = "".join([aa for aa in seq if aa in valid_aa])
+
+    if len(seq) > max_input_length:
+        logger.warning(f"Truncating sequence from {len(seq)} to {max_input_length}")
+        seq = seq[:max_input_length]
+
     tokens = tokenizer(
         seq,
         return_tensors="pt",
@@ -71,17 +81,27 @@ def _embed_single_sequence(tokenizer, model, seq, max_len):
         return_attention_mask=True,
     )
 
+    # Diagnostic checks before model call
     input_ids = tokens["input_ids"]
-    if input_ids.shape[1] > max_len:
-        logger.error(f"Tokenized input too long: {input_ids.shape[1]} > {max_len}")
-        raise ValueError("Tokenized input exceeds model max length.")
+    token_len = input_ids.shape[1]
+    max_token_id = input_ids.max().item()
 
-    device = next(model.parameters()).device
-    tokens = {k: v.to(device) for k, v in tokens.items()}
+    vocab_size = model.embeddings.word_embeddings.num_embeddings
+    pos_limit = model.embeddings.position_embeddings.num_embeddings
 
-    with torch.no_grad():
-        outputs = model(**tokens).last_hidden_state  # [1, L, H]
+    logger.debug(f"Tokenized input shape: {input_ids.shape}")
+    logger.debug(f"Max token ID: {max_token_id}, vocab size: {vocab_size}")
+    logger.debug(f"Tokenized length: {token_len}, positional limit: {pos_limit}")
 
+    try:
+        with torch.no_grad():
+            outputs = model(**tokens).last_hidden_state  # [1, L, H]
+    except IndexError as e:
+        logger.error(f"IndexError for sequence:\n{seq}")
+        logger.error(f"Input IDs:\n{tokens['input_ids']}")
+        raise e
+
+    # Mean pooling using attention mask
     if "attention_mask" in tokens:
         mask = tokens["attention_mask"]
         sum_embeddings = (outputs * mask.unsqueeze(-1)).sum(dim=1)
@@ -90,9 +110,4 @@ def _embed_single_sequence(tokenizer, model, seq, max_len):
     else:
         embedding = outputs.mean(dim=1)
 
-    embedding = embedding.squeeze().cpu().numpy()
-    if embedding.ndim == 0:
-        logger.warning("Embedding reduced to scalar — returning NaNs.")
-        return np.full(model.config.hidden_size, np.nan)
-
-    return embedding
+    return embedding.squeeze().cpu().numpy()
