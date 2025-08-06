@@ -6,9 +6,9 @@ import pandas as pd
 from tqdm import tqdm
 import argparse
 
+import torch
 from numpy import dot
 from numpy.linalg import norm
-import torch
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)

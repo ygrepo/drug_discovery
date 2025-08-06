@@ -16,10 +16,6 @@
 set -euo pipefail
 
 # --- Clean environment to avoid ~/.local issues ---
-export PYTHONNOUSERSITE=1
-unset PYTHONPATH
-unset PYTHONUSERBASE
-
 module purge
 module load cuda/11.8 cudnn
 module load anaconda3/latest
@@ -29,15 +25,33 @@ export PROJ=/sc/arion/projects/DiseaseGeneCell/Huang_lab_data
 export CONDARC="$PROJ/conda/condarc"
 conda activate /sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.conda/envs/drug_discovery_env
 
-# source $(conda info --base)/etc/profile.d/conda.sh
-# conda activate drug_discovery_env
-
 ml proxies/1 || true
-
 
 export HF_HOME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.cache/huggingface"
 mkdir -p "$HF_HOME"
-MODEL_NAME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/esm1v_t33_650M_UR90S_5"
+
+# Must export for Python to see it
+export MODEL_NAME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/esm1v_t33_650M_UR90S_5"
+
+
+# module purge
+# module load cuda/11.8 cudnn
+# module load anaconda3/latest
+# source $(conda info --base)/etc/profile.d/conda.sh
+
+# export PROJ=/sc/arion/projects/DiseaseGeneCell/Huang_lab_data
+# export CONDARC="$PROJ/conda/condarc"
+# conda activate /sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.conda/envs/drug_discovery_env
+
+# # source $(conda info --base)/etc/profile.d/conda.sh
+# # conda activate drug_discovery_env
+
+# ml proxies/1 || true
+
+
+# export HF_HOME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.cache/huggingface"
+# mkdir -p "$HF_HOME"
+# MODEL_NAME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/esm1v_t33_650M_UR90S_5"
 
 
 # Default configuration
@@ -88,15 +102,15 @@ echo "  Log level: ${LOG_LEVEL}" | tee -a "$LOG_FILE"
 echo "  Log file: ${LOG_FILE}" | tee -a "$LOG_FILE"
 
 #/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.conda/envs/mutaplm_env/bin/python \
-/hpc/users/greaty01/.conda/envs/drug_discovery_env/bin/python \
+python \
     "src/extract_embeddings.py" \
     --data_fn "$DATA_FN" \
     --output_fn "$OUTPUT_FN" \
     --model_name "$MODEL_NAME" \
-    --n "$N" \
     --log_dir "$LOG_DIR" \
     --log_level "$LOG_LEVEL" \
     --seed "$SEED" \
+    --n "$N" \
     2>&1 | tee -a "$LOG_FILE"
 
 # Check the exit status of the Python script
