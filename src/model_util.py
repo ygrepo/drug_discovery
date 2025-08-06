@@ -93,12 +93,13 @@ def _embed_single_sequence(tokenizer, model, seq, max_len, *, return_nan_on_erro
         else:
             embedding = outputs.mean(dim=1)
 
-        logger.debug(f"Embedding shape: {embedding.shape}")
+        logger.info(f"Embedding shape: {embedding.shape}")
         return embedding.squeeze().cpu().numpy()
 
     except Exception as e:
-        logger.error(f"IndexError for sequence:\n{seq}")
+        logger.error(f"Error for sequence:\n{seq}")
         logger.error(f"Input IDs:\n{tokens.get('input_ids', 'Unavailable')}")
+        logger.error(f"Error: {e}")
         if return_nan_on_error:
             return np.full(model.config.hidden_size, np.nan)
         else:
