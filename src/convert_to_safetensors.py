@@ -7,7 +7,6 @@ Download a Hugging Face model and safely convert it to safetensors,
 handling shared weights (e.g., tied embeddings) automatically.
 """
 
-import os
 from pathlib import Path
 from transformers import AutoModel, AutoTokenizer
 
@@ -31,12 +30,16 @@ tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, cache_dir=str(LOCAL_MODEL_
 
 print(f"✅ Model and tokenizer downloaded to {LOCAL_MODEL_DIR}")
 
+
 # ---------------- Step 2: Save with Safe Serialization ----------------
 print(f"Saving model and tokenizer to {LOCAL_SAFE_DIR} as safetensors...")
 
 # This automatically handles shared weights
 model.save_pretrained(LOCAL_SAFE_DIR, safe_serialization=True)
 tokenizer.save_pretrained(LOCAL_SAFE_DIR)
+
+
+model = AutoModel.from_pretrained(LOCAL_SAFE_DIR).eval()
 
 print(f"✅ Conversion complete! Safe model directory: {LOCAL_SAFE_DIR}")
 print("You can now load the model like this in your script:")
