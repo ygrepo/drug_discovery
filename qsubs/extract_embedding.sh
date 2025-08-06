@@ -23,7 +23,7 @@ unset PYTHONUSERBASE
 module purge
 module load cuda/11.8 cudnn
 module load anaconda3/latest
-export PROJ=/sc/arion/projects/DiseaseGeneCell/Huang_lab_data
+source $(conda info --base)/etc/profile.d/conda.sh
 
 export PROJ=/sc/arion/projects/DiseaseGeneCell/Huang_lab_data
 export CONDARC="$PROJ/conda/condarc"
@@ -33,12 +33,6 @@ conda activate mutaplm_env
 # conda activate drug_discovery_env
 
 ml proxies/1 || true
-
-
-# --- Verify environment ---
-# echo "Python: $(which python)"
-# /hpc/users/greaty01/.conda/envs/drug_discovery_env/bin/python -c \
-#     "import sys, torch, transformers; print('Python', sys.version); print('Torch', torch.__version__); print('Transformers', transformers.__version__)"
 
 
 export HF_HOME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.cache/huggingface"
