@@ -62,16 +62,27 @@ def embed_sequence_sliding(tokenizer, model, seq, window_size=None, overlap=64):
 
 
 def _embed_single_sequence(tokenizer, model, seq, max_len):
-    max_input_length = max_len - 2  # reserve space for BOS and EOS
+    """
+    Embed a single protein sequence, safely handling long sequences and tokenizer expansion.
 
-    # Sanitize sequence: keep only valid amino acids
+    Args:
+        tokenizer: ESM tokenizer.
+        model: ESM model.
+        seq: Amino acid sequence string.
+        max_len: Model's max positional embeddings (usually from config).
+    Returns:
+        A numpy array of the mean-pooled embedding.
+    """
+    # 1. Sanitize sequence (remove unknown or lowercase residues)
     valid_aa = set("ACDEFGHIKLMNPQRSTVWY")
     seq = "".join([aa for aa in seq if aa in valid_aa])
+    max_input_aa = max_len - 2  # Leave space for special tokens
 
-    if len(seq) > max_input_length:
-        logger.warning(f"Truncating sequence from {len(seq)} to {max_input_length}")
-        seq = seq[:max_input_length]
+    if len(seq) > max_input_aa:
+        logger.warning(f"Truncating sequence from {len(seq)} to {max_input_aa}")
+        seq = seq[:max_input_aa]
 
+    # 2. Tokenize
     tokens = tokenizer(
         seq,
         return_tensors="pt",
@@ -81,27 +92,37 @@ def _embed_single_sequence(tokenizer, model, seq, max_len):
         return_attention_mask=True,
     )
 
-    # Diagnostic checks before model call
     input_ids = tokens["input_ids"]
     token_len = input_ids.shape[1]
-    max_token_id = input_ids.max().item()
 
-    vocab_size = model.embeddings.word_embeddings.num_embeddings
-    pos_limit = model.embeddings.position_embeddings.num_embeddings
+    # 3. Post-tokenization check — truncate again if needed
+    max_positions = getattr(
+        model.embeddings.position_embeddings, "num_embeddings", max_len
+    )
+    if token_len > max_positions:
+        logger.warning(
+            f"Tokenized input too long ({token_len} > {max_positions}), truncating..."
+        )
+        tokens["input_ids"] = input_ids[:, :max_positions]
+        if "attention_mask" in tokens:
+            tokens["attention_mask"] = tokens["attention_mask"][:, :max_positions]
 
-    logger.debug(f"Tokenized input shape: {input_ids.shape}")
-    logger.debug(f"Max token ID: {max_token_id}, vocab size: {vocab_size}")
-    logger.debug(f"Tokenized length: {token_len}, positional limit: {pos_limit}")
-
+    # 4. Forward pass
     try:
         with torch.no_grad():
             outputs = model(**tokens).last_hidden_state  # [1, L, H]
     except IndexError as e:
-        logger.error(f"IndexError for sequence:\n{seq}")
-        logger.error(f"Input IDs:\n{tokens['input_ids']}")
-        raise e
+        logger.error(f"IndexError for sequence at token length {token_len}")
+        logger.debug(f"Exception: {e}")
+        logger.debug(f"Input IDs:\n{tokens['input_ids']}")
+        return np.full(model.config.hidden_size, np.nan)
+    except Exception as e:
+        logger.error(f"Exception for sequence at token length {token_len}")
+        logger.debug(f"Exception: {e}")
+        logger.debug(f"Input IDs:\n{tokens['input_ids']}")
+        return np.full(model.config.hidden_size, np.nan)
 
-    # Mean pooling using attention mask
+    # 5. Mean pooling (masked)
     if "attention_mask" in tokens:
         mask = tokens["attention_mask"]
         sum_embeddings = (outputs * mask.unsqueeze(-1)).sum(dim=1)
