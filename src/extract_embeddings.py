@@ -7,8 +7,7 @@ from tqdm import tqdm
 import argparse
 
 import torch
-from numpy import dot
-from numpy.linalg import norm
+import numpy as np
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -16,101 +15,8 @@ logger.setLevel(logging.INFO)
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-from src.model_util import load_model, load_tokenizer
-from src.utils import setup_logging
-
-
-def cosine_similarity(vec1, vec2):
-    return dot(vec1, vec2) / (norm(vec1) * norm(vec2))
-
-
-# def setup_logging(log_dir: Path, log_level: str = "INFO") -> logging.Logger:
-#     """Set up logging configuration.
-
-#     Args:
-#         log_dir: Directory to save log files
-#         log_level: Logging level (e.g., 'INFO', 'DEBUG')
-
-#     Returns:
-#         Configured logger instance
-#     """
-#     # Create output directory if it doesn't exist
-#     log_dir.mkdir(parents=True, exist_ok=True)
-
-#     # Set up log file path with timestamp
-#     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-#     log_file = log_dir / f"extract_embeddings_{timestamp}.log"
-
-#     # Configure logging
-#     logging.basicConfig(
-#         level=getattr(logging, log_level),
-#         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-#         handlers=[logging.FileHandler(log_file), logging.StreamHandler(sys.stdout)],
-#     )
-
-#     logger = logging.getLogger(__name__)
-#     logger.info(f"Logging to {log_file}")
-#     return logger
-
-
-# def load_model(model_name: str) -> AutoModel:
-#     """
-#     Load an ESM model safely.
-
-#     - Prefers safetensors if available (no torch.load / pickle)
-#     - Works offline with local paths
-#     - Enforces HF_HOME for caching on HPC
-#     """
-#     # Ensure Hugging Face cache points to project space
-#     os.environ.setdefault(
-#         "HF_HOME",
-#         "/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.cache/huggingface",
-#     )
-#     logger.info(f"HF_HOME: {os.environ['HF_HOME']}")
-#     logger.info(f"Loading model: {model_name}")
-
-#     # Prefer safe serialization
-#     try:
-#         model = AutoModel.from_pretrained(
-#             model_name,
-#             add_pooling_layer=False,
-#             trust_remote_code=True,  # some ESM models need this
-#             local_files_only=os.path.isabs(model_name),  # offline if local path
-#         ).eval()
-#         logger.info(f"✅ Loaded model: {model_name}")
-#         return model
-#     except ValueError as e:
-#         # Catch CVE / torch.load errors
-#         if "torch.load" in str(e):
-#             raise RuntimeError(
-#                 f"Model '{model_name}' requires safetensors or PyTorch ≥2.6.\n"
-#                 "Convert the model to safetensors and use the local path instead."
-#             ) from e
-#         raise
-
-
-# def load_model(model_name: str) -> AutoModel:
-#     """
-#     Load an ESM model safely.
-
-#     - Prefers safetensors if available (no torch.load / pickle)
-#     - Works offline with local paths
-#     - Enforces HF_HOME for caching on HPC
-#     """
-#     logger.info(f"HF_HOME: {os.environ['HF_HOME']}")
-#     logger.info(f"Loading model: {model_name}")
-
-#     model = AutoModel.from_pretrained(model_name, add_pooling_layer=False)
-#     return model
-
-
-# def load_tokenizer(model_name: str) -> AutoTokenizer:
-#     """Load ESM tokenizer."""
-#     logger.info(f"HF_HOME: {os.environ['HF_HOME']}")
-#     logger.info(f"Loading Tokenizer: {model_name}")
-
-#     tokenizer = AutoTokenizer.from_pretrained(model_name)
-#     return tokenizer
+from src.model_util import load_model, load_tokenizer, embed_sequence_sliding
+from src.utils import setup_logging, cosine_similarity
 
 
 def embed_sequence(tokenizer, model, seq):
@@ -171,6 +77,23 @@ def parse_args():
     return parser.parse_args()
 
 
+def load_data(data_fn: Path, n: int, seed: int) -> pd.DataFrame:
+    """Load the dataset."""
+    df = pd.read_csv(
+        Path(data_fn),
+        low_memory=False,
+    )
+    df.drop(columns=["Unnamed: 0"], inplace=True)
+    # Drop missing sequences
+    df = df.dropna(subset=["protein1", "protein2"])
+    logger.info(f"Loaded dataset: {len(df)} rows")
+    if n > 0:
+        logger.info(f"Sampling {n} rows")
+        df = df.sample(n=n, random_state=seed)
+    logger.info(f"Loaded dataset: {len(df)} rows")
+    return df
+
+
 def main():
     # Parse command line arguments
     args = parse_args()
@@ -189,18 +112,6 @@ def main():
         logger.info(f"  Log level: {args.log_level}")
         logger.info(f"  Random seed: {args.seed}")
 
-        df = pd.read_csv(
-            Path(args.data_fn),
-            low_memory=False,
-        )
-        df.drop(columns=["Unnamed: 0"], inplace=True)
-        # Drop missing sequences
-        df = df.dropna(subset=["protein1", "protein2"])
-        logger.info(f"Loaded dataset: {len(df)} rows")
-        if args.n > 0:
-            logger.info(f"Sampling {args.n} rows")
-            df = df.sample(n=args.n, random_state=args.seed)
-
         logger.info("Extracting embeddings...")
 
         # Load HF model
@@ -210,19 +121,29 @@ def main():
         logger.info(f"Loaded tokenizer: {model_name}")
         logger.info(f"Loaded model: {model_name}")
 
+        # Load data
+        df = load_data(Path(args.data_fn), args.n, args.seed)
+
         # Embed all protein1 and protein2 sequences
         protein1_embeddings = []
         protein2_embeddings = []
-        for _, row in tqdm(df.iterrows(), total=len(df)):
+
+        for idx, row in tqdm(df.iterrows(), total=len(df), desc="Embedding pairs"):
             try:
-                emb1 = embed_sequence(tokenizer, model, row["protein1"])
-                emb2 = embed_sequence(tokenizer, model, row["protein2"])
+                emb1 = embed_sequence_sliding(
+                    tokenizer, model, row["protein1"], logger=logger
+                )
+                emb2 = embed_sequence_sliding(
+                    tokenizer, model, row["protein2"], logger=logger
+                )
                 protein1_embeddings.append(emb1)
                 protein2_embeddings.append(emb2)
             except Exception as e:
-                logger.error("Embedding error:", e)
+                logger.exception(f"Embedding error at row {idx}: {e}")
+                protein1_embeddings.append(np.full(model.config.hidden_size, np.nan))
+                protein2_embeddings.append(np.full(model.config.hidden_size, np.nan))
 
-        # Save embeddings
+        # Save embeddings (note: storing arrays in DF is ok for moderate size)
         df["protein1_embedding"] = protein1_embeddings
         df["protein2_embedding"] = protein2_embeddings
 

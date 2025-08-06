@@ -34,26 +34,6 @@ mkdir -p "$HF_HOME"
 export MODEL_NAME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/esm1v_t33_650M_UR90S_5"
 
 
-# module purge
-# module load cuda/11.8 cudnn
-# module load anaconda3/latest
-# source $(conda info --base)/etc/profile.d/conda.sh
-
-# export PROJ=/sc/arion/projects/DiseaseGeneCell/Huang_lab_data
-# export CONDARC="$PROJ/conda/condarc"
-# conda activate /sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.conda/envs/drug_discovery_env
-
-# # source $(conda info --base)/etc/profile.d/conda.sh
-# # conda activate drug_discovery_env
-
-# ml proxies/1 || true
-
-
-# export HF_HOME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.cache/huggingface"
-# mkdir -p "$HF_HOME"
-# MODEL_NAME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/esm1v_t33_650M_UR90S_5"
-
-
 # Default configuration
 DATA_FN="mutadescribe_data/structural_split/train.csv"
 OUTPUT_DIR="output/data"
