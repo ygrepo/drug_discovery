@@ -41,7 +41,7 @@ def embed_sequence_sliding(tokenizer, model, seq, window_size=None, overlap=64):
         window_size = max_len - 2
 
     if len(seq) <= window_size:
-        return _embed_single_sequence(tokenizer, model, seq, logger)
+        return _embed_single_sequence(tokenizer, model, seq)
 
     if logger:
         logger.warning(
@@ -53,7 +53,7 @@ def embed_sequence_sliding(tokenizer, model, seq, window_size=None, overlap=64):
 
     for start in positions:
         window_seq = seq[start : start + window_size]
-        emb = _embed_single_sequence(tokenizer, model, window_seq, logger)
+        emb = _embed_single_sequence(tokenizer, model, window_seq)
         embeddings.append(emb)
         if start + window_size >= len(seq):
             break
@@ -61,15 +61,16 @@ def embed_sequence_sliding(tokenizer, model, seq, window_size=None, overlap=64):
     return np.mean(embeddings, axis=0)
 
 
-def _embed_single_sequence(tokenizer, model, seq, logger=None):
+def _embed_single_sequence(tokenizer, model, seq):
     max_len = getattr(model.config, "max_position_embeddings", 1024)
+
+    # Manual truncation to account for BOS/EOS
     if len(seq) > max_len - 2:
         if logger:
             logger.warning(f"Truncating sequence from {len(seq)} to {max_len - 2}")
         seq = seq[: max_len - 2]
 
-    tokens = tokenizer(seq, return_tensors="pt", truncation=True, padding=False)
-
+    tokens = tokenizer(seq, return_tensors="pt", padding=False)
     with torch.no_grad():
         outputs = model(**tokens).last_hidden_state
 
