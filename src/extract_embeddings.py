@@ -130,12 +130,8 @@ def main():
 
         for idx, row in tqdm(df.iterrows(), total=len(df), desc="Embedding pairs"):
             try:
-                emb1 = embed_sequence_sliding(
-                    tokenizer, model, row["protein1"], logger=logger
-                )
-                emb2 = embed_sequence_sliding(
-                    tokenizer, model, row["protein2"], logger=logger
-                )
+                emb1 = embed_sequence_sliding(tokenizer, model, row["protein1"])
+                emb2 = embed_sequence_sliding(tokenizer, model, row["protein2"])
                 protein1_embeddings.append(emb1)
                 protein2_embeddings.append(emb2)
             except Exception as e:
