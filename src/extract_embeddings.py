@@ -151,10 +151,10 @@ def parse_args():
         help="Path to the output dataset file",
     )
     parser.add_argument(
-        "--log_dir",
+        "--log_fn",
         type=str,
         default="logs",
-        help="Directory to save log files",
+        help="Path to save log file",
     )
     parser.add_argument(
         "--log_level",
@@ -176,10 +176,7 @@ def main():
     args = parse_args()
 
     # Convert paths to absolute paths relative to project root
-    # project_root = Path(__file__).parent.parent
-    # log_dir = Path(project_root / args.log_dir).resolve()
-    # # # Set up logging
-    logger = setup_logging(args.log_dir, args.log_level)
+    logger = setup_logging(Path(args.log_fn), args.log_level)
 
     try:
         # Log configuration
@@ -188,7 +185,7 @@ def main():
         logger.info(f"  Data fn: {args.data_fn}")
         logger.info(f"  Output fn: {args.output_fn}")
         logger.info(f"  Model name: {args.model_name}")
-        logger.info(f"  Log directory: {args.log_dir}")
+        logger.info(f"  Log file: {args.log_fn}")
         logger.info(f"  Log level: {args.log_level}")
         logger.info(f"  Random seed: {args.seed}")
 

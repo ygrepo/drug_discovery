@@ -107,7 +107,7 @@ python \
     --data_fn "$DATA_FN" \
     --output_fn "$OUTPUT_FN" \
     --model_name "$MODEL_NAME" \
-    --log_dir "$LOG_DIR" \
+    --log_fn "$LOG_FILE" \
     --log_level "$LOG_LEVEL" \
     --seed "$SEED" \
     --n "$N" \
