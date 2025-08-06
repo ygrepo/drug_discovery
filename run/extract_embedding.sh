@@ -31,14 +31,11 @@ ml proxies/1 || true
 # Get the directory of this script
 THIS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Go one level up to get the project root
-PROJECT_ROOT="$(dirname "$THIS_DIR")"
-
 # Now define the src directory
-SCRIPT_DIR="$PROJECT_ROOT/src"
+SCRIPT_DIR="$THIS_DIR/src"
 
-echo "Project root: $PROJECT_ROOT"
-cd "$PROJECT_ROOT"
+echo "Project root: $THIS_DIR"
+cd "$THIS_DIR"
 
 # --- Verify environment ---
 echo "Python: $(which python)"
