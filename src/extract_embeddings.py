@@ -2,15 +2,13 @@ import sys
 import os
 import logging
 from pathlib import Path
-from datetime import datetime
 import pandas as pd
-from transformers import AutoTokenizer, AutoModel
-import torch
 from tqdm import tqdm
 import argparse
 
 from numpy import dot
 from numpy.linalg import norm
+import torch
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -26,33 +24,33 @@ def cosine_similarity(vec1, vec2):
     return dot(vec1, vec2) / (norm(vec1) * norm(vec2))
 
 
-def setup_logging(log_dir: Path, log_level: str = "INFO") -> logging.Logger:
-    """Set up logging configuration.
+# def setup_logging(log_dir: Path, log_level: str = "INFO") -> logging.Logger:
+#     """Set up logging configuration.
 
-    Args:
-        log_dir: Directory to save log files
-        log_level: Logging level (e.g., 'INFO', 'DEBUG')
+#     Args:
+#         log_dir: Directory to save log files
+#         log_level: Logging level (e.g., 'INFO', 'DEBUG')
 
-    Returns:
-        Configured logger instance
-    """
-    # Create output directory if it doesn't exist
-    log_dir.mkdir(parents=True, exist_ok=True)
+#     Returns:
+#         Configured logger instance
+#     """
+#     # Create output directory if it doesn't exist
+#     log_dir.mkdir(parents=True, exist_ok=True)
 
-    # Set up log file path with timestamp
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_file = log_dir / f"extract_embeddings_{timestamp}.log"
+#     # Set up log file path with timestamp
+#     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+#     log_file = log_dir / f"extract_embeddings_{timestamp}.log"
 
-    # Configure logging
-    logging.basicConfig(
-        level=getattr(logging, log_level),
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[logging.FileHandler(log_file), logging.StreamHandler(sys.stdout)],
-    )
+#     # Configure logging
+#     logging.basicConfig(
+#         level=getattr(logging, log_level),
+#         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+#         handlers=[logging.FileHandler(log_file), logging.StreamHandler(sys.stdout)],
+#     )
 
-    logger = logging.getLogger(__name__)
-    logger.info(f"Logging to {log_file}")
-    return logger
+#     logger = logging.getLogger(__name__)
+#     logger.info(f"Logging to {log_file}")
+#     return logger
 
 
 # def load_model(model_name: str) -> AutoModel:
@@ -91,28 +89,28 @@ def setup_logging(log_dir: Path, log_level: str = "INFO") -> logging.Logger:
 #         raise
 
 
-def load_model(model_name: str) -> AutoModel:
-    """
-    Load an ESM model safely.
+# def load_model(model_name: str) -> AutoModel:
+#     """
+#     Load an ESM model safely.
 
-    - Prefers safetensors if available (no torch.load / pickle)
-    - Works offline with local paths
-    - Enforces HF_HOME for caching on HPC
-    """
-    logger.info(f"HF_HOME: {os.environ['HF_HOME']}")
-    logger.info(f"Loading model: {model_name}")
+#     - Prefers safetensors if available (no torch.load / pickle)
+#     - Works offline with local paths
+#     - Enforces HF_HOME for caching on HPC
+#     """
+#     logger.info(f"HF_HOME: {os.environ['HF_HOME']}")
+#     logger.info(f"Loading model: {model_name}")
 
-    model = AutoModel.from_pretrained(model_name, add_pooling_layer=False)
-    return model
+#     model = AutoModel.from_pretrained(model_name, add_pooling_layer=False)
+#     return model
 
 
-def load_tokenizer(model_name: str) -> AutoTokenizer:
-    """Load ESM tokenizer."""
-    logger.info(f"HF_HOME: {os.environ['HF_HOME']}")
-    logger.info(f"Loading Tokenizer: {model_name}")
+# def load_tokenizer(model_name: str) -> AutoTokenizer:
+#     """Load ESM tokenizer."""
+#     logger.info(f"HF_HOME: {os.environ['HF_HOME']}")
+#     logger.info(f"Loading Tokenizer: {model_name}")
 
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    return tokenizer
+#     tokenizer = AutoTokenizer.from_pretrained(model_name)
+#     return tokenizer
 
 
 def embed_sequence(tokenizer, model, seq):
@@ -178,20 +176,19 @@ def main():
     args = parse_args()
 
     # Convert paths to absolute paths relative to project root
-    project_root = Path(__file__).parent.parent
-    log_dir = Path(project_root / args.log_dir).resolve()
-    # Set up logging
-    logger = setup_logging(log_dir, args.log_level)
+    # project_root = Path(__file__).parent.parent
+    # log_dir = Path(project_root / args.log_dir).resolve()
+    # # # Set up logging
+    logger = setup_logging(args.log_dir, args.log_level)
 
     try:
         # Log configuration
         logger.info("Starting training with configuration:")
         logger.info(f"Current working directory: {os.getcwd()}")
-        logger.info(f"  Project root: {project_root}")
         logger.info(f"  Data fn: {args.data_fn}")
         logger.info(f"  Output fn: {args.output_fn}")
         logger.info(f"  Model name: {args.model_name}")
-        logger.info(f"  Log directory: {log_dir}")
+        logger.info(f"  Log directory: {args.log_dir}")
         logger.info(f"  Log level: {args.log_level}")
         logger.info(f"  Random seed: {args.seed}")
 
@@ -241,7 +238,7 @@ def main():
 
         logger.info(f"{df.head()}")
         df.to_csv(
-            Path(project_root / args.output_fn),
+            Path(args.output_fn),
             index=False,
         )
 
