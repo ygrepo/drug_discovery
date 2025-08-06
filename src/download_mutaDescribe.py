@@ -3,7 +3,6 @@ import logging
 import argparse
 from pathlib import Path
 from datetime import datetime
-from datasets import load_dataset, Features, Value
 import pandas as pd
 
 import pandas as pd
@@ -16,18 +15,7 @@ sys.path.insert(0, str(project_root))
 
 
 def main():
-    # # Load the full dataset (all splits)
-    # dataset = {
-    #     "train": load_dataset("PharMolix/MutaDescribe", split="train"),
-    #     "structural_split": load_dataset(
-    #         "PharMolix/MutaDescribe", split="structural_split"
-    #     ),
-    #     "temporal_split": load_dataset(
-    #         "PharMolix/MutaDescribe", split="temporal_split"
-    #     ),
-    #     "pubs": load_dataset("PharMolix/MutaDescribe", split="pubs"),
-    # }
-
+    """Download and clean MutaDescribe dataset."""
     # Output directory
     out_dir = Path("../dataset")
     out_dir.mkdir(parents=True, exist_ok=True)

@@ -15,6 +15,12 @@ from numpy.linalg import norm
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT))
+
+from src.model_util import load_model, load_tokenizer
+from src.utils import setup_logging
+
 
 def cosine_similarity(vec1, vec2):
     return dot(vec1, vec2) / (norm(vec1) * norm(vec2))
@@ -47,14 +53,6 @@ def setup_logging(log_dir: Path, log_level: str = "INFO") -> logging.Logger:
     logger = logging.getLogger(__name__)
     logger.info(f"Logging to {log_file}")
     return logger
-
-
-# def load_model(model_name: str) -> AutoModel:
-#     """Load ESM model."""
-#     model = AutoModel.from_pretrained(model_name, add_pooling_layer=False).eval()
-#     return model
-# from transformers import AutoModel
-# import os
 
 
 # def load_model(model_name: str) -> AutoModel:
@@ -107,36 +105,12 @@ def load_model(model_name: str) -> AutoModel:
     model = AutoModel.from_pretrained(model_name, add_pooling_layer=False)
     return model
 
-    # # Ensure Hugging Face cache points to project space
-    # os.environ.setdefault(
-    #     "HF_HOME",
-    #     "/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.cache/huggingface",
-    # )
-    # logger.info(f"HF_HOME: {os.environ['HF_HOME']}")
-    # logger.info(f"Loading model: {model_name}")
-
-    # # Prefer safe serialization
-    # try:
-    #     model = AutoModel.from_pretrained(
-    #         model_name,
-    #         add_pooling_layer=False,
-    #         trust_remote_code=True,  # some ESM models need this
-    #         local_files_only=os.path.isabs(model_name),  # offline if local path
-    #     ).eval()
-    #     logger.info(f"✅ Loaded model: {model_name}")
-    #     return model
-    # except ValueError as e:
-    #     # Catch CVE / torch.load errors
-    #     if "torch.load" in str(e):
-    #         raise RuntimeError(
-    #             f"Model '{model_name}' requires safetensors or PyTorch ≥2.6.\n"
-    #             "Convert the model to safetensors and use the local path instead."
-    #         ) from e
-    #     raise
-
 
 def load_tokenizer(model_name: str) -> AutoTokenizer:
     """Load ESM tokenizer."""
+    logger.info(f"HF_HOME: {os.environ['HF_HOME']}")
+    logger.info(f"Loading Tokenizer: {model_name}")
+
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     return tokenizer
 
@@ -235,7 +209,7 @@ def main():
 
         logger.info("Extracting embeddings...")
 
-        # Load ESM model
+        # Load HF model
         model_name = args.model_name
         model = load_model(model_name)
         tokenizer = load_tokenizer(model_name)
@@ -274,7 +248,7 @@ def main():
         logger.info(f"Saved embeddings to {args.output_fn}")
 
     except Exception as e:
-        logger.exception("Training failed")
+        logger.exception("Training failed", e)
         sys.exit(1)
 
 
