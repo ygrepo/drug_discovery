@@ -27,7 +27,7 @@ source $(conda info --base)/etc/profile.d/conda.sh
 
 export PROJ=/sc/arion/projects/DiseaseGeneCell/Huang_lab_data
 export CONDARC="$PROJ/conda/condarc"
-conda activate mutaplm_env
+conda activate /sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.conda/envs/drug_discovery_env
 
 # source $(conda info --base)/etc/profile.d/conda.sh
 # conda activate drug_discovery_env
