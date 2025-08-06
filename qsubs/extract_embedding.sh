@@ -28,14 +28,6 @@ conda activate drug_discovery_env
 
 ml proxies/1 || true
 
-# Get the directory of this script
-THIS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# Now define the src directory
-SCRIPT_DIR="$THIS_DIR/src"
-
-echo "Project root: $THIS_DIR"
-cd "$THIS_DIR"
 
 # --- Verify environment ---
 echo "Python: $(which python)"
@@ -48,8 +40,7 @@ MODEL_NAME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/esm1v_t33_6
 
 
 # Default configuration
-DATASET_DIR="mutadescribe_data"
-DATA_FN="${DATASET_DIR}/structural_split/train.csv"
+DATA_FN="mutadescribe_data/structural_split/train.csv"
 OUTPUT_DIR="output/data"
 OUTPUT_FN="${OUTPUT_DIR}/esm1v_structural_split_train_with_embeddings.csv"
 N=2000
@@ -83,7 +74,6 @@ LOG_FILE="${LOG_DIR}/extract_embeddings_${TIMESTAMP}.log"
 
 echo "Starting training at $(date)" | tee -a "$LOG_FILE"
 echo "Logging to: $LOG_FILE" | tee -a "$LOG_FILE"
-echo "Project root: $THIS_DIR" | tee -a "$LOG_FILE"
 
 # Run the training script
 set +e  # Disable exit on error to handle the error message
@@ -98,7 +88,7 @@ echo "  Log file: ${LOG_FILE}" | tee -a "$LOG_FILE"
 
 #/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.conda/envs/mutaplm_env/bin/python \
 /hpc/users/greaty01/.conda/envs/drug_discovery_env/bin/python \
-    "$SCRIPT_DIR/extract_embeddings.py" \
+    "src/extract_embeddings.py" \
     --data_fn "$DATA_FN" \
     --output_fn "$OUTPUT_FN" \
     --model_name "$MODEL_NAME" \
