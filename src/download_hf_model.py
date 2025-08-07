@@ -33,7 +33,7 @@ def load(
     # This will cache weights in model_dir
     model = AutoModel.from_pretrained(model_name, cache_dir=str(model_dir))
     tokenizer = AutoTokenizer.from_pretrained(model_name, cache_dir=str(model_dir))
-    logger.info(f"✅ Model and tokenizer downloaded to {model_dir}")
+    logger.info(f"Model and tokenizer downloaded to {model_dir}")
 
     # ---------------- Step 2: Save with Safe Serialization ----------------
     logger.info(f"Saving model and tokenizer to {safe_dir} as safetensors...")
