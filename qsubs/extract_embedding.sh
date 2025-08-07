@@ -9,7 +9,7 @@
 #BSUB -R h100nvl
 #BSUB -n 1
 #BSUB -R "rusage[mem=32000]"
-#BSUB -W 0:30
+#BSUB -W 2:00
 #BSUB -o logs/embeddings.%J.out
 #BSUB -e logs/embeddings.%J.err
 
