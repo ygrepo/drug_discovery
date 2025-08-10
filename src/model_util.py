@@ -41,6 +41,9 @@ def embed_sequence_sliding(tokenizer, model, seq, window_size=None, overlap=64):
     max_len = getattr(model.config, "max_position_embeddings", 1024)
     if window_size is None:
         window_size = max_len - 2
+    logger.info(f"Window size: {window_size}")
+    logger.info(f"Overlap: {overlap}")
+    logger.info(f"Max len: {max_len}")
 
     if len(seq) <= window_size:
         return _embed_single_sequence(tokenizer, model, seq, max_len)

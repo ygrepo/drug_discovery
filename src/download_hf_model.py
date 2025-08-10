@@ -67,6 +67,12 @@ def parse_args():
         help="Output directory for the safetensors model",
     )
     parser.add_argument(
+        "--log_fn",
+        type=str,
+        default="logs",
+        help="Path to save log file",
+    )
+    parser.add_argument(
         "--log_level",
         type=str,
         default="INFO",
