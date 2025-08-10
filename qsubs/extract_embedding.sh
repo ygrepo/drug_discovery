@@ -31,14 +31,15 @@ export HF_HOME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.cache/hugging
 mkdir -p "$HF_HOME"
 
 # Must export for Python to see it
-export MODEL_NAME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/esm1v_t33_650M_UR90S_5"
-export MODEL_NAME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/esm1v_t33_650M_UR90S_5"
+#export MODEL_NAME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/esm1v_t33_650M_UR90S_5"
+export MODEL_NAME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/esm2_t33_650M_UR50D"
 
 
 # Default configuration
 DATA_FN="mutadescribe_data/structural_split/train.csv"
 OUTPUT_DIR="output/data"
-OUTPUT_FN="${OUTPUT_DIR}/esm1v_structural_split_train_with_embeddings.csv"
+#OUTPUT_FN="${OUTPUT_DIR}/esm1v_structural_split_train_with_embeddings.csv"
+OUTPUT_FN="${OUTPUT_DIR}/esm2_t33_650M_UR50D_structural_split_train_with_embeddings.csv"
 N=2000
 LOG_DIR="logs"
 LOG_LEVEL="INFO"
