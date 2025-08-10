@@ -1,0 +1,12 @@
+protein_model: "/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/esm2-650m"
+llama_ckpt: "/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/biomedgpt-lm-7b"
+num_query_tokens_protein1: 64
+num_query_tokens_protein2: 64
+ca_num_head: 8
+protein_maxlen: 1026
+text_maxlen: 512
+func_maxlen: 256
+m2t: true
+t2m: false
+test_mode: true
+pretrain: false

@@ -70,7 +70,7 @@ def load_HF_tokenizer(model_name: str) -> AutoTokenizer:
 
 
 def embed_sequence_sliding(tokenizer, model, seq, window_size=None, overlap=64):
-    max_len = getattr(model.config, "max_position_embeddings", 1024)
+    max_len = getattr(model.config, "max_position_embeddings", 1026)
     if window_size is None:
         window_size = max_len - 2
     logger.info(f"Window size: {window_size}")

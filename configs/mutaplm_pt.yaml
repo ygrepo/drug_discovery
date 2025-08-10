@@ -1,0 +1,12 @@
+protein_model: "./ckpts/esm2-650m"
+llama_ckpt: "./ckpts/biomedgpt-lm"
+num_query_tokens_protein1: 64
+num_query_tokens_protein2: 64
+ca_num_head: 8
+protein_maxlen: 1026
+text_maxlen: 512
+func_maxlen: 512
+m2t: true
+t2m: true
+test_mode: false
+pretrain: true

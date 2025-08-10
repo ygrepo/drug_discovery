@@ -29,8 +29,13 @@ def parse_args():
         "--device", type=str, default="auto", help="auto|cpu|cuda|cuda:N|mps"
     )
     p.add_argument(
-        "--checkpoint_path", type=str, default=str(REPO_ROOT / "ckpts" / "mutaplm.pth")
+        "--checkpoint_path",
+        type=str,
+        default=str(
+            "/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/mutaplm.pth"
+        ),
     )
+
     return p.parse_args()
 
 

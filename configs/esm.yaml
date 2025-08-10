@@ -1,0 +1,2 @@
+path: ./ckpts/esm2-650m
+protein_maxlen: 1026

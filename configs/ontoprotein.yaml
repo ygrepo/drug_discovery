@@ -1,0 +1,3 @@
+path: ./ckpts/ontoprotein
+ontoprotein: true
+protein_maxlen: 1026
