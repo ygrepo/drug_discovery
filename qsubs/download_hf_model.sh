@@ -33,9 +33,9 @@ mkdir -p "$HF_HOME"
 export MODEL_NAME="facebook/facebook/esm2_t33_650M_UR50D"
 
 # ---------------- Configuration ----------------
-export MODELS_DIR = "/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models"
-export MODEL_DIR =${MODELS_DIR}/${MODEL_NAME}
-export SAFE_DIR =${MODELS_DIR}/${MODEL_NAME}_safe
+export MODELS_DIR="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models"
+export MODEL_DIR=${MODELS_DIR}/${MODEL_NAME}
+export SAFE_DIR=${MODELS_DIR}/${MODEL_NAME}_safe
 
 LOG_DIR="logs"
 LOG_LEVEL="INFO"
