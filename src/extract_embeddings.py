@@ -15,7 +15,7 @@ logger.setLevel(logging.INFO)
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-from src.model_util import load_model, load_tokenizer, embed_sequence_sliding
+from src.model_util import load_HF_model, load_HF_tokenizer, embed_sequence_sliding
 from src.utils import setup_logging, cosine_similarity
 
 
@@ -116,8 +116,8 @@ def main():
 
         # Load HF model
         model_name = args.model_name
-        model = load_model(model_name)
-        tokenizer = load_tokenizer(model_name)
+        model = load_HF_model(model_name)
+        tokenizer = load_HF_tokenizer(model_name)
         logger.info(f"Loaded tokenizer: {model_name}")
         logger.info(f"Loaded model: {model_name}")
 
@@ -162,6 +162,6 @@ def main():
         logger.exception("Script failed", e)
         sys.exit(1)
 
-
+   
 if __name__ == "__main__":
     main()
