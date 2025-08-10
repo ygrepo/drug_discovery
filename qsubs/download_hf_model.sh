@@ -30,7 +30,7 @@ mkdir -p "$HF_HOME"
 
 # Must export for Python to see it
 #export MODEL_NAME="facebook/esm1v_t33_650M_UR90S_5"
-export MODEL_NAME="facebook/facebook/esm2_t33_650M_UR50D"
+export MODEL_NAME="facebook/esm2_t33_650M_UR50D"
 
 # ---------------- Configuration ----------------
 export MODELS_DIR="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models"

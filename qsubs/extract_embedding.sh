@@ -32,6 +32,7 @@ mkdir -p "$HF_HOME"
 
 # Must export for Python to see it
 export MODEL_NAME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/esm1v_t33_650M_UR90S_5"
+export MODEL_NAME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/esm1v_t33_650M_UR90S_5"
 
 
 # Default configuration
