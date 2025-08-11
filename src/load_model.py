@@ -38,9 +38,10 @@ def main():
         logger.info(f"Logging to: {args.log_fn}")
         logger.info(f"Config: {args.config}")
         logger.info("Loading model...")
-        load_model_factory(
-            ModelType.get_model(args.model_type), config_path=Path(args.config)
-        )
+        logger.info(f"Model type: {args.model_type}")
+        model_type = ModelType.get_model(args.model_type)
+        logger.info(f"Model type: {model_type}")
+        load_model_factory(model_type, config_path=Path(args.config))
         logger.info("Model loaded successfully.")
     except Exception as e:
         logger.exception("Script failed", e)
