@@ -61,7 +61,7 @@ PYTHON="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.conda/envs/drug_disco
 
 $PYTHON \
     "src/load_mutaplm_model.py" \
-    --log_fn "$LOG_DIR" \
+    --log_fn "$LOG_FILE" \
     --log_level "$LOG_LEVEL" \
     2>&1 | tee -a "$LOG_FILE"
 
