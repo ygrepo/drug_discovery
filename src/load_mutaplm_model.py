@@ -20,7 +20,7 @@ from src.utils import setup_logging
 
 def parse_args():
     p = argparse.ArgumentParser(description="Create and load MutaPLM model")
-    p.add_argument("--log_dir", type=str, default="logs")
+    p.add_argument("--log_fn", type=str, default="")
     p.add_argument("--log_level", type=str, default="INFO")
     p.add_argument(
         "--config",
@@ -48,6 +48,7 @@ def main():
     try:
         # Log configuration
         logger.info(f"Current working directory: {os.getcwd()}")
+        logger.info("Logging to: {args.log_fn}")
         logger.info(f"Config: {args.config}")
         logger.info(f"Device: {args.device}")
         logger.info(f"Checkpoint path: {args.checkpoint_path}")
