@@ -83,7 +83,9 @@ echo "  N: ${N}" | tee -a "$LOG_FILE"
 echo "  Log level: ${LOG_LEVEL}" | tee -a "$LOG_FILE"
 echo "  Log file: ${LOG_FILE}" | tee -a "$LOG_FILE"
 
-python \
+PYTHON="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.conda/envs/drug_discovery_env/bin/python"
+
+$PYTHON \
     "src/extract_embeddings.py" \
     --data_fn "$DATA_FN" \
     --output_fn "$OUTPUT_FN" \

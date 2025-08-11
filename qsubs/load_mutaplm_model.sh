@@ -57,7 +57,9 @@ echo "Starting with the following configuration:" | tee -a "$LOG_FILE"
 echo "  Log level: ${LOG_LEVEL}" | tee -a "$LOG_FILE"
 echo "  Log file: ${LOG_FILE}" | tee -a "$LOG_FILE"
 
-python \
+PYTHON="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.conda/envs/drug_discovery_env/bin/python"
+
+$PYTHON \
     "src/load_mutaplm_model.py" \
     --log_dir "$LOG_DIR" \
     --log_level "$LOG_LEVEL" \
