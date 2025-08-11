@@ -27,6 +27,10 @@ conda activate /sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.conda/envs/dru
 
 ml proxies/1 || true
 
+
+export HF_HOME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.cache/huggingface"
+mkdir -p "$HF_HOME"
+
 LOG_DIR="logs"
 LOG_LEVEL="INFO"
 MODEL_TYPE="ESMv1"
