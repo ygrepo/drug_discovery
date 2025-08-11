@@ -13,9 +13,7 @@ from src.model_util import (
     check_mutaplm_model,
     check_mutaplm_min,
 )
-
 from src.utils import setup_logging
-import argparse
 
 
 def parse_args():
@@ -44,14 +42,24 @@ def parse_args():
 def main():
 
     args = parse_args()
-    logger = setup_logging("load_mutaplm_model", Path(args.log_dir), args.log_level)
-    device = select_device(args.device)
-    logger.info(f"Using device: {device}")
-    model = create_mutaplm_model(Path(args.config), device)
-    model = load_mutaplm_model(model, Path(args.checkpoint_path))
-    logger.info("Model loaded successfully.")
-    check_mutaplm_min(model)
-    check_mutaplm_model(model)
+    logger = setup_logging(Path(args.log_dir), args.log_level)
+    try:
+        # Log configuration
+        logger.info(f"Current working directory: {os.getcwd()}")
+        logger.info(f"Config: {args.config}")
+        logger.info(f"Device: {args.device}")
+        logger.info(f"Checkpoint path: {args.checkpoint_path}")
+        device = select_device(args.device)
+        logger.info(f"Using device: {device}")
+        logger.info("Loading model...")
+        model = create_mutaplm_model(Path(args.config), device)
+        model = load_mutaplm_model(model, Path(args.checkpoint_path))
+        logger.info("Model loaded successfully.")
+        check_mutaplm_min(model)
+        check_mutaplm_model(model)
+    except Exception as e:
+        logger.exception("Script failed", e)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
