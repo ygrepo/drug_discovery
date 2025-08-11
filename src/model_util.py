@@ -152,37 +152,6 @@ def load_model_factory(
         raise ValueError(f"Unknown model type: {model_type}")
 
 
-# def load_model_factory(
-#     model_type: ModelType,
-#     *,
-#     config_path: Path = Path("configs/mutaplm_inference.yaml"),
-# ) -> Tuple[object, Optional[object]]:
-#     """Return (model, tokenizer_or_None) for the given model_type."""
-#     device = _device_or_default(None)
-#     logger.info("Using device: %s", device)
-
-#     if model_type in (ModelType.ESMV1, ModelType.ESM2):
-#         model_path = str(model_type.path)
-#         model = load_HF_model(model_path)
-#         tokenizer = load_HF_tokenizer(model_path)
-#         logger.info("Loaded tokenizer: %s", model_path)
-#         logger.info("Loaded model: %s", model_path)
-#         return model, tokenizer
-
-#     if model_type is ModelType.MUTAPLM:
-#         ckpt = model_type.path
-#         model = create_mutaplm_model(config_path, device)
-#         model = load_mutaplm_model(model, ckpt)
-#         logger.info("Loaded model: %s", ckpt)
-#         return model, None
-
-#     if model_type is ModelType.PROTEINCLIP:
-#         raise NotImplementedError("ProteinCLIP loading not implemented yet.")
-
-#     # Should be unreachable
-#     raise ValueError(f"Unknown model type: {model_type}")
-
-
 def embed_sequence_sliding(tokenizer, model, seq, window_size=None, overlap=64):
     max_len = getattr(model.config, "max_position_embeddings", 1026)
     if window_size is None:

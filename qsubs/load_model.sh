@@ -29,7 +29,8 @@ ml proxies/1 || true
 
 LOG_DIR="logs"
 LOG_LEVEL="INFO"
-MODEL_TYPE="MUTAPLM"
+MODEL_TYPE="ESMv1"
+#MODEL_TYPE="MUTAPLM"
 
 
 # Parse command line arguments
