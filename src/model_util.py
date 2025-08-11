@@ -36,31 +36,35 @@ class ModelType(Enum):
     MUTAPLM = "MUTAPLM"
     PROTEINCLIP = "ProteinCLIP"
 
-    @classmethod
-    def model_path(cls) -> str:
-        if cls == ModelType.ESMV1:
-            return "/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/esm1v_t33_650M_UR90S_5"
-        if cls == ModelType.ESM2:
-            return "/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/esm2_t33_650M_UR50D_safe"
-        if cls == ModelType.MUTAPLM:
-            return (
-                "/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/mutaplm.pth"
+    @property
+    def path(self) -> Path:
+        """Local default path for this model type (override via env if you like)."""
+        base = Path(
+            os.getenv(
+                "MODEL_BASE", "/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models"
             )
-        if cls == ModelType.PROTEINCLIP:
-            return (
-                "/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/proteinclip"
-            )
-        raise ValueError(f"Unknown model type: {cls}")
+        )
+        mapping = {
+            ModelType.ESMV1: base / "esm1v_t33_650M_UR90S_5",
+            ModelType.ESM2: Path(
+                os.getenv("ESM2_PATH", str(base / "esm2_t33_650M_UR50D_safe"))
+            ),
+            ModelType.MUTAPLM: base / "mutaplm.pth",
+            ModelType.PROTEINCLIP: base / "proteinclip",
+        }
+        return mapping[self]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.value
 
     @classmethod
-    def get_model(cls, model_type: str):
-        for m in ModelType:
-            if m.value == model_type:
+    def from_str(cls, s: str) -> "ModelType":
+        """Case-insensitive, accepts value or name."""
+        s_norm = s.strip().lower()
+        for m in cls:
+            if m.value.lower() == s_norm or m.name.lower() == s_norm:
                 return m
-        raise ValueError(f"Unknown model type: {model_type}")
+        raise ValueError(f"Unknown model type: {s}")
 
 
 MODEL_TYPE = list(ModelType)
@@ -146,6 +150,37 @@ def load_model_factory(
         return model, None
     else:
         raise ValueError(f"Unknown model type: {model_type}")
+
+
+# def load_model_factory(
+#     model_type: ModelType,
+#     *,
+#     config_path: Path = Path("configs/mutaplm_inference.yaml"),
+# ) -> Tuple[object, Optional[object]]:
+#     """Return (model, tokenizer_or_None) for the given model_type."""
+#     device = _device_or_default(None)
+#     logger.info("Using device: %s", device)
+
+#     if model_type in (ModelType.ESMV1, ModelType.ESM2):
+#         model_path = str(model_type.path)
+#         model = load_HF_model(model_path)
+#         tokenizer = load_HF_tokenizer(model_path)
+#         logger.info("Loaded tokenizer: %s", model_path)
+#         logger.info("Loaded model: %s", model_path)
+#         return model, tokenizer
+
+#     if model_type is ModelType.MUTAPLM:
+#         ckpt = model_type.path
+#         model = create_mutaplm_model(config_path, device)
+#         model = load_mutaplm_model(model, ckpt)
+#         logger.info("Loaded model: %s", ckpt)
+#         return model, None
+
+#     if model_type is ModelType.PROTEINCLIP:
+#         raise NotImplementedError("ProteinCLIP loading not implemented yet.")
+
+#     # Should be unreachable
+#     raise ValueError(f"Unknown model type: {model_type}")
 
 
 def embed_sequence_sliding(tokenizer, model, seq, window_size=None, overlap=64):
