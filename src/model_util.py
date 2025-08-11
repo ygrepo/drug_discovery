@@ -136,16 +136,16 @@ def load_model_factory(
     device = _device_or_default(None)
     logger.info(f"Using device: {device}")
     if model_type == ModelType.ESMV1 or model_type == ModelType.ESM2:
-        model_path = model_type.model_path()
+        model_path = str(model_type.path)
         model = load_HF_model(model_path)
         tokenizer = load_HF_tokenizer(model_path)
         logger.info(f"Loaded tokenizer: {model_path}")
         logger.info(f"Loaded model: {model_path}")
         return model, tokenizer
     if model_type == ModelType.MUTAPLM:
-        model_path = model_type.model_path()
         model = create_mutaplm_model(config_path, device)
-        model = load_mutaplm_model(model, Path(model_path))
+        model_path = model_type.path
+        model = load_mutaplm_model(model, model_path)
         logger.info(f"Loaded model: {model_path}")
         return model, None
     else:
