@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from transformers import AutoTokenizer, AutoModel
 
 import os
@@ -5,12 +7,17 @@ import logging
 import numpy as np
 import torch
 from torch.serialization import add_safe_globals
+from torch import nn
 import yaml
 import re
 from transformers import AutoTokenizer, AutoModel
 from src.mutaplm import MutaPLM
-
+from enum import Enum
 from pathlib import Path
+
+from enum import Enum
+from pathlib import Path
+from typing import Optional, Tuple, Union
 
 
 SYS_INFER = (
@@ -20,6 +27,43 @@ SYS_INFER = (
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
+
+
+# Enum for model types
+class ModelType(Enum):
+    ESMV1 = "ESMv1"
+    ESM2 = "ESM2"
+    MUTAPLM = "MUTAPLM"
+    PROTEINCLIP = "ProteinCLIP"
+
+    @classmethod
+    def model_path(cls) -> str:
+        if cls == ModelType.ESMV1:
+            return "/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/esm1v_t33_650M_UR90S_5"
+        if cls == ModelType.ESM2:
+            return "/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/esm2_t33_650M_UR50D_safe"
+        if cls == ModelType.MUTAPLM:
+            return (
+                "/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/mutaplm.pth"
+            )
+        if cls == ModelType.PROTEINCLIP:
+            return (
+                "/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/proteinclip"
+            )
+        raise ValueError(f"Unknown model type: {cls}")
+
+    def __str__(self):
+        return self.value
+
+    @classmethod
+    def get_model(cls, model_type: str):
+        for m in ModelType:
+            if m.value == model_type:
+                return m
+        raise ValueError(f"Unknown model type: {model_type}")
+
+
+MODEL_TYPE = list(ModelType)
 
 
 def select_device(pref: str) -> torch.device:
@@ -43,6 +87,12 @@ def select_device(pref: str) -> torch.device:
     return torch.device("cpu")
 
 
+def _device_or_default(device: Optional[Union[str, torch.device]]) -> torch.device:
+    if device is None:
+        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    return torch.device(device)
+
+
 def load_HF_model(model_name: str) -> AutoModel:
     """
     Load an ESM model safely.
@@ -57,6 +107,9 @@ def load_HF_model(model_name: str) -> AutoModel:
     model = AutoModel.from_pretrained(model_name, add_pooling_layer=False)
     max_len = getattr(model.config, "max_position_embeddings", 1024)
     logger.info(f"Model max token length (from config): {max_len}")
+    device = _device_or_default(None)
+    model.to(device)
+    model.eval()
     return model
 
 
@@ -67,6 +120,32 @@ def load_HF_tokenizer(model_name: str) -> AutoTokenizer:
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     return tokenizer
+
+
+# Load Model Factory Function
+def load_model_factory(
+    model_type: ModelType,
+    *,
+    config_path: Path = Path("configs/mutaplm_inference.yaml"),
+):
+    """Factory function to return the correct model based on the model_type."""
+    device = _device_or_default(None)
+    logger.info(f"Using device: {device}")
+    if model_type == ModelType.ESMV1 or model_type == ModelType.ESM2:
+        model_path = model_type.model_path()
+        model = load_HF_model(model_path)
+        tokenizer = load_HF_tokenizer(model_path)
+        logger.info(f"Loaded tokenizer: {model_path}")
+        logger.info(f"Loaded model: {model_path}")
+        return model, tokenizer
+    if model_type == ModelType.MUTAPLM:
+        model_path = model_type.model_path()
+        model = create_mutaplm_model(config_path, device)
+        model = load_mutaplm_model(model, Path(model_path))
+        logger.info(f"Loaded model: {model_path}")
+        return model, None
+    else:
+        raise ValueError(f"Unknown model type: {model_type}")
 
 
 def embed_sequence_sliding(tokenizer, model, seq, window_size=None, overlap=64):
