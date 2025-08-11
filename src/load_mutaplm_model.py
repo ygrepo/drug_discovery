@@ -48,7 +48,7 @@ def main():
     try:
         # Log configuration
         logger.info(f"Current working directory: {os.getcwd()}")
-        logger.info("Logging to: {args.log_fn}")
+        logger.info(f"Logging to: {args.log_fn}")
         logger.info(f"Config: {args.config}")
         logger.info(f"Device: {args.device}")
         logger.info(f"Checkpoint path: {args.checkpoint_path}")
