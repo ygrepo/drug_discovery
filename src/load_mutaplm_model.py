@@ -44,7 +44,7 @@ def parse_args():
 def main():
 
     args = parse_args()
-    logger = setup_logging(Path(args.log_dir), args.log_level)
+    logger = setup_logging(Path(args.log_fn), args.log_level)
     try:
         # Log configuration
         logger.info(f"Current working directory: {os.getcwd()}")
