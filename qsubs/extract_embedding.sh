@@ -31,16 +31,16 @@ export HF_HOME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.cache/hugging
 mkdir -p "$HF_HOME"
 
 # Must export for Python to see it
-#MODEL_TYPE="ESM2"
-MODEL_TYPE="ESMv1"
+MODEL_TYPE="ESM2"
+#MODEL_TYPE="ESMv1"
 #MODEL_TYPE="MUTAPLM"
 
 # Default configuration
 DATA_FN="mutadescribe_data/structural_split/train.csv"
 OUTPUT_DIR="output/data"
 #OUTPUT_FN="${OUTPUT_DIR}/esm1v_structural_split_train_with_embeddings.csv"
-OUTPUT_FN="${OUTPUT_DIR}/esmv1_structural_split_train_with_embeddings.csv"
-#OUTPUT_FN="${OUTPUT_DIR}/esm2_t33_650M_UR50D_structural_split_train_with_embeddings.csv"
+#OUTPUT_FN="${OUTPUT_DIR}/esmv1_structural_split_train_with_embeddings.csv"
+OUTPUT_FN="${OUTPUT_DIR}/esm2_t33_650M_UR50D_structural_split_train_with_embeddings.csv"
 N=2000
 LOG_DIR="logs"
 LOG_LEVEL="INFO"
@@ -83,6 +83,8 @@ echo "  Output fn: ${OUTPUT_FN}" | tee -a "$LOG_FILE"
 echo "  N: ${N}" | tee -a "$LOG_FILE"
 echo "  Log level: ${LOG_LEVEL}" | tee -a "$LOG_FILE"
 echo "  Log file: ${LOG_FILE}" | tee -a "$LOG_FILE"
+
+export CUDA_LAUNCH_BLOCKING=1
 
 PYTHON="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.conda/envs/drug_discovery_env/bin/python"
 
