@@ -19,14 +19,6 @@ from src.model_util import retrieve_pair_embeddings, ModelType, load_model_facto
 from src.utils import setup_logging, cosine_similarity
 
 
-# def embed_sequence(tokenizer, model, seq):
-#     """Embed a protein sequence using mean-pooled ESM embeddings."""
-#     tokens = tokenizer(seq, return_tensors="pt", truncation=True, padding=True)
-#     with torch.no_grad():
-#         outputs = model(**tokens).last_hidden_state
-#     return outputs.mean(dim=1).squeeze().numpy()
-
-
 def parse_args():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
@@ -133,39 +125,6 @@ def main():
             tokenizer=tokenizer,
             output_fn=Path(args.output_fn),
         )
-        # # Embed all protein1 and protein2 sequences
-        # protein1_embeddings = []
-        # protein2_embeddings = []
-
-        # for idx, row in tqdm(df.iterrows(), total=len(df), desc="Embedding pairs"):
-        #     try:
-        #         emb1 = embed_sequence_sliding(tokenizer, model, row["protein1"])
-        #         emb2 = embed_sequence_sliding(tokenizer, model, row["protein2"])
-        #         protein1_embeddings.append(emb1)
-        #         protein2_embeddings.append(emb2)
-        #     except Exception as e:
-        #         logger.exception(f"Embedding error at row {idx}: {e}")
-        #         protein1_embeddings.append(np.full(model.config.hidden_size, np.nan))
-        #         protein2_embeddings.append(np.full(model.config.hidden_size, np.nan))
-
-        # # Save embeddings (note: storing arrays in DF is ok for moderate size)
-        # df["protein1_embedding"] = protein1_embeddings
-        # df["protein2_embedding"] = protein2_embeddings
-
-        # # Compute cosine similarity
-        # logger.info("Computing cosine similarity...")
-        # df["cosine_similarity"] = [
-        #     cosine_similarity(emb1, emb2)
-        #     for emb1, emb2 in zip(protein1_embeddings, protein2_embeddings)
-        # ]
-
-        # logger.info(f"{df.head()}")
-        # df.to_csv(
-        #     Path(args.output_fn),
-        #     index=False,
-        # )
-
-    # logger.info(f"Saved embeddings to {args.output_fn}")
 
     except Exception as e:
         logger.exception("Script failed", e)

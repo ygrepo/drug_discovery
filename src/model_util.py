@@ -19,7 +19,10 @@ from tqdm import tqdm
 import pandas as pd
 from enum import Enum
 from pathlib import Path
-from typing import Optional, Tuple, Union, List
+from typing import Optional, Union, List, Literal
+import onnxruntime as ort
+
+MODEL_DIR = Path(__file__).parent.parent / "pretrained"
 
 
 from src.utils import cosine_similarity
@@ -42,7 +45,7 @@ class ModelType(Enum):
 
     @property
     def path(self) -> Path:
-        """Local default path for this model type (override via env if you like)."""
+        """Local default path for this model type."""
         base = Path(
             os.getenv(
                 "MODEL_BASE", "/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models"
@@ -136,96 +139,52 @@ def load_model_factory(
     *,
     config_path: Path = Path("configs/mutaplm_inference.yaml"),
 ):
-    """Factory function to return the correct model based on the model_type."""
+    """Factory function to return the correct model based on the model_type.
+
+    Returns:
+      (model, tokenizer) for HF models and PROTEINCLIP (parent PLM + tokenizer).
+      (model, None)      for MutaPLM.
+    For PROTEINCLIP: attaches ONNX head at `model.proteinclip`.
+    """
     device = _device_or_default(None)
-    logger.info(f"Using device: {device}")
-    if model_type == ModelType.ESMV1 or model_type == ModelType.ESM2:
+    logger.info("Using device: %s", device)
+
+    if model_type in (ModelType.ESMV1, ModelType.ESM2):
         model_path = str(model_type.path)
         model = load_HF_model(model_path)
         tokenizer = load_HF_tokenizer(model_path)
-        logger.info(f"Loaded tokenizer: {model_path}")
-        logger.info(f"Loaded model: {model_path}")
+        logger.info("Loaded tokenizer: %s", model_path)
+        logger.info("Loaded model: %s", model_path)
         return model, tokenizer
+
     if model_type == ModelType.MUTAPLM:
         model = create_mutaplm_model(config_path, device)
         model_path = model_type.path
         model = load_mutaplm_model(model, model_path)
-        logger.info(f"Loaded model: {model_path}")
+        logger.info("Loaded model: %s", model_path)
         return model, None
-    else:
-        raise ValueError(f"Unknown model type: {model_type}")
 
+    if model_type == ModelType.PROTEINCLIP:
+        # Parent PLM defaults to ESM2-33 (hidden size 1280).
+        # Override via env PROTEINCLIP_ESM_LAYERS if needed.
+        esm_layers = int(os.getenv("PROTEINCLIP_ESM_LAYERS", "33"))
+        parent_path = str(ModelType.ESM2.path)
+        model = load_HF_model(parent_path)
+        tokenizer = load_HF_tokenizer(parent_path)
+        logger.info("Loaded parent PLM (ESM2-%d layers): %s", esm_layers, parent_path)
 
-# def embed_sequence_sliding(tokenizer, model, seq, window_size=None, overlap=64):
-#     max_len = getattr(model.config, "max_position_embeddings", 1026)
-#     if window_size is None:
-#         window_size = max_len - 2
-#     logger.info(f"Window size: {window_size}")
-#     logger.info(f"Overlap: {overlap}")
-#     logger.info(f"Max len: {max_len}")
+        # Load ONNX ProteinCLIP head and attach it to the model
+        clip_head = load_proteinclip(
+            "esm", esm_layers, model_dir=ModelType.PROTEINCLIP.path
+        )
+        setattr(model, "proteinclip", clip_head)
+        logger.info(
+            "Attached ProteinCLIP head to model at attribute: model.proteinclip"
+        )
 
-#     if len(seq) <= window_size:
-#         return _embed_single_sequence(tokenizer, model, seq, max_len)
+        return model, tokenizer
 
-#     logger.warning(
-#         f"Sequence length {len(seq)} exceeds model max {max_len}, using sliding windows..."
-#     )
-
-#     embeddings = []
-#     step = window_size - overlap
-#     for start in range(0, len(seq), step):
-#         window_seq = seq[start : start + window_size]
-#         emb = _embed_single_sequence(tokenizer, model, window_seq, max_len)
-#         embeddings.append(emb)
-#         if start + window_size >= len(seq):
-#             break
-
-#     return np.mean(embeddings, axis=0)
-
-
-# def _embed_single_sequence(tokenizer, model, seq, max_len, *, return_nan_on_error=True):
-#     try:
-#         max_input_length = max_len - 2  # Leave room for BOS/EOS
-#         if len(seq) > max_input_length:
-#             logger.warning(f"Truncating sequence from {len(seq)} to {max_input_length}")
-#             seq = seq[:max_input_length]
-
-#         tokens = tokenizer(
-#             seq,
-#             return_tensors="pt",
-#             padding=False,
-#             truncation=True,
-#             max_length=max_len,
-#             return_attention_mask=True,
-#         )
-
-#         input_ids = tokens["input_ids"]
-#         if input_ids.shape[1] > max_len:
-#             logger.error(f"Tokenized input too long: {input_ids.shape[1]} > {max_len}")
-#             raise ValueError("Tokenized input exceeds model max length.")
-
-#         with torch.no_grad():
-#             outputs = model(**tokens).last_hidden_state  # [1, L, H]
-
-#         if "attention_mask" in tokens:
-#             mask = tokens["attention_mask"]
-#             sum_embeddings = (outputs * mask.unsqueeze(-1)).sum(dim=1)
-#             lengths = mask.sum(dim=1, keepdim=True)
-#             embedding = sum_embeddings / lengths
-#         else:
-#             embedding = outputs.mean(dim=1)
-
-#         logger.info(f"Embedding shape: {embedding.shape}")
-#         return embedding.squeeze().cpu().numpy()
-
-#     except Exception as e:
-#         logger.error(f"Error for sequence:\n{seq}")
-#         logger.error(f"Input IDs:\n{tokens.get('input_ids', 'Unavailable')}")
-#         logger.error(f"Error: {e}")
-#         if return_nan_on_error:
-#             return np.full(model.config.hidden_size, np.nan)
-#         else:
-#             raise
+    raise ValueError(f"Unknown model type: {model_type}")
 
 
 def create_mutaplm_model(cfg_path: Path, device):
@@ -292,6 +251,66 @@ def load_mutaplm_model_from_config(device, config_path: Path, checkpoint_path: P
     model = load_mutaplm_model(model, checkpoint_path)
     logger.info("Model loaded successfully.")
     return model
+
+
+class ONNXModel:
+    """Wrapper for an ONNX model to provide a more familiar interface."""
+
+    def __init__(self, path):
+
+        self.model = ort.InferenceSession(path, providers=["CPUExecutionProvider"])
+
+    def predict(self, x: np.ndarray, apply_norm: bool = True):
+        """If apply_norm is specified, then apply a norm before feeding into model."""
+        assert x.ndim == 1
+        if apply_norm:
+            x /= np.linalg.norm(x)
+        if x.dtype != np.float32:
+            x = x.astype(np.float32)
+        return self.model.run(None, {"input": x[None, :]})[0].squeeze()
+
+    def predict_batch(self, x: np.ndarray, apply_norm: bool = True):
+        assert x.ndim == 2
+        if apply_norm:
+            x /= np.linalg.norm(x, axis=1)[:, None]
+        if x.dtype != np.float32:
+            x = x.astype(np.float32)
+        return self.model.run(None, {"input": x})[0]
+
+
+# --------------- ProteinCLIP loader ---------------
+def load_proteinclip(
+    model_arch: Literal["esm", "t5"],
+    model_size: Optional[int] = None,
+    *,
+    model_dir: Optional[Path] = None,
+) -> ONNXModel:
+    """
+    Load the ProteinCLIP ONNX head that maps parent PLM embeddings -> 128-d unit vectors.
+    By default, looks under ModelType.PROTEINCLIP.path.
+    """
+    if model_dir is None:
+        model_dir = ModelType.PROTEINCLIP.path
+    assert model_dir.is_dir(), f"ProteinCLIP directory does not exist: {model_dir}"
+
+    if model_arch == "esm":
+        assert (
+            model_size is not None
+        ), "ESM model requires a size (e.g., 33 for ESM2-33)."
+        valid = {6, 12, 30, 33, 36}
+        assert (
+            model_size in valid
+        ), f"Invalid ESM model size: {model_size} (valid: {sorted(valid)})"
+        model_path = model_dir / f"proteinclip_esm2_{model_size}.onnx"
+    elif model_arch == "t5":
+        assert model_size is None, "T5 model does not have different sizes."
+        model_path = model_dir / "proteinclip_prott5.onnx"
+    else:
+        raise ValueError(f"Invalid model architecture: {model_arch}")
+
+    assert model_path.exists(), f"ProteinCLIP model path does not exist: {model_path}"
+    logger.info("Loading ProteinCLIP head from %s", model_path)
+    return ONNXModel(model_path)
 
 
 def check_mutaplm_min(model) -> None:
@@ -845,7 +864,7 @@ def embed_sequence_sliding(
 
     start = 0
     while True:
-        win = seq[start: start + window_size]
+        win = seq[start : start + window_size]
         if not win:
             break
 
@@ -907,7 +926,7 @@ def retrieve_pair_embeddings(
 
     # batching over rows (keeps memory reasonable; reuses your single-seq embed)
     for start in tqdm(range(0, len(out), batch_size), desc="Embedding pairs"):
-        batch_df = out.iloc[start: start + batch_size]
+        batch_df = out.iloc[start : start + batch_size]
         s1_list = batch_df[seq1_col].astype(str).tolist()
         s2_list = batch_df[seq2_col].astype(str).tolist()
 
