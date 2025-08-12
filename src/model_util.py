@@ -8,17 +8,21 @@ import numpy as np
 import torch
 from torch.serialization import add_safe_globals
 from torch import nn
+import torch.nn.functional as F
 import yaml
 import re
 from transformers import AutoTokenizer, AutoModel
 from src.mutaplm import MutaPLM
 from enum import Enum
 from pathlib import Path
-
+from tqdm import tqdm
+import pandas as pd
 from enum import Enum
 from pathlib import Path
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple, Union, List
 
+
+from src.utils import cosine_similarity
 
 SYS_INFER = (
     "You are an expert at biology and life science. Now a user gives you several protein sequences "
@@ -152,76 +156,76 @@ def load_model_factory(
         raise ValueError(f"Unknown model type: {model_type}")
 
 
-def embed_sequence_sliding(tokenizer, model, seq, window_size=None, overlap=64):
-    max_len = getattr(model.config, "max_position_embeddings", 1026)
-    if window_size is None:
-        window_size = max_len - 2
-    logger.info(f"Window size: {window_size}")
-    logger.info(f"Overlap: {overlap}")
-    logger.info(f"Max len: {max_len}")
+# def embed_sequence_sliding(tokenizer, model, seq, window_size=None, overlap=64):
+#     max_len = getattr(model.config, "max_position_embeddings", 1026)
+#     if window_size is None:
+#         window_size = max_len - 2
+#     logger.info(f"Window size: {window_size}")
+#     logger.info(f"Overlap: {overlap}")
+#     logger.info(f"Max len: {max_len}")
 
-    if len(seq) <= window_size:
-        return _embed_single_sequence(tokenizer, model, seq, max_len)
+#     if len(seq) <= window_size:
+#         return _embed_single_sequence(tokenizer, model, seq, max_len)
 
-    logger.warning(
-        f"Sequence length {len(seq)} exceeds model max {max_len}, using sliding windows..."
-    )
+#     logger.warning(
+#         f"Sequence length {len(seq)} exceeds model max {max_len}, using sliding windows..."
+#     )
 
-    embeddings = []
-    step = window_size - overlap
-    for start in range(0, len(seq), step):
-        window_seq = seq[start : start + window_size]
-        emb = _embed_single_sequence(tokenizer, model, window_seq, max_len)
-        embeddings.append(emb)
-        if start + window_size >= len(seq):
-            break
+#     embeddings = []
+#     step = window_size - overlap
+#     for start in range(0, len(seq), step):
+#         window_seq = seq[start : start + window_size]
+#         emb = _embed_single_sequence(tokenizer, model, window_seq, max_len)
+#         embeddings.append(emb)
+#         if start + window_size >= len(seq):
+#             break
 
-    return np.mean(embeddings, axis=0)
+#     return np.mean(embeddings, axis=0)
 
 
-def _embed_single_sequence(tokenizer, model, seq, max_len, *, return_nan_on_error=True):
-    try:
-        max_input_length = max_len - 2  # Leave room for BOS/EOS
-        if len(seq) > max_input_length:
-            logger.warning(f"Truncating sequence from {len(seq)} to {max_input_length}")
-            seq = seq[:max_input_length]
+# def _embed_single_sequence(tokenizer, model, seq, max_len, *, return_nan_on_error=True):
+#     try:
+#         max_input_length = max_len - 2  # Leave room for BOS/EOS
+#         if len(seq) > max_input_length:
+#             logger.warning(f"Truncating sequence from {len(seq)} to {max_input_length}")
+#             seq = seq[:max_input_length]
 
-        tokens = tokenizer(
-            seq,
-            return_tensors="pt",
-            padding=False,
-            truncation=True,
-            max_length=max_len,
-            return_attention_mask=True,
-        )
+#         tokens = tokenizer(
+#             seq,
+#             return_tensors="pt",
+#             padding=False,
+#             truncation=True,
+#             max_length=max_len,
+#             return_attention_mask=True,
+#         )
 
-        input_ids = tokens["input_ids"]
-        if input_ids.shape[1] > max_len:
-            logger.error(f"Tokenized input too long: {input_ids.shape[1]} > {max_len}")
-            raise ValueError("Tokenized input exceeds model max length.")
+#         input_ids = tokens["input_ids"]
+#         if input_ids.shape[1] > max_len:
+#             logger.error(f"Tokenized input too long: {input_ids.shape[1]} > {max_len}")
+#             raise ValueError("Tokenized input exceeds model max length.")
 
-        with torch.no_grad():
-            outputs = model(**tokens).last_hidden_state  # [1, L, H]
+#         with torch.no_grad():
+#             outputs = model(**tokens).last_hidden_state  # [1, L, H]
 
-        if "attention_mask" in tokens:
-            mask = tokens["attention_mask"]
-            sum_embeddings = (outputs * mask.unsqueeze(-1)).sum(dim=1)
-            lengths = mask.sum(dim=1, keepdim=True)
-            embedding = sum_embeddings / lengths
-        else:
-            embedding = outputs.mean(dim=1)
+#         if "attention_mask" in tokens:
+#             mask = tokens["attention_mask"]
+#             sum_embeddings = (outputs * mask.unsqueeze(-1)).sum(dim=1)
+#             lengths = mask.sum(dim=1, keepdim=True)
+#             embedding = sum_embeddings / lengths
+#         else:
+#             embedding = outputs.mean(dim=1)
 
-        logger.info(f"Embedding shape: {embedding.shape}")
-        return embedding.squeeze().cpu().numpy()
+#         logger.info(f"Embedding shape: {embedding.shape}")
+#         return embedding.squeeze().cpu().numpy()
 
-    except Exception as e:
-        logger.error(f"Error for sequence:\n{seq}")
-        logger.error(f"Input IDs:\n{tokens.get('input_ids', 'Unavailable')}")
-        logger.error(f"Error: {e}")
-        if return_nan_on_error:
-            return np.full(model.config.hidden_size, np.nan)
-        else:
-            raise
+#     except Exception as e:
+#         logger.error(f"Error for sequence:\n{seq}")
+#         logger.error(f"Input IDs:\n{tokens.get('input_ids', 'Unavailable')}")
+#         logger.error(f"Error: {e}")
+#         if return_nan_on_error:
+#             return np.full(model.config.hidden_size, np.nan)
+#         else:
+#             raise
 
 
 def create_mutaplm_model(cfg_path: Path, device):
@@ -451,7 +455,9 @@ def llm_context_embed_abs(model, seq: str) -> torch.Tensor:
 
 
 @torch.no_grad()
-def llm_context_cosine(model, wt: str, mut: str) -> float:
+def llm_context_cosine(
+    model, wt: str, mut: str
+) -> tuple[torch.Tensor, torch.Tensor, float]:
     v_wt = llm_context_embed_abs(model, wt)
     v_mut = llm_context_embed_abs(model, mut)
     return (
@@ -767,3 +773,295 @@ def get_fused(model, wt, mut, site):
     delta = res["llm_ctx_delta"]  # [1, H_llm] mutation delta (contextual)
 
     return vec, delta
+
+
+@torch.no_grad()
+def embed_df(df: pd.DataFrame, model, tokenizer) -> pd.DataFrame:
+
+    # Embed all protein1 and protein2 sequences
+    protein1_embeddings = []
+    protein2_embeddings = []
+
+    for idx, row in tqdm(df.iterrows(), total=len(df), desc="Embedding pairs"):
+        try:
+            emb1 = embed_sequence_sliding(tokenizer, model, row["protein1"])
+            emb2 = embed_sequence_sliding(tokenizer, model, row["protein2"])
+            protein1_embeddings.append(emb1)
+            protein2_embeddings.append(emb2)
+        except Exception as e:
+            logger.exception(f"Embedding error at row {idx}: {e}")
+            protein1_embeddings.append(np.full(model.config.hidden_size, np.nan))
+            protein2_embeddings.append(np.full(model.config.hidden_size, np.nan))
+
+    # Save embeddings (note: storing arrays in DF is ok for moderate size)
+    df["protein1_embedding"] = protein1_embeddings
+    df["protein2_embedding"] = protein2_embeddings
+
+    # Compute cosine similarity
+    logger.info("Computing cosine similarity...")
+    df["cosine_similarity"] = [
+        cosine_similarity(emb1, emb2)
+        for emb1, emb2 in zip(protein1_embeddings, protein2_embeddings)
+    ]
+    return df
+
+
+# ---------- single-sequence sliding window (reuses your _embed_single_sequence) ----------
+@torch.no_grad()
+def embed_sequence_sliding(
+    tokenizer,
+    model,
+    seq: str,
+    *,
+    window_size: Optional[int] = None,
+    overlap: int = 64,
+    agg: str = "mean",  # "mean" only for now (matches your previous behavior)
+    return_nan_on_error: bool = True,
+) -> np.ndarray:
+    """
+    Sliding-window wrapper around your _embed_single_sequence.
+    Uses simple mean over window embeddings (standard practice for overlap smoothing).
+    """
+    max_len = int(getattr(model.config, "max_position_embeddings", 1026))
+    if window_size is None:
+        window_size = (
+            max_len - 2
+        )  # leave room for BOS/EOS inside _embed_single_sequence
+
+    # fast path
+    if len(seq) <= window_size:
+        return _embed_single_sequence(
+            tokenizer, model, seq, max_len, return_nan_on_error=return_nan_on_error
+        )
+
+    logger.warning(
+        "Sequence length %d exceeds window_size %d; using sliding windows...",
+        len(seq),
+        window_size,
+    )
+
+    step = max(1, window_size - max(0, overlap))
+    window_vecs: List[np.ndarray] = []
+
+    start = 0
+    while True:
+        win = seq[start: start + window_size]
+        if not win:
+            break
+
+        vec = _embed_single_sequence(
+            tokenizer, model, win, max_len, return_nan_on_error=return_nan_on_error
+        )
+        window_vecs.append(vec)
+
+        if start + window_size >= len(seq):
+            break
+        start += step
+
+    if len(window_vecs) == 0:
+        # fallback if something went wrong
+        H = int(getattr(model.config, "hidden_size", 1280))
+        return np.full(H, np.nan, dtype=np.float32)
+
+    if agg == "mean":
+        return np.mean(window_vecs, axis=0).astype(np.float32)
+
+    # future: weighted/cls/max, etc.
+    raise ValueError(f"Unknown agg '{agg}'")
+
+
+# ---------- unified DF pipeline for ESM1/ESM2 (sliding) and MutaPLM (pair-wise) ----------
+@torch.no_grad()
+def retrieve_pair_embeddings(
+    model_type,  # ModelType
+    model,
+    df: pd.DataFrame,
+    *,
+    tokenizer=None,  # required for ESM1/ESM2; ignored for MutaPLM
+    seq1_col: str = "protein1",
+    seq2_col: str = "protein2",
+    # Sliding-window params for ESM1/ESM2:
+    window_size: Optional[int] = None,
+    overlap: int = 64,
+    agg: str = "mean",
+    # Row-batch size (both modes):
+    batch_size: int = 16,
+    output_fn: Optional[Path] = None,
+) -> pd.DataFrame:
+    """
+    Adds columns: protein1_embedding, protein2_embedding, cosine_similarity.
+
+    - For ESM1/ESM2: uses embed_sequence_sliding (which calls your _embed_single_sequence).
+    - For MutaPLM: uses llm_context_cosine(model, wt, mut) per pair.
+    """
+    out = df.copy()
+    model.eval()
+
+    p1_vecs: List[np.ndarray] = []
+    p2_vecs: List[np.ndarray] = []
+    sims: List[float] = []
+
+    is_hf = model_type.name in ("ESMV1", "ESM2")
+    if is_hf and tokenizer is None:
+        raise ValueError("HF mode (ESM1/ESM2) requires a tokenizer.")
+
+    # batching over rows (keeps memory reasonable; reuses your single-seq embed)
+    for start in tqdm(range(0, len(out), batch_size), desc="Embedding pairs"):
+        batch_df = out.iloc[start: start + batch_size]
+        s1_list = batch_df[seq1_col].astype(str).tolist()
+        s2_list = batch_df[seq2_col].astype(str).tolist()
+
+        if is_hf:
+            for i, (s1, s2) in enumerate(zip(s1_list, s2_list)):
+                idx = start + i
+                try:
+                    v1 = embed_sequence_sliding(
+                        tokenizer,
+                        model,
+                        s1,
+                        window_size=window_size,
+                        overlap=overlap,
+                        agg=agg,
+                        return_nan_on_error=True,
+                    )
+                    v2 = embed_sequence_sliding(
+                        tokenizer,
+                        model,
+                        s2,
+                        window_size=window_size,
+                        overlap=overlap,
+                        agg=agg,
+                        return_nan_on_error=True,
+                    )
+                    p1_vecs.append(v1)
+                    p2_vecs.append(v2)
+                    sims.append(cosine_similarity(v1, v2))
+                except Exception as e:
+                    logger.exception("Embedding error (HF) at row %d: %s", idx, e)
+                    H = int(getattr(model.config, "hidden_size", 1280))
+                    p1_vecs.append(np.full(H, np.nan, dtype=np.float32))
+                    p2_vecs.append(np.full(H, np.nan, dtype=np.float32))
+                    sims.append(float("nan"))
+
+        else:  # MutaPLM path
+            # prefer model.maybe_autocast() if your MutaPLM exposes it
+            maybe_ctx = getattr(model, "maybe_autocast", None)
+            ctx = (
+                maybe_ctx()
+                if callable(maybe_ctx)
+                else torch.autocast(
+                    device_type="cuda",
+                    enabled=(next(model.parameters()).device.type == "cuda"),
+                )
+            )
+            with ctx:
+                for i, (wt, mut) in enumerate(zip(s1_list, s2_list)):
+                    idx = start + i
+                    try:
+                        v_wt, v_mut, cos = llm_context_cosine(model, wt, mut)
+                        p1_vecs.append(v_wt.detach().cpu().numpy())
+                        p2_vecs.append(v_mut.detach().cpu().numpy())
+                        sims.append(float(cos))
+                    except Exception as e:
+                        logger.exception(
+                            "Embedding error (MutaPLM) at row %d: %s", idx, e
+                        )
+                        H = int(
+                            getattr(
+                                model, "llm_hidden", getattr(model, "hidden_size", 1024)
+                            )
+                        )
+                        p1_vecs.append(np.full(H, np.nan, dtype=np.float32))
+                        p2_vecs.append(np.full(H, np.nan, dtype=np.float32))
+                        sims.append(float("nan"))
+
+    out[f"{seq1_col}_embedding"] = p1_vecs
+    out[f"{seq2_col}_embedding"] = p2_vecs
+    out["cosine_similarity"] = sims
+
+    logger.info(
+        "Computed embeddings for %d pairs. Example sims: %s", len(out), sims[:5]
+    )
+
+    if output_fn:
+        logger.info("Saving embeddings to %s", output_fn)
+        out.to_csv(output_fn, index=False)
+        logger.info("Saved.")
+
+    return out
+
+
+@torch.no_grad()
+def _embed_single_sequence(
+    tokenizer,
+    model,
+    seq: str,
+    max_len: int,
+    *,
+    return_nan_on_error: bool = True,
+    exclude_special: bool = True,  # new: exclude BOS/EOS from pooling
+):
+    tokens = {}  # ensure defined for except logging
+    try:
+        # Leave room for BOS/EOS which most HF ESM tokenizers add by default
+        max_input_length = max_len - 2
+        if len(seq) > max_input_length:
+            logger.warning(
+                "Truncating sequence from %d to %d", len(seq), max_input_length
+            )
+            seq = seq[:max_input_length]
+
+        device = next(model.parameters()).device
+
+        tokens = tokenizer(
+            seq,
+            return_tensors="pt",
+            padding=False,
+            truncation=True,
+            max_length=max_len,
+            return_attention_mask=True,
+            return_special_tokens_mask=True,  # <- to drop special tokens from pooling
+            add_special_tokens=True,
+        )
+        tokens = {k: v.to(device) for k, v in tokens.items()}
+
+        # Mixed precision if on CUDA
+        use_amp = device.type == "cuda"
+        with torch.autocast(device_type="cuda", enabled=use_amp):
+            outputs = model(
+                **{
+                    k: v
+                    for k, v in tokens.items()
+                    if k in ("input_ids", "attention_mask", "token_type_ids")
+                }
+            ).last_hidden_state  # [1, L, H]
+
+        # Mean-pool over non-special, non-pad tokens
+        if "attention_mask" in tokens:
+            mask = tokens["attention_mask"]  # [1, L]
+            if exclude_special and "special_tokens_mask" in tokens:
+                mask = mask * (1 - tokens["special_tokens_mask"])
+            mask = mask.to(outputs.dtype)
+            denom = mask.sum(dim=1, keepdim=True).clamp(min=1.0)
+            embedding = (outputs * mask.unsqueeze(-1)).sum(dim=1) / denom
+        else:
+            embedding = outputs.mean(dim=1)
+
+        emb_np = embedding.squeeze(0).detach().cpu().to(torch.float32).numpy()
+        logger.debug("Embedded 1 seq -> shape %s", emb_np.shape)
+        return emb_np
+
+    except Exception as e:
+        logger.error("Error embedding sequence (%d aa): %s", len(seq), e)
+        try:
+            if tokens:
+                ids = tokens.get("input_ids", None)
+                if ids is not None:
+                    logger.debug("input_ids shape: %s", tuple(ids.shape))
+        except Exception:
+            pass
+
+        if return_nan_on_error:
+            H = int(getattr(model.config, "hidden_size", 1280))
+            return np.full(H, np.nan, dtype=np.float32)
+        raise

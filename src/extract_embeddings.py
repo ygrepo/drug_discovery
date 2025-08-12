@@ -15,16 +15,16 @@ logger.setLevel(logging.INFO)
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-from src.model_util import load_HF_model, load_HF_tokenizer, embed_sequence_sliding
+from src.model_util import retrieve_pair_embeddings, ModelType, load_model_factory
 from src.utils import setup_logging, cosine_similarity
 
 
-def embed_sequence(tokenizer, model, seq):
-    """Embed a protein sequence using mean-pooled ESM embeddings."""
-    tokens = tokenizer(seq, return_tensors="pt", truncation=True, padding=True)
-    with torch.no_grad():
-        outputs = model(**tokens).last_hidden_state
-    return outputs.mean(dim=1).squeeze().numpy()
+# def embed_sequence(tokenizer, model, seq):
+#     """Embed a protein sequence using mean-pooled ESM embeddings."""
+#     tokens = tokenizer(seq, return_tensors="pt", truncation=True, padding=True)
+#     with torch.no_grad():
+#         outputs = model(**tokens).last_hidden_state
+#     return outputs.mean(dim=1).squeeze().numpy()
 
 
 def parse_args():
@@ -39,10 +39,15 @@ def parse_args():
         help="Number of rows to process (for testing)",
     )
     parser.add_argument(
-        "--model_name",
+        "--model_type",
         type=str,
-        default="facebook/esm2_t6_8M_UR50D",
-        help="ESM model name",
+        default="",
+        help="Model type",
+    )
+    parser.add_argument(
+        "--config",
+        type=str,
+        default=str(REPO_ROOT / "configs" / "mutaplm_inference.yaml"),
     )
     parser.add_argument(
         "--data_fn",
@@ -102,66 +107,70 @@ def main():
     logger = setup_logging(Path(args.log_fn), args.log_level)
 
     try:
-        # Log configuration
-        logger.info("Starting training with configuration:")
         logger.info(f"Current working directory: {os.getcwd()}")
-        logger.info(f"  Data fn: {args.data_fn}")
-        logger.info(f"  Output fn: {args.output_fn}")
-        logger.info(f"  Model name: {args.model_name}")
-        logger.info(f"  Log file: {args.log_fn}")
-        logger.info(f"  Log level: {args.log_level}")
+        logger.info(f"Logging to: {args.log_fn}")
+        logger.info(f"Config: {args.config}")
+        logger.info(f"Data fn: {args.data_fn}")
+        logger.info(f"Output fn: {args.output_fn}")
+        logger.info(f"Model type: {args.model_type}")
+        logger.info(f"Number of rows: {args.n}")
         logger.info(f"  Random seed: {args.seed}")
 
-        logger.info("Extracting embeddings...")
-
-        # Load HF model
-        model_name = args.model_name
-        model = load_HF_model(model_name)
-        tokenizer = load_HF_tokenizer(model_name)
-        logger.info(f"Loaded tokenizer: {model_name}")
-        logger.info(f"Loaded model: {model_name}")
+        logger.info("Loading model...")
+        logger.info(f"Model type: {args.model_type}")
+        mt = ModelType.from_str(args.model_type)
+        model, tokenizer = load_model_factory(mt, config_path=Path(args.config))
+        logger.info("Model loaded successfully.")
 
         # Load data
         df = load_data(Path(args.data_fn), args.n, args.seed)
 
-        # Embed all protein1 and protein2 sequences
-        protein1_embeddings = []
-        protein2_embeddings = []
-
-        for idx, row in tqdm(df.iterrows(), total=len(df), desc="Embedding pairs"):
-            try:
-                emb1 = embed_sequence_sliding(tokenizer, model, row["protein1"])
-                emb2 = embed_sequence_sliding(tokenizer, model, row["protein2"])
-                protein1_embeddings.append(emb1)
-                protein2_embeddings.append(emb2)
-            except Exception as e:
-                logger.exception(f"Embedding error at row {idx}: {e}")
-                protein1_embeddings.append(np.full(model.config.hidden_size, np.nan))
-                protein2_embeddings.append(np.full(model.config.hidden_size, np.nan))
-
-        # Save embeddings (note: storing arrays in DF is ok for moderate size)
-        df["protein1_embedding"] = protein1_embeddings
-        df["protein2_embedding"] = protein2_embeddings
-
-        # Compute cosine similarity
-        logger.info("Computing cosine similarity...")
-        df["cosine_similarity"] = [
-            cosine_similarity(emb1, emb2)
-            for emb1, emb2 in zip(protein1_embeddings, protein2_embeddings)
-        ]
-
-        logger.info(f"{df.head()}")
-        df.to_csv(
-            Path(args.output_fn),
-            index=False,
+        logger.info("Extracting embeddings...")
+        retrieve_pair_embeddings(
+            mt,
+            model,
+            df,
+            tokenizer=tokenizer,
+            output_fn=Path(args.output_fn),
         )
+        # # Embed all protein1 and protein2 sequences
+        # protein1_embeddings = []
+        # protein2_embeddings = []
 
-        logger.info(f"Saved embeddings to {args.output_fn}")
+        # for idx, row in tqdm(df.iterrows(), total=len(df), desc="Embedding pairs"):
+        #     try:
+        #         emb1 = embed_sequence_sliding(tokenizer, model, row["protein1"])
+        #         emb2 = embed_sequence_sliding(tokenizer, model, row["protein2"])
+        #         protein1_embeddings.append(emb1)
+        #         protein2_embeddings.append(emb2)
+        #     except Exception as e:
+        #         logger.exception(f"Embedding error at row {idx}: {e}")
+        #         protein1_embeddings.append(np.full(model.config.hidden_size, np.nan))
+        #         protein2_embeddings.append(np.full(model.config.hidden_size, np.nan))
+
+        # # Save embeddings (note: storing arrays in DF is ok for moderate size)
+        # df["protein1_embedding"] = protein1_embeddings
+        # df["protein2_embedding"] = protein2_embeddings
+
+        # # Compute cosine similarity
+        # logger.info("Computing cosine similarity...")
+        # df["cosine_similarity"] = [
+        #     cosine_similarity(emb1, emb2)
+        #     for emb1, emb2 in zip(protein1_embeddings, protein2_embeddings)
+        # ]
+
+        # logger.info(f"{df.head()}")
+        # df.to_csv(
+        #     Path(args.output_fn),
+        #     index=False,
+        # )
+
+    # logger.info(f"Saved embeddings to {args.output_fn}")
 
     except Exception as e:
         logger.exception("Script failed", e)
         sys.exit(1)
 
-   
+
 if __name__ == "__main__":
     main()

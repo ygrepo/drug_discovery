@@ -40,7 +40,6 @@ def main():
         logger.info("Loading model...")
         logger.info(f"Model type: {args.model_type}")
         mt = ModelType.from_str(args.model_type)
-        logger.info("Model type: %s", mt)
         load_model_factory(mt, config_path=Path(args.config))
         logger.info("Model loaded successfully.")
     except Exception as e:
