@@ -31,8 +31,8 @@ export HF_HOME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.cache/hugging
 mkdir -p "$HF_HOME"
 
 # Must export for Python to see it
-MODEL_TYPE="ESM2"
-#MODEL_TYPE="ESMv1"
+#MODEL_TYPE="ESM2"
+MODEL_TYPE="ESMv1"
 #MODEL_TYPE="MUTAPLM"
 
 # Default configuration
