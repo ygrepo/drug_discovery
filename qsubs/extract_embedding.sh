@@ -31,9 +31,9 @@ export HF_HOME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.cache/hugging
 mkdir -p "$HF_HOME"
 
 # Must export for Python to see it
-#export MODEL_NAME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/esm1v_t33_650M_UR90S_5"
-export MODEL_NAME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/esm2_t33_650M_UR50D_safe"
-
+MODEL_TYPE="ESM2"
+#MODEL_TYPE="ESMv1"
+#MODEL_TYPE="MUTAPLM"
 
 # Default configuration
 DATA_FN="mutadescribe_data/structural_split/train.csv"
@@ -51,7 +51,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --data_fn) DATA_FN="$2"; shift 2 ;;
     --output_fn) OUTPUT_FN="$2"; shift 2 ;;
-    --model_name) MODEL_NAME="$2"; shift 2 ;;
+    --model_type) MODEL_TYPE="$2"; shift 2 ;;
     --n) N="$2"; shift 2 ;;
     --log_dir) LOG_DIR="$2"; shift 2 ;;
     --log_level) LOG_LEVEL="$2"; shift 2 ;;
@@ -77,7 +77,7 @@ set +e  # Disable exit on error to handle the error message
 echo "Starting with the following configuration:" | tee -a "$LOG_FILE"
 echo "  Data fn: ${DATA_FN}" | tee -a "$LOG_FILE"
 echo "  Random seed: ${SEED}" | tee -a "$LOG_FILE"
-echo "  Model name: ${MODEL_NAME}" | tee -a "$LOG_FILE"
+echo "  Model type: ${MODEL_TYPE}" | tee -a "$LOG_FILE"
 echo "  Output fn: ${OUTPUT_FN}" | tee -a "$LOG_FILE"
 echo "  N: ${N}" | tee -a "$LOG_FILE"
 echo "  Log level: ${LOG_LEVEL}" | tee -a "$LOG_FILE"
@@ -89,7 +89,7 @@ $PYTHON \
     "src/extract_embeddings.py" \
     --data_fn "$DATA_FN" \
     --output_fn "$OUTPUT_FN" \
-    --model_name "$MODEL_NAME" \
+    --model_type "$MODEL_TYPE" \
     --log_fn "$LOG_FILE" \
     --log_level "$LOG_LEVEL" \
     --seed "$SEED" \
