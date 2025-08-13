@@ -36,7 +36,7 @@ LOG_LEVEL="INFO"
 #MODEL_TYPE="ESM2"
 #MODEL_TYPE="ESMv1"
 #MODEL_TYPE="MUTAPLM"
-MODEL_TYPE="proteinclip_esm2_33.onnx"
+MODEL_TYPE="ProteinCLIP"
 
 
 # Parse command line arguments
