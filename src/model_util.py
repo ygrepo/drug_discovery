@@ -24,6 +24,14 @@ import onnxruntime as ort
 
 MODEL_DIR = Path(__file__).parent.parent / "pretrained"
 
+# map ESM2 layer counts to HF repos (used when local path isn't available)
+_ESM2_REPO = {
+    6: "facebook/esm2_t6_8M_UR50D",
+    12: "facebook/esm2_t12_35M_UR50D",
+    30: "facebook/esm2_t30_150M_UR50D",
+    33: "facebook/esm2_t33_650M_UR50D",
+    36: "facebook/esm2_t36_3B_UR50D",
+}
 
 from src.utils import cosine_similarity
 
@@ -133,18 +141,30 @@ def load_HF_tokenizer(model_name: str) -> AutoTokenizer:
     return tokenizer
 
 
+def _resolve_parent_esm2_path(layers: int) -> str:
+    """
+    Prefer your local mirror for 33-layer if present, otherwise fall back to HF repo.
+    Extend here if you have local mirrors for 6/12/30/36.
+    """
+    if layers == 33:
+        local = ModelType.ESM2.path  # your /.../esm2_t33_650M_UR50D_safe
+        if Path(local).exists():
+            return str(local)
+    # fall back to HF repo id
+    return _ESM2_REPO[layers]
+
+
 # Load Model Factory Function
 def load_model_factory(
     model_type: ModelType,
     *,
     config_path: Path = Path("configs/mutaplm_inference.yaml"),
 ):
-    """Factory function to return the correct model based on the model_type.
-
+    """
     Returns:
       (model, tokenizer) for HF models and PROTEINCLIP (parent PLM + tokenizer).
       (model, None)      for MutaPLM.
-    For PROTEINCLIP: attaches ONNX head at `model.proteinclip`.
+    For PROTEINCLIP: loads the matching parent ESM2 (by layers) and attaches ONNX head at `model.proteinclip`.
     """
     device = _device_or_default(None)
     logger.info("Using device: %s", device)
@@ -165,23 +185,41 @@ def load_model_factory(
         return model, None
 
     if model_type == ModelType.PROTEINCLIP:
-        # Parent PLM defaults to ESM2-33 (hidden size 1280).
-        # Override via env PROTEINCLIP_ESM_LAYERS if needed.
-        esm_layers = int(os.getenv("PROTEINCLIP_ESM_LAYERS", "33"))
-        parent_path = str(ModelType.ESM2.path)
-        model = load_HF_model(parent_path)
-        tokenizer = load_HF_tokenizer(parent_path)
-        logger.info("Loaded parent PLM (ESM2-%d layers): %s", esm_layers, parent_path)
+        # 1) Decide which ESM2 depth to use (default 33); allow override via env
+        layers = int(os.getenv("PROTEINCLIP_ESM_LAYERS", "33"))
+        parent_ref = _resolve_parent_esm2_path(layers)
 
-        # Load ONNX ProteinCLIP head and attach it to the model
+        # 2) Load the matching parent PLM + tokenizer
+        model = load_HF_model(parent_ref)
+        tokenizer = load_HF_tokenizer(parent_ref)
+        logger.info("Loaded parent PLM (ESM2-%d layers): %s", layers, parent_ref)
+
+        # 3) Sanity check: confirm actual num_hidden_layers matches requested
+        actual_layers = int(getattr(model.config, "num_hidden_layers", layers))
+        if actual_layers != layers:
+            logger.warning(
+                "Requested ESM2 layers=%d, but loaded model has %d layers.",
+                layers,
+                actual_layers,
+            )
+            layers = actual_layers  # keep them in sync for the head
+
+        # 4) Load the ProteinCLIP head for that depth and validate input dim
+        hidden_size = int(getattr(model.config, "hidden_size", 1280))
         clip_head = load_proteinclip(
-            "esm", esm_layers, model_dir=ModelType.PROTEINCLIP.path
+            "esm",
+            layers,
+            model_dir=ModelType.PROTEINCLIP.path,
+            expected_in_dim=hidden_size,
         )
+
+        # 5) Attach to model
         setattr(model, "proteinclip", clip_head)
         logger.info(
-            "Attached ProteinCLIP head to model at attribute: model.proteinclip"
+            "Attached ProteinCLIP head (input_dim=%s, output_dim=%s)",
+            clip_head.input_dim,
+            clip_head.output_dim,
         )
-
         return model, tokenizer
 
     raise ValueError(f"Unknown model type: {model_type}")
@@ -256,26 +294,41 @@ def load_mutaplm_model_from_config(device, config_path: Path, checkpoint_path: P
 class ONNXModel:
     """Wrapper for an ONNX model to provide a more familiar interface."""
 
-    def __init__(self, path):
-
-        self.model = ort.InferenceSession(path, providers=["CPUExecutionProvider"])
+    def __init__(self, path: Path):
+        # Use CPU provider by default; swap to CUDA EP if your ORT build supports it
+        self.session = ort.InferenceSession(
+            str(path), providers=["CPUExecutionProvider"]
+        )
+        self.input_name = self.session.get_inputs()[0].name
+        in_shape = self.session.get_inputs()[0].shape
+        out_shape = self.session.get_outputs()[0].shape
+        # shapes like [None, 1280] -> take the last dim if static
+        self.input_dim = (
+            int(in_shape[-1]) if isinstance(in_shape[-1], (int, np.integer)) else None
+        )
+        self.output_dim = (
+            int(out_shape[-1]) if isinstance(out_shape[-1], (int, np.integer)) else 128
+        )
 
     def predict(self, x: np.ndarray, apply_norm: bool = True):
-        """If apply_norm is specified, then apply a norm before feeding into model."""
         assert x.ndim == 1
         if apply_norm:
-            x /= np.linalg.norm(x)
+            n = float(np.linalg.norm(x))
+            if n > 0:
+                x = x / n
         if x.dtype != np.float32:
-            x = x.astype(np.float32)
-        return self.model.run(None, {"input": x[None, :]})[0].squeeze()
+            x = x.astype(np.float32, copy=False)
+        return self.session.run(None, {self.input_name: x[None, :]})[0].squeeze()
 
     def predict_batch(self, x: np.ndarray, apply_norm: bool = True):
         assert x.ndim == 2
         if apply_norm:
-            x /= np.linalg.norm(x, axis=1)[:, None]
+            n = np.linalg.norm(x, axis=1, keepdims=True)
+            n[n == 0.0] = 1.0
+            x = x / n
         if x.dtype != np.float32:
-            x = x.astype(np.float32)
-        return self.model.run(None, {"input": x})[0]
+            x = x.astype(np.float32, copy=False)
+        return self.session.run(None, {self.input_name: x})[0]
 
 
 # --------------- ProteinCLIP loader ---------------
@@ -284,6 +337,9 @@ def load_proteinclip(
     model_size: Optional[int] = None,
     *,
     model_dir: Optional[Path] = None,
+    expected_in_dim: Optional[
+        int
+    ] = None,  # <— new: validate parent hidden size vs ONNX input
 ) -> ONNXModel:
     """
     Load the ProteinCLIP ONNX head that maps parent PLM embeddings -> 128-d unit vectors.
@@ -310,7 +366,20 @@ def load_proteinclip(
 
     assert model_path.exists(), f"ProteinCLIP model path does not exist: {model_path}"
     logger.info("Loading ProteinCLIP head from %s", model_path)
-    return ONNXModel(model_path)
+    head = ONNXModel(model_path)
+
+    # Validate parent hidden size against ONNX expected input
+    if (
+        expected_in_dim is not None
+        and head.input_dim is not None
+        and head.input_dim != expected_in_dim
+    ):
+        raise ValueError(
+            f"ProteinCLIP head expects input_dim={head.input_dim}, "
+            f"but parent hidden_size={expected_in_dim}. "
+            f"Make sure you pair esm2_{model_size} with the matching head."
+        )
+    return head
 
 
 def check_mutaplm_min(model) -> None:
