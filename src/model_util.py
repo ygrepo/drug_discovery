@@ -296,9 +296,11 @@ class ONNXModel:
 
     def __init__(self, path: Path):
         # Use CPU provider by default; swap to CUDA EP if your ORT build supports it
-        self.session = ort.InferenceSession(
-            str(path), providers=["CPUExecutionProvider"]
-        )
+        if torch.cuda.is_available():
+            providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+        else:
+            providers = ["CPUExecutionProvider"]
+        self.session = ort.InferenceSession(str(path), providers=providers)
         self.input_name = self.session.get_inputs()[0].name
         in_shape = self.session.get_inputs()[0].shape
         out_shape = self.session.get_outputs()[0].shape
