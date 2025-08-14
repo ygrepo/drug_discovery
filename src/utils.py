@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 import numpy as np
 from typing import Union
+import pandas as pd
 
 import logging
 
@@ -57,3 +58,26 @@ def cosine_similarity(
         )
 
     return float(np.dot(a, b) / (norm_a * norm_b))
+
+
+def load_embeddings_pair(base_path: str | Path):
+    base_path = Path(base_path)
+
+    # Read metadata
+    meta_df = pd.read_csv(base_path.with_suffix(".csv"))
+
+    # Read embeddings
+    npz = np.load(base_path.with_suffix(".npz"))
+    p1_vecs = npz["protein1"]
+    p2_vecs = npz["protein2"]
+    cosine = npz["cosine"]
+
+    # Recombine into a single DataFrame
+    meta_df[f"{seq1_col}_embedding"] = list(p1_vecs)
+    meta_df[f"{seq2_col}_embedding"] = list(p2_vecs)
+    meta_df["cosine_similarity"] = cosine
+
+    return meta_df
+
+    # Example usage
+    # df = load_embeddings_pair("my_embeddings_file")

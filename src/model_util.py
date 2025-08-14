@@ -1125,130 +1125,28 @@ def retrieve_pair_embeddings(
 
     if output_fn:
         logger.info("Saving embeddings to %s", output_fn)
-        out.to_csv(output_fn, index=False)
-        logger.info("Saved.")
+        output_fn = Path(output_fn)
+
+        # Save DataFrame metadata without the heavy arrays
+        meta_df = out.drop(columns=[f"{seq1_col}_embedding", f"{seq2_col}_embedding"])
+        meta_df.to_csv(output_fn.with_suffix(".csv"), index=False)
+
+        # Save embeddings as compressed NumPy archive
+        np.savez_compressed(
+            output_fn.with_suffix(".npz"),
+            protein1=np.stack(p1_vecs),
+            protein2=np.stack(p2_vecs),
+            cosine=np.array(sims),
+        )
+
+        logger.info("Saved metadata (.csv) and embeddings (.npz).")
+
+    # if output_fn:
+    #     logger.info("Saving embeddings to %s", output_fn)
+    #     out.to_csv(output_fn, index=False)
+    #     logger.info("Saved.")
 
     return out
-
-
-# @torch.no_grad()
-# def retrieve_pair_embeddings(
-#     model_type,  # ModelType
-#     model,
-#     df: pd.DataFrame,
-#     *,
-#     tokenizer=None,  # required for ESM1/ESM2; ignored for MutaPLM
-#     seq1_col: str = "protein1",
-#     seq2_col: str = "protein2",
-#     # Sliding-window params for ESM1/ESM2:
-#     window_size: Optional[int] = None,
-#     overlap: int = 64,
-#     agg: str = "mean",
-#     # Row-batch size (both modes):
-#     batch_size: int = 16,
-#     output_fn: Optional[Path] = None,
-# ) -> pd.DataFrame:
-#     """
-#     Adds columns: protein1_embedding, protein2_embedding, cosine_similarity.
-
-#     - For ESM1/ESM2: uses embed_sequence_sliding (which calls your _embed_single_sequence).
-#     - For MutaPLM: uses llm_context_cosine(model, wt, mut) per pair.
-#     """
-#     out = df.copy()
-#     model.eval()
-
-#     p1_vecs: List[np.ndarray] = []
-#     p2_vecs: List[np.ndarray] = []
-#     sims: List[float] = []
-
-#     is_hf = model_type.name in ("ESMV1", "ESM2")
-#     if is_hf and tokenizer is None:
-#         raise ValueError("HF mode (ESM1/ESM2) requires a tokenizer.")
-
-#     # batching over rows (keeps memory reasonable; reuses your single-seq embed)
-#     for start in tqdm(range(0, len(out), batch_size), desc="Embedding pairs"):
-#         batch_df = out.iloc[start : start + batch_size]
-#         s1_list = batch_df[seq1_col].astype(str).tolist()
-#         s2_list = batch_df[seq2_col].astype(str).tolist()
-
-#         if is_hf:
-#             for i, (s1, s2) in enumerate(zip(s1_list, s2_list)):
-#                 idx = start + i
-#                 try:
-#                     v1 = embed_sequence_sliding(
-#                         tokenizer,
-#                         model,
-#                         s1,
-#                         window_size=window_size,
-#                         overlap=overlap,
-#                         agg=agg,
-#                         return_nan_on_error=True,
-#                     )
-#                     v2 = embed_sequence_sliding(
-#                         tokenizer,
-#                         model,
-#                         s2,
-#                         window_size=window_size,
-#                         overlap=overlap,
-#                         agg=agg,
-#                         return_nan_on_error=True,
-#                     )
-#                     p1_vecs.append(v1)
-#                     p2_vecs.append(v2)
-#                     sims.append(cosine_similarity(v1, v2))
-#                 except Exception as e:
-#                     logger.exception("Embedding error (HF) at row %d: %s", idx, e)
-#                     H = int(getattr(model.config, "hidden_size", 1280))
-#                     p1_vecs.append(np.full(H, np.nan, dtype=np.float32))
-#                     p2_vecs.append(np.full(H, np.nan, dtype=np.float32))
-#                     sims.append(float("nan"))
-
-#         else:  # MutaPLM path
-#             # prefer model.maybe_autocast() if your MutaPLM exposes it
-#             maybe_ctx = getattr(model, "maybe_autocast", None)
-#             ctx = (
-#                 maybe_ctx()
-#                 if callable(maybe_ctx)
-#                 else torch.autocast(
-#                     device_type="cuda",
-#                     enabled=(next(model.parameters()).device.type == "cuda"),
-#                 )
-#             )
-#             with ctx:
-#                 for i, (wt, mut) in enumerate(zip(s1_list, s2_list)):
-#                     idx = start + i
-#                     try:
-#                         v_wt, v_mut, cos = llm_context_cosine(model, wt, mut)
-#                         p1_vecs.append(v_wt.detach().cpu().numpy())
-#                         p2_vecs.append(v_mut.detach().cpu().numpy())
-#                         sims.append(float(cos))
-#                     except Exception as e:
-#                         logger.exception(
-#                             "Embedding error (MutaPLM) at row %d: %s", idx, e
-#                         )
-#                         H = int(
-#                             getattr(
-#                                 model, "llm_hidden", getattr(model, "hidden_size", 1024)
-#                             )
-#                         )
-#                         p1_vecs.append(np.full(H, np.nan, dtype=np.float32))
-#                         p2_vecs.append(np.full(H, np.nan, dtype=np.float32))
-#                         sims.append(float("nan"))
-
-#     out[f"{seq1_col}_embedding"] = p1_vecs
-#     out[f"{seq2_col}_embedding"] = p2_vecs
-#     out["cosine_similarity"] = sims
-
-#     logger.info(
-#         "Computed embeddings for %d pairs. Example sims: %s", len(out), sims[:5]
-#     )
-
-#     if output_fn:
-#         logger.info("Saving embeddings to %s", output_fn)
-#         out.to_csv(output_fn, index=False)
-#         logger.info("Saved.")
-
-#     return out
 
 
 @torch.no_grad()
