@@ -60,7 +60,12 @@ def cosine_similarity(
     return float(np.dot(a, b) / (norm_a * norm_b))
 
 
-def load_embeddings_pair(base_path: str | Path):
+def load_embeddings_pair(
+    base_path: str | Path,
+    *,
+    seq1_col: str = "protein1",
+    seq2_col: str = "protein2",
+):
     base_path = Path(base_path)
 
     # Read metadata
@@ -68,8 +73,8 @@ def load_embeddings_pair(base_path: str | Path):
 
     # Read embeddings
     npz = np.load(base_path.with_suffix(".npz"))
-    p1_vecs = npz["protein1"]
-    p2_vecs = npz["protein2"]
+    p1_vecs = npz[seq1_col]
+    p2_vecs = npz[seq2_col]
     cosine = npz["cosine"]
 
     # Recombine into a single DataFrame

@@ -1206,7 +1206,6 @@ def _embed_single_sequence(
             embedding = outputs.mean(dim=1)
 
         emb_np = embedding.squeeze(0).detach().cpu().to(torch.float32).numpy()
-        logger.debug("Embedded 1 seq -> shape %s", emb_np.shape)
         return emb_np
 
     except Exception as e:
