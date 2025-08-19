@@ -49,6 +49,18 @@ try:
 except ImportError:
     HAS_FAIR_ESM = False
 
+VALID_AAS = set("ACDEFGHIKLMNPQRSTVWY")
+
+
+def sanitize_sequence(seq: str) -> tuple[str, int]:
+    """
+    Replace invalid amino acids with 'X'. Return (sanitized_seq, n_replaced).
+    """
+    seq = seq.strip().upper()
+    replaced = sum(1 for aa in seq if aa not in VALID_AAS)
+    clean_seq = "".join([aa if aa in VALID_AAS else "X" for aa in seq])
+    return clean_seq, replaced
+
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -981,69 +993,6 @@ def embed_sequence_sliding(
     raise ValueError(f"Unknown agg '{agg}'")
 
 
-# @torch.no_grad()
-# def embed_sequence_sliding(
-#     tokenizer,
-#     model,
-#     seq: str,
-#     *,
-#     window_size: Optional[int] = None,
-#     overlap: int = 64,
-#     agg: str = "mean",  # "mean" only for now (matches your previous behavior)
-#     return_nan_on_error: bool = True,
-# ) -> np.ndarray:
-#     """
-#     Sliding-window wrapper around your _embed_single_sequence.
-#     Uses simple mean over window embeddings (standard practice for overlap smoothing).
-#     """
-#     max_len = int(getattr(model.config, "max_position_embeddings", 1026))
-#     if window_size is None:
-#         window_size = (
-#             max_len - 2
-#         )  # leave room for BOS/EOS inside _embed_single_sequence
-
-#     # fast path
-#     if len(seq) <= window_size:
-#         return _embed_single_sequence(
-#             tokenizer, model, seq, max_len, return_nan_on_error=return_nan_on_error
-#         )
-
-#     logger.warning(
-#         "Sequence length %d exceeds window_size %d; using sliding windows...",
-#         len(seq),
-#         window_size,
-#     )
-
-#     step = max(1, window_size - max(0, overlap))
-#     window_vecs: List[np.ndarray] = []
-
-#     start = 0
-#     while True:
-#         win = seq[start : start + window_size]
-#         if not win:
-#             break
-
-#         vec = _embed_single_sequence(
-#             tokenizer, model, win, max_len, return_nan_on_error=return_nan_on_error
-#         )
-#         window_vecs.append(vec)
-
-#         if start + window_size >= len(seq):
-#             break
-#         start += step
-
-#     if len(window_vecs) == 0:
-#         # fallback if something went wrong
-#         H = int(getattr(model.config, "hidden_size", 1280))
-#         return np.full(H, np.nan, dtype=np.float32)
-
-#     if agg == "mean":
-#         return np.mean(window_vecs, axis=0).astype(np.float32)
-
-#     # future: weighted/cls/max, etc.
-#     raise ValueError(f"Unknown agg '{agg}'")
-
-
 # ---------- unified DF pipeline for ESM1/ESM2 (sliding) and MutaPLM (pair-wise) ----------
 @torch.no_grad()
 def retrieve_pair_embeddings(
@@ -1206,6 +1155,10 @@ def retrieve_pair_embeddings(
         "Computed embeddings for %d pairs. Example sims: %s", len(out), sims[:5]
     )
 
+    # Count how many had sanitization
+    n_with_Xs = sum("X" in seq for seq in out[seq1_col]) + sum("X" in seq for seq in out[seq2_col])
+    logger.info("Sequences with invalid residues replaced by 'X': %d", n_with_Xs)
+
     if output_fn is not None:
         logger.info("Saving embeddings to %s", output_fn)
         output_fn = Path(output_fn)
@@ -1278,13 +1231,39 @@ def _embed_single_sequence(
             if not HAS_FAIR_ESM:
                 raise RuntimeError("FAIR esm not installed. `pip install fair-esm`")
 
-            # Sanitize sequence to valid amino acids
-            valid_aas = set("ACDEFGHIKLMNPQRSTVWY")
-            seq = "".join([aa if aa in valid_aas else "X" for aa in seq])
+            seq, n_replaced = sanitize_sequence(seq)
+            if n_replaced > 0:
+                logger.debug(
+                    "Sequence length %d → %d invalid AAs replaced with X",
+                    len(seq),
+                    n_replaced,
+                )
+                # Optionally: keep a global counter
+
+            max_len = getattr(model, "max_positions", 1022)
+            if len(seq) > max_len:
+                logger.warning("Truncating sequence from %d → %d aa", len(seq), max_len)
+                seq = seq[:max_len]
+
+            if len(seq.strip()) == 0:
+                return np.full(model.embed_dim, np.nan, dtype=np.float32)
+
+            # seq = sanitize_sequence(seq)
+            # max_len = getattr(model, "max_positions", 1022)
+            # if len(seq) > max_len:
+            #     logger.warning("Truncating sequence from %d → %d aa", len(seq), max_len)
+            #     seq = seq[:max_len]
+
+            # if len(seq.strip()) == 0:
+            #     return np.full(model.embed_dim, np.nan, dtype=np.float32)
 
             batch_converter = tokenizer_or_alphabet.get_batch_converter()
-            labels, strs, toks = batch_converter([("protein", seq)])
-            toks = toks.to(device)
+            _, _, toks = batch_converter([("protein", seq)])
+            toks = toks.to(device).contiguous()
+
+            # batch_converter = tokenizer_or_alphabet.get_batch_converter()
+            # labels, strs, toks = batch_converter([("protein", seq)])
+            # toks = toks.to(device)
 
             out = model(toks, repr_layers=[model.num_layers])
             rep = out["representations"][model.num_layers]
@@ -1303,78 +1282,3 @@ def _embed_single_sequence(
             )
             return np.full(H, np.nan, dtype=np.float32)
         raise
-
-
-# @torch.no_grad()
-# def _embed_single_sequence(
-#     tokenizer,
-#     model,
-#     seq: str,
-#     max_len: int,
-#     *,
-#     return_nan_on_error: bool = True,
-#     exclude_special: bool = True,  # new: exclude BOS/EOS from pooling
-# ):
-#     tokens = {}  # ensure defined for except logging
-#     try:
-#         # Leave room for BOS/EOS which most HF ESM tokenizers add by default
-#         max_input_length = max_len - 2
-#         if len(seq) > max_input_length:
-#             logger.warning(
-#                 "Truncating sequence from %d to %d", len(seq), max_input_length
-#             )
-#             seq = seq[:max_input_length]
-
-#         device = next(model.parameters()).device
-
-#         tokens = tokenizer(
-#             seq,
-#             return_tensors="pt",
-#             padding=False,
-#             truncation=True,
-#             max_length=max_len,
-#             return_attention_mask=True,
-#             return_special_tokens_mask=True,  # <- to drop special tokens from pooling
-#             add_special_tokens=True,
-#         )
-#         tokens = {k: v.to(device) for k, v in tokens.items()}
-
-#         # Mixed precision if on CUDA
-#         use_amp = device.type == "cuda"
-#         with torch.autocast(device_type="cuda", enabled=use_amp):
-#             outputs = model(
-#                 **{
-#                     k: v
-#                     for k, v in tokens.items()
-#                     if k in ("input_ids", "attention_mask", "token_type_ids")
-#                 }
-#             ).last_hidden_state  # [1, L, H]
-
-#         # Mean-pool over non-special, non-pad tokens
-#         if "attention_mask" in tokens:
-#             mask = tokens["attention_mask"]  # [1, L]
-#             if exclude_special and "special_tokens_mask" in tokens:
-#                 mask = mask * (1 - tokens["special_tokens_mask"])
-#             mask = mask.to(outputs.dtype)
-#             denom = mask.sum(dim=1, keepdim=True).clamp(min=1.0)
-#             embedding = (outputs * mask.unsqueeze(-1)).sum(dim=1) / denom
-#         else:
-#             embedding = outputs.mean(dim=1)
-
-#         emb_np = embedding.squeeze(0).detach().cpu().to(torch.float32).numpy()
-#         return emb_np
-
-#     except Exception as e:
-#         logger.error("Error embedding sequence (%d aa): %s", len(seq), e)
-#         try:
-#             if tokens:
-#                 ids = tokens.get("input_ids", None)
-#                 if ids is not None:
-#                     logger.debug("input_ids shape: %s", tuple(ids.shape))
-#         except Exception:
-#             pass
-
-#         if return_nan_on_error:
-#             H = int(getattr(model.config, "hidden_size", 1280))
-#             return np.full(H, np.nan, dtype=np.float32)
-#         raise
