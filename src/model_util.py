@@ -191,7 +191,14 @@ def load_model_factory(
     device = _device_or_default(None)
     logger.info("Using device: %s", device)
 
-    if model_type in (ModelType.ESMV1, ModelType.ESM2):
+    if model_type == ModelType.ESMV1:
+        from esm import pretrained
+        model, alphabet = pretrained.load_model_and_alphabet(str(model_type.path))
+        model = model.to(device).eval()
+        logger.info("Loaded FAIR ESMv1 model: %s", model_type.path)
+        return model, alphabet  # <- not a HF tokenizer!
+
+    if model_type == ModelType.ESM2):
         model_path = str(model_type.path)
         model = load_HF_model(model_path)
         tokenizer = load_HF_tokenizer(model_path)
