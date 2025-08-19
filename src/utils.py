@@ -3,8 +3,11 @@ from pathlib import Path
 import numpy as np
 from typing import Union
 import pandas as pd
-
+from sklearn.manifold import TSNE
+from umap import UMAP
 import logging
+
+logger = logging.getLogger(__name__)
 
 
 def setup_logging(log_file: Path, log_level: str = "INFO") -> logging.Logger:
@@ -86,3 +89,76 @@ def load_embeddings_pair(
 
     # Example usage
     # df = load_embeddings_pair("my_embeddings_file")
+
+
+def UMAP_reduce(embeddings: np.ndarray, random_state: int = 42) -> np.ndarray:
+    if np.isnan(embeddings).any():
+        raise ValueError("[UMAP_reduce] Input embeddings still contain NaN values.")
+    umap = UMAP(n_components=2, random_state=random_state)
+    umap_coords = umap.fit_transform(embeddings)
+    return umap_coords
+
+
+def tSNE_reduce(embeddings: np.ndarray, random_state: int = 42) -> np.ndarray:
+    if np.isnan(embeddings).any():
+        raise ValueError("[tSNE_reduce] Input embeddings still contain NaN values.")
+    tsne = TSNE(n_components=2, random_state=random_state)
+    tsne_coords = tsne.fit_transform(embeddings)
+    return tsne_coords
+
+
+import numpy as np
+import pandas as pd
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+def stack_embeddings(
+    df: pd.DataFrame,
+    *,
+    seq1_col: str = "protein1_embedding",
+    seq2_col: str = "protein2_embedding",
+    log_level: str = "INFO",
+) -> tuple[np.ndarray, int]:
+    """
+    Extract and stack embeddings from a dataframe (wild-type first, then mutant).
+    Removes rows with NaNs and logs how many were found/removed.
+
+    Returns
+    -------
+    all_embeddings : np.ndarray
+        Shape (2*n_clean, d). Wild-type stacked first, then mutant.
+    n : int
+        Number of clean wild-type embeddings (so mutant starts at n).
+    """
+    logger.setLevel(getattr(logging, log_level.upper(), logging.INFO))
+
+    protein1_embeddings = []
+    protein2_embeddings = []
+    dropped = 0
+
+    for _, row in df.iterrows():
+        try:
+            emb1 = np.array(row[seq1_col], dtype=np.float32)
+            emb2 = np.array(row[seq2_col], dtype=np.float32)
+
+            if np.isnan(emb1).any() or np.isnan(emb2).any():
+                dropped += 1
+                continue
+
+            protein1_embeddings.append(emb1)
+            protein2_embeddings.append(emb2)
+        except Exception as e:
+            logger.error(f"Embedding error: {e}")
+            dropped += 1
+
+    n = len(protein1_embeddings)
+    all_embeddings = np.vstack([protein1_embeddings, protein2_embeddings])
+
+    logger.info(
+        f"[stack_embeddings] Stacked {n} pairs of embeddings "
+        f"(dropped {dropped} rows). Final shape: {all_embeddings.shape}"
+    )
+
+    return all_embeddings, n
