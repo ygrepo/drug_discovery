@@ -1156,7 +1156,9 @@ def retrieve_pair_embeddings(
     )
 
     # Count how many had sanitization
-    n_with_Xs = sum("X" in seq for seq in out[seq1_col]) + sum("X" in seq for seq in out[seq2_col])
+    n_with_Xs = sum("X" in seq for seq in out[seq1_col]) + sum(
+        "X" in seq for seq in out[seq2_col]
+    )
     logger.info("Sequences with invalid residues replaced by 'X': %d", n_with_Xs)
 
     if output_fn is not None:
@@ -1231,44 +1233,65 @@ def _embed_single_sequence(
             if not HAS_FAIR_ESM:
                 raise RuntimeError("FAIR esm not installed. `pip install fair-esm`")
 
-            seq, n_replaced = sanitize_sequence(seq)
-            if n_replaced > 0:
+            # 1. Sanitize
+            seq = seq.strip().upper()
+            clean = []
+            replaced = 0
+            for aa in seq:
+                if aa in "ACDEFGHIKLMNPQRSTVWY":
+                    clean.append(aa)
+                else:
+                    clean.append("X")
+                    replaced += 1
+            seq = "".join(clean)
+            if replaced > 0:
                 logger.debug(
-                    "Sequence length %d → %d invalid AAs replaced with X",
+                    "Sequence len %d → %d residues replaced with 'X'",
                     len(seq),
-                    n_replaced,
+                    replaced,
                 )
-                # Optionally: keep a global counter
 
-            max_len = getattr(model, "max_positions", 1022)
-            if len(seq) > max_len:
-                logger.warning("Truncating sequence from %d → %d aa", len(seq), max_len)
-                seq = seq[:max_len]
+            # 2. Enforce max length
+            max_len_model = getattr(model, "max_positions", 1022)
+            if len(seq) > max_len_model:
+                logger.warning(
+                    "Truncating sequence from %d → %d aa (model limit)",
+                    len(seq),
+                    max_len_model,
+                )
+                seq = seq[:max_len_model]
 
-            if len(seq.strip()) == 0:
+            if len(seq) == 0:
                 return np.full(model.embed_dim, np.nan, dtype=np.float32)
 
-            # seq = sanitize_sequence(seq)
-            # max_len = getattr(model, "max_positions", 1022)
-            # if len(seq) > max_len:
-            #     logger.warning("Truncating sequence from %d → %d aa", len(seq), max_len)
-            #     seq = seq[:max_len]
-
-            # if len(seq.strip()) == 0:
-            #     return np.full(model.embed_dim, np.nan, dtype=np.float32)
-
+            # 3. Tokenize
             batch_converter = tokenizer_or_alphabet.get_batch_converter()
             _, _, toks = batch_converter([("protein", seq)])
+
+            # 4. Validate IDs *before* sending to CUDA
+            vocab_size = model.embed_tokens.num_embeddings
+            max_id = toks.max().item()
+            if max_id >= vocab_size:
+                bad_idx = (toks >= vocab_size).nonzero(as_tuple=True)[1].tolist()
+                bad_chars = [seq[i] for i in bad_idx if i < len(seq)]
+                logger.error(
+                    "Invalid token IDs for seq len %d (max id %d, vocab %d). "
+                    "Chars: %s",
+                    len(seq),
+                    max_id,
+                    vocab_size,
+                    bad_chars,
+                )
+                return np.full(model.embed_dim, np.nan, dtype=np.float32)
+
             toks = toks.to(device).contiguous()
 
-            # batch_converter = tokenizer_or_alphabet.get_batch_converter()
-            # labels, strs, toks = batch_converter([("protein", seq)])
-            # toks = toks.to(device)
-
+            # 5. Forward
             out = model(toks, repr_layers=[model.num_layers])
             rep = out["representations"][model.num_layers]
-            embedding = rep.mean(1)  # mean pool
+            embedding = rep.mean(1)
 
+        # 6. Convert to numpy
         emb_np = embedding.squeeze(0).detach().cpu().to(torch.float32).numpy()
         return emb_np
 
