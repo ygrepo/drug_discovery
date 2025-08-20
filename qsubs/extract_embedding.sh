@@ -29,6 +29,8 @@ ml proxies/1 || true
 
 export HF_HOME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.cache/huggingface"
 mkdir -p "$HF_HOME"
+export TORCH_HOME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.torch_hub"
+mkdir -p "$TORCH_HOME"
 
 # Must export for Python to see it
 #MODEL_TYPE="ESM2"
