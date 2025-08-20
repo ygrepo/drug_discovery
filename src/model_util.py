@@ -10,18 +10,14 @@ from torch.serialization import add_safe_globals
 import torch.nn.functional as F
 import yaml
 import re
-from transformers import AutoTokenizer, AutoModel
 from src.mutaplm import MutaPLM
 from enum import Enum
 from pathlib import Path
 from tqdm import tqdm
 import pandas as pd
-from enum import Enum
-from pathlib import Path
 from typing import Optional, Union, List, Literal
 import onnxruntime as ort
-from typing import Optional, List
-from tqdm.auto import tqdm
+import warnings
 
 MODEL_DIR = Path(__file__).parent.parent / "pretrained"
 
@@ -276,38 +272,16 @@ def load_model_factory(
     if model_type == ModelType.ESMV1:
         model_ref = model_type.path  # can be a hub name *or* a local .pt path
         model, alphabet, src = load_fair_esm_v1_cached(model_ref, device=device)
+        _attach_max_len(model, model_type)
         logger.info("Loaded FAIR ESMv1 model and Alphabet (%s)", src)
         return model, alphabet
-
-    # if model_type == ModelType.ESMV1:
-
-    #     hub_dir = (
-    #         os.environ.get("TORCH_HOME")
-    #         or "/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.torch_hub"
-    #     )
-    #     try:
-    #         torch.hub.set_dir(hub_dir)
-    #     except Exception:
-    #         pass
-
-    #     # # 2) optional offline path via env (skip hub entirely)
-    #     # ckpt = os.environ.get("ESMV1_CKPT", "").strip()
-    #     # if ckpt:
-    #     #     logger.info("Loading ESMv1 locally from %s", ckpt)
-    #     #     model, alphabet = pretrained.load_model_and_alphabet_local(ckpt)
-    #     # else:
-    #     logger.info("Loading ESMv1 from hub: %s", model_type.path)
-    #     model, alphabet = pretrained.load_model_and_alphabet(str(model_type.path))
-
-    #     model = model.to(device).eval()
-    #     logger.info("Loaded FAIR ESMv1 model and Alphabet")
-    #     return model, alphabet
 
     if model_type == ModelType.ESM2:
         # (unchanged HF path)
         model_path = str(model_type.path)
         model = load_HF_model(model_path).to(device).eval()
         tokenizer = load_HF_tokenizer(model_path)
+        _attach_max_len(model, model_type)
         logger.info("Loaded HF ESM2: %s", model_path)
         return model, tokenizer
 
@@ -315,6 +289,7 @@ def load_model_factory(
         model = create_mutaplm_model(config_path, device)
         model_path = model_type.path
         model = load_mutaplm_model(model, model_path)
+        _attach_max_len(model, model_type)
         logger.info("Loaded model: %s", model_path)
         return model, None
 
@@ -326,6 +301,7 @@ def load_model_factory(
         # 2) Load the matching parent PLM + tokenizer
         model = load_HF_model(parent_ref)
         tokenizer = load_HF_tokenizer(parent_ref)
+        _attach_max_len(model, model_type)
         logger.info("Loaded parent PLM (ESM2-%d layers): %s", layers, parent_ref)
 
         # 3) Sanity check: confirm actual num_hidden_layers matches requested
@@ -1031,6 +1007,63 @@ def embed_df(df: pd.DataFrame, model, tokenizer) -> pd.DataFrame:
 
 
 # ---------- single-sequence sliding window (reuses your _embed_single_sequence) ----------
+
+
+def _detect_max_len(model, model_type) -> int:
+    """
+    Return the maximum supported sequence length for this model.
+    The value is conservative (does not include BOS/EOS padding budget).
+    """
+    # Import lazily or use your existing ModelType
+    MT = (
+        ModelType if isinstance(model_type, ModelType) else ModelType
+    )  # no-op, just clarity
+
+    if model_type == MT.ESMV1:
+        # FAIR ESMv1 commonly 1022
+        return int(getattr(model, "max_positions", 1022))
+
+    if model_type in (MT.ESM2, MT.PROTEINCLIP):
+        # HF ESM2 exposes .config.max_position_embeddings (commonly 1024)
+        return int(
+            getattr(getattr(model, "config", None), "max_position_embeddings", 1024)
+        )
+
+    if model_type == MT.MUTAPLM:
+        # Prefer explicit attribute if your model defines it
+        if hasattr(model, "max_len"):
+            return int(model.max_len)
+        if hasattr(model, "sequence_length"):
+            return int(model.sequence_length)
+        # Last resort: conservative default; warn once
+        warnings.warn(
+            "[MutaPLM] max_len not found on model; defaulting to 1024. "
+            "Attach `model.max_len = <int>` after constructing your model to silence this.",
+            RuntimeWarning,
+        )
+        return 1024
+
+    raise ValueError(f"Unknown model type for max_len detection: {model_type}")
+
+
+def _attach_max_len(model, model_type) -> int:
+    """
+    Detect and attach `model.max_len` if missing. Return the value.
+    """
+    if hasattr(model, "max_len"):
+        try:
+            val = int(model.max_len)
+            return val
+        except Exception:
+            pass  # fall through to re-detect
+
+    val = _detect_max_len(model, model_type)
+    try:
+        setattr(model, "max_len", int(val))
+    except Exception:
+        # If model is a torchscript or restricts setattr, just ignore
+        pass
+    return int(val)
 
 
 @torch.no_grad()
