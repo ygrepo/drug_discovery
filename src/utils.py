@@ -5,8 +5,6 @@ from typing import Union, Dict, Tuple, Optional
 import pandas as pd
 from sklearn.manifold import TSNE
 from umap import UMAP
-from matplotlib.lines import Line2D
-from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
 import logging
