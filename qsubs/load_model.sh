@@ -30,13 +30,15 @@ ml proxies/1 || true
 
 export HF_HOME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.cache/huggingface"
 mkdir -p "$HF_HOME"
+export TORCH_HOME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.torch_hub"
+mkdir -p "$TORCH_HOME"
 
 LOG_DIR="logs"
 LOG_LEVEL="INFO"
 #MODEL_TYPE="ESM2"
-#MODEL_TYPE="ESMv1"
+MODEL_TYPE="ESMv1"
 #MODEL_TYPE="MUTAPLM"
-MODEL_TYPE="ProteinCLIP"
+#MODEL_TYPE="ProteinCLIP"
 
 
 # Parse command line arguments

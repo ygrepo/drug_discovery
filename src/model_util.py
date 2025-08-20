@@ -177,6 +177,8 @@ def _resolve_parent_esm2_path(layers: int) -> str:
 
 
 # Load Model Factory Function
+
+
 def load_model_factory(
     model_type: ModelType,
     *,
@@ -193,17 +195,34 @@ def load_model_factory(
 
     if model_type == ModelType.ESMV1:
 
+        hub_dir = (
+            os.environ.get("TORCH_HOME")
+            or "/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.torch_hub"
+        )
+        try:
+            torch.hub.set_dir(hub_dir)
+        except Exception:
+            pass
+
+        # # 2) optional offline path via env (skip hub entirely)
+        # ckpt = os.environ.get("ESMV1_CKPT", "").strip()
+        # if ckpt:
+        #     logger.info("Loading ESMv1 locally from %s", ckpt)
+        #     model, alphabet = pretrained.load_model_and_alphabet_local(ckpt)
+        # else:
+        logger.info("Loading ESMv1 from hub: %s", model_type.path)
         model, alphabet = pretrained.load_model_and_alphabet(str(model_type.path))
+
         model = model.to(device).eval()
-        logger.info("Loaded FAIR ESMv1 model: %s", model_type.path)
-        return model, alphabet  # <- not a HF tokenizer!
+        logger.info("Loaded FAIR ESMv1 model and Alphabet")
+        return model, alphabet
 
     if model_type == ModelType.ESM2:
+        # (unchanged HF path)
         model_path = str(model_type.path)
-        model = load_HF_model(model_path)
+        model = load_HF_model(model_path).to(device).eval()
         tokenizer = load_HF_tokenizer(model_path)
-        logger.info("Loaded tokenizer: %s", model_path)
-        logger.info("Loaded model: %s", model_path)
+        logger.info("Loaded HF ESM2: %s", model_path)
         return model, tokenizer
 
     if model_type == ModelType.MUTAPLM:
