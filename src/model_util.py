@@ -82,13 +82,23 @@ class ModelType(Enum):
             )
         )
         mapping = {
-            ModelType.ESMV1: base / "esm1v_t33_650M_UR90S_5",
+            # ESMv1: return hub alias (cleaner)
+            ModelType.ESMV1: "esm1v_t33_650M_UR90S_5",
+            # ESM2 can be an HF repo id or a local dir
             ModelType.ESM2: Path(
                 os.getenv("ESM2_PATH", str(base / "esm2_t33_650M_UR50D_safe"))
             ),
             ModelType.MUTAPLM: base / "mutaplm.pth",
             ModelType.PROTEINCLIP: base / "proteinclip",
         }
+        # mapping = {
+        #     ModelType.ESMV1: base / "esm1v_t33_650M_UR90S_5",
+        #     ModelType.ESM2: Path(
+        #         os.getenv("ESM2_PATH", str(base / "esm2_t33_650M_UR50D_safe"))
+        #     ),
+        #     ModelType.MUTAPLM: base / "mutaplm.pth",
+        #     ModelType.PROTEINCLIP: base / "proteinclip",
+        # }
         return mapping[self]
 
     def __str__(self) -> str:
@@ -176,9 +186,79 @@ def _resolve_parent_esm2_path(layers: int) -> str:
     return _ESM2_REPO[layers]
 
 
+def _ensure_torch_home() -> Path:
+    hub_dir = (
+        os.environ.get("TORCH_HOME")
+        or "/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.torch_hub"
+    )
+    hub_dir = Path(hub_dir)
+    (hub_dir / "checkpoints").mkdir(parents=True, exist_ok=True)
+    try:
+        torch.hub.set_dir(str(hub_dir))
+    except Exception:
+        pass
+    return hub_dir
+
+
+def _hub_name_from_ref(model_ref: str | Path) -> str:
+    """
+    Accepts either a hub alias (esm1v_t33_650M_UR90S_5) or a filesystem path.
+    - If it's a .pt path: return its basename without directory (used for cache file name).
+    - If it's a path-like string without .pt: use basename as the hub alias.
+    - Else, return the string as-is.
+    """
+    ref = str(model_ref)
+    if ref.endswith(".pt"):
+        return Path(ref).name.replace(".pt", "")
+    if os.path.sep in ref:
+        return Path(ref).name
+    return ref
+
+
+def load_fair_esm_v1_cached(model_ref: str | Path, *, device: torch.device):
+    """
+    ESMv1 loader with cache detection:
+    - If model_ref is a local .pt path -> load local.
+    - Else treat it as a hub alias and check $TORCH_HOME/checkpoints/<alias>.pt:
+        - If exists -> load local from cache.
+        - Else -> download from hub (to cache) and load.
+    Also handles corrupted cache files by removing and re-downloading once.
+    """
+    hub_dir = _ensure_torch_home()
+    ref = str(model_ref)
+    is_local = ref.endswith(".pt") and Path(ref).is_file()
+
+    if is_local:
+        # Local .pt explicitly provided
+        model, alphabet = pretrained.load_model_and_alphabet_local(ref)
+        model = model.to(device).eval()
+        return model, alphabet, f"local:{ref}"
+
+    # Hub path: resolve expected cache file
+    hub_name = _hub_name_from_ref(ref)  # e.g., "esm1v_t33_650M_UR90S_5"
+    cache_ckpt = hub_dir / "checkpoints" / f"{hub_name}.pt"
+
+    # 1) Try cached file if present
+    if cache_ckpt.is_file():
+        try:
+            model, alphabet = pretrained.load_model_and_alphabet_local(str(cache_ckpt))
+            model = model.to(device).eval()
+            return model, alphabet, f"cache:{cache_ckpt}"
+        except Exception as e:
+            # Corrupted/incompatible cache -> delete and re-download
+            try:
+                cache_ckpt.unlink(missing_ok=True)
+            except Exception:
+                pass  # best effort
+            # fall through to hub download
+
+    # 2) Download from hub (this writes into $TORCH_HOME/checkpoints/)
+    model, alphabet = pretrained.load_model_and_alphabet(hub_name)
+    model = model.to(device).eval()
+    return model, alphabet, f"hub:{hub_name}"
+
+
 # Load Model Factory Function
-
-
 def load_model_factory(
     model_type: ModelType,
     *,
@@ -194,28 +274,34 @@ def load_model_factory(
     logger.info("Using device: %s", device)
 
     if model_type == ModelType.ESMV1:
-
-        hub_dir = (
-            os.environ.get("TORCH_HOME")
-            or "/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.torch_hub"
-        )
-        try:
-            torch.hub.set_dir(hub_dir)
-        except Exception:
-            pass
-
-        # # 2) optional offline path via env (skip hub entirely)
-        # ckpt = os.environ.get("ESMV1_CKPT", "").strip()
-        # if ckpt:
-        #     logger.info("Loading ESMv1 locally from %s", ckpt)
-        #     model, alphabet = pretrained.load_model_and_alphabet_local(ckpt)
-        # else:
-        logger.info("Loading ESMv1 from hub: %s", model_type.path)
-        model, alphabet = pretrained.load_model_and_alphabet(str(model_type.path))
-
-        model = model.to(device).eval()
-        logger.info("Loaded FAIR ESMv1 model and Alphabet")
+        model_ref = model_type.path  # can be a hub name *or* a local .pt path
+        model, alphabet, src = load_fair_esm_v1_cached(model_ref, device=device)
+        logger.info("Loaded FAIR ESMv1 model and Alphabet (%s)", src)
         return model, alphabet
+
+    # if model_type == ModelType.ESMV1:
+
+    #     hub_dir = (
+    #         os.environ.get("TORCH_HOME")
+    #         or "/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.torch_hub"
+    #     )
+    #     try:
+    #         torch.hub.set_dir(hub_dir)
+    #     except Exception:
+    #         pass
+
+    #     # # 2) optional offline path via env (skip hub entirely)
+    #     # ckpt = os.environ.get("ESMV1_CKPT", "").strip()
+    #     # if ckpt:
+    #     #     logger.info("Loading ESMv1 locally from %s", ckpt)
+    #     #     model, alphabet = pretrained.load_model_and_alphabet_local(ckpt)
+    #     # else:
+    #     logger.info("Loading ESMv1 from hub: %s", model_type.path)
+    #     model, alphabet = pretrained.load_model_and_alphabet(str(model_type.path))
+
+    #     model = model.to(device).eval()
+    #     logger.info("Loaded FAIR ESMv1 model and Alphabet")
+    #     return model, alphabet
 
     if model_type == ModelType.ESM2:
         # (unchanged HF path)
