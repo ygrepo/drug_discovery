@@ -33,8 +33,8 @@ export TORCH_HOME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.torch_hub"
 mkdir -p "$TORCH_HOME"
 
 # Must export for Python to see it
-#MODEL_TYPE="ESM2"
-MODEL_TYPE="ESMv1"
+MODEL_TYPE="ESM2"
+#MODEL_TYPE="ESMv1"
 #MODEL_TYPE="MUTAPLM"
 #MODEL_TYPE="ProteinCLIP"
 
@@ -42,9 +42,8 @@ MODEL_TYPE="ESMv1"
 # Default configuration
 DATA_FN="mutadescribe_data/structural_split/train.csv"
 OUTPUT_DIR="output/data"
-#OUTPUT_FN="${OUTPUT_DIR}/esm1v_structural_split_train_with_embeddings.csv"
-OUTPUT_FN="${OUTPUT_DIR}/esmv1_structural_split_train_with_embeddings.csv"
-#OUTPUT_FN="${OUTPUT_DIR}/esm2_t33_650M_UR50D_structural_split_train_with_embeddings.csv"
+#OUTPUT_FN="${OUTPUT_DIR}/esmv1_structural_split_train_with_embeddings.csv"
+OUTPUT_FN="${OUTPUT_DIR}/esm2_t33_650M_UR50D_structural_split_train_with_embeddings.csv"
 #OUTPUT_FN="${OUTPUT_DIR}/mutaplm_structural_split_train_with_embeddings.csv"
 #OUTPUT_FN="${OUTPUT_DIR}/proteinclip_structural_split_train_with_embeddings.csv"
 N=2000
