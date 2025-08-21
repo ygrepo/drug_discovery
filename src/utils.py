@@ -37,7 +37,6 @@ def setup_logging(log_file: Path, log_level: str = "INFO") -> logging.Logger:
 def cosine_similarity(
     a: Union[np.ndarray, list[float]],
     b: Union[np.ndarray, list[float]],
-    eps: float = 1e-8,
 ) -> float:
     """
     Compute cosine similarity between two 1D vectors.
