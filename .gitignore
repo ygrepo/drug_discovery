@@ -14,6 +14,7 @@ Doc
 checkpoints/
 notebook/ckpts/
 pretrained/
+hf_models/
 
 # Virtual environments
 .venv
