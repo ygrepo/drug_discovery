@@ -89,14 +89,6 @@ class ModelType(Enum):
             ModelType.PROTEINCLIP: base / "proteinclip",
             ModelType.LLAMA: "meta-llama/Meta-Llama-3-8B-Instruct",
         }
-        # mapping = {
-        #     ModelType.ESMV1: base / "esm1v_t33_650M_UR90S_5",
-        #     ModelType.ESM2: Path(
-        #         os.getenv("ESM2_PATH", str(base / "esm2_t33_650M_UR50D_safe"))
-        #     ),
-        #     ModelType.MUTAPLM: base / "mutaplm.pth",
-        #     ModelType.PROTEINCLIP: base / "proteinclip",
-        # }
         return mapping[self]
 
     def __str__(self) -> str:
