@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from transformers import AutoTokenizer, AutoModel
+from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM
 
 import os
 import logging
@@ -68,6 +68,7 @@ class ModelType(Enum):
     ESM2 = "ESM2"
     MUTAPLM = "MUTAPLM"
     PROTEINCLIP = "ProteinCLIP"
+    LLAMA = "LLAMA"
 
     @property
     def path(self) -> Path:
@@ -86,6 +87,7 @@ class ModelType(Enum):
             ),
             ModelType.MUTAPLM: base / "mutaplm.pth",
             ModelType.PROTEINCLIP: base / "proteinclip",
+            ModelType.LLAMA: base / "meta-llama/Meta-Llama-3-8B-Instruct",
         }
         # mapping = {
         #     ModelType.ESMV1: base / "esm1v_t33_650M_UR90S_5",
@@ -160,12 +162,46 @@ def load_HF_model(model_name: str) -> AutoModel:
     return model
 
 
-def load_HF_tokenizer(model_name: str) -> AutoTokenizer:
+def load_HF_AutoModel(
+    model_name: str,
+) -> AutoModelForCausalLM:
+    """
+    Load an AutoModelForCausalLM model .
+    """
+    logger.info(f"HF_HOME: {os.environ['HF_HOME']}")
+    logger.info(f"Loading model: {model_name}")
+
+    HF_TOKEN_PATH = os.environ.get("HF_TOKEN_PATH")
+    if HF_TOKEN_PATH is not None:
+        with open(HF_TOKEN_PATH, "r") as f:
+            HF_TOKEN = f.read().strip()
+    else:
+        HF_TOKEN = None
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name,
+        token=HF_TOKEN,
+    ).eval()
+    device = _device_or_default(None)
+    model.to(device)
+    return model
+
+
+def load_HF_tokenizer(
+    model_name: str,
+    *,
+    HF_TOKEN: str,
+    CACHE_DIR: str,
+) -> AutoTokenizer:
     """Load ESM tokenizer."""
     logger.info(f"HF_HOME: {os.environ['HF_HOME']}")
     logger.info(f"Loading Tokenizer: {model_name}")
 
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    if HF_TOKEN is not None:
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_name, use_fast=True, token=HF_TOKEN, cache_dir=CACHE_DIR
+        )
+    else:
+        tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
     return tokenizer
 
 
@@ -292,6 +328,14 @@ def load_model_factory(
         _attach_max_len(model, model_type)
         logger.info("Loaded model: %s", model_path)
         return model, None
+
+    if model_type == ModelType.LLAMA:
+        model_path = model_type.path
+        model = load_HF_AutoModel(model_path)
+        tokenizer = load_HF_tokenizer(model_path)
+        _attach_max_len(model, model_type)
+        logger.info("Loaded model: %s", model_path)
+        return model, tokenizer
 
     if model_type == ModelType.PROTEINCLIP:
         # 1) Decide which ESM2 depth to use (default 33); allow override via env
