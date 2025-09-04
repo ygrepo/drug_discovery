@@ -87,7 +87,7 @@ class ModelType(Enum):
             ),
             ModelType.MUTAPLM: base / "mutaplm.pth",
             ModelType.PROTEINCLIP: base / "proteinclip",
-            ModelType.LLAMA: base / "meta-llama/Meta-Llama-3-8B-Instruct",
+            ModelType.LLAMA: "meta-llama/Meta-Llama-3-8B-Instruct",
         }
         # mapping = {
         #     ModelType.ESMV1: base / "esm1v_t33_650M_UR90S_5",
@@ -162,25 +162,35 @@ def load_HF_model(model_name: str) -> AutoModel:
     return model
 
 
-def load_HF_AutoModel(
-    model_name: str,
-) -> AutoModelForCausalLM:
+def load_HF_AutoModel(model_name: str) -> AutoModelForCausalLM:
     """
-    Load an AutoModelForCausalLM model .
+    Load an AutoModelForCausalLM model.
+    - If `model_name` is a local path that exists: load from disk.
+    - If it's a local path that does not exist: fallback to HF Hub.
+    - If it's a Hub repo ID: use local cache or download if not cached.
     """
-    logger.info(f"HF_HOME: {os.environ['HF_HOME']}")
+    logger.info(f"HF_HOME: {os.environ.get('HF_HOME')}")
     logger.info(f"Loading model: {model_name}")
 
+    # --- optional auth token
     HF_TOKEN_PATH = os.environ.get("HF_TOKEN_PATH")
-    if HF_TOKEN_PATH is not None:
+    HF_TOKEN = None
+    if HF_TOKEN_PATH is not None and os.path.exists(HF_TOKEN_PATH):
         with open(HF_TOKEN_PATH, "r") as f:
             HF_TOKEN = f.read().strip()
+
+    if os.path.isdir(model_name):
+        # Local path exists → use it
+        logger.info(f"Loading model from local path: {model_name}")
+        model = AutoModelForCausalLM.from_pretrained(model_name).eval()
     else:
-        HF_TOKEN = None
-    model = AutoModelForCausalLM.from_pretrained(
-        model_name,
-        token=HF_TOKEN,
-    ).eval()
+        # Treat as Hub repo (or fallback if local path is missing)
+        logger.info(f"Loading model from HF Hub or cache: {model_name}")
+        model = AutoModelForCausalLM.from_pretrained(
+            model_name,
+            token=HF_TOKEN,
+        ).eval()
+
     device = _device_or_default(None)
     model.to(device)
     return model
