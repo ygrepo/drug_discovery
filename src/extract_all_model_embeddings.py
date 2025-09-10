@@ -141,7 +141,7 @@ def main():
             df_out = df_out.merge(emb_df, on=["Target_ID"], how="left")
 
             logger.info(
-                f"Number of missing embeddings for {mt}: {df[df[f'{mt}_Embedding'].isnull()].shape}"
+                f"Number of missing embeddings for {mt}: {df_out[df_out[f'{mt}_Embedding'].isnull()].shape}"
             )
 
         save_csv_parquet_torch(df_out, Path(args.output_fn))
