@@ -122,6 +122,7 @@ def main():
         else:
             df = load_data(Path(args.data_fn), args.n, args.seed)
 
+        df_out = df.copy()
         for mt in PLM_MODEL:
             logger.info(f"Extracting embeddings for {mt}...")
             model, tokenizer = load_model_factory(mt, config_path=Path(args.config))
@@ -137,13 +138,13 @@ def main():
             )
             emb_df.drop(columns=["Target"], inplace=True)
             emb_df.rename({"Target_embedding": f"{mt}_Embedding"}, axis=1, inplace=True)
-            df = df.merge(emb_df, on=["Target_ID"], how="left")
+            df_out = df_out.merge(emb_df, on=["Target_ID"], how="left")
 
             logger.info(
                 f"Number of missing embeddings for {mt}: {df[df[f'{mt}_Embedding'].isnull()].shape}"
             )
 
-        save_csv_parquet_torch(df, Path(args.output_fn))
+        save_csv_parquet_torch(df_out, Path(args.output_fn))
 
     except Exception as e:
         logger.exception("Script failed", e)
