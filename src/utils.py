@@ -6,6 +6,7 @@ import pandas as pd
 from sklearn.manifold import TSNE
 from umap import UMAP
 from sklearn.preprocessing import StandardScaler
+import torch
 
 import logging
 
@@ -32,6 +33,34 @@ def setup_logging(log_file: Path, log_level: str = "INFO") -> logging.Logger:
     logger = logging.getLogger(__name__)
     logger.info(f"Logging to {log_file}")
     return logger
+
+
+def save_csv_parquet_torch(df: pd.DataFrame, fn: Path) -> None:
+    if fn.suffix == ".parquet":
+        logger.info(f"Saving to parquet: {fn}")
+        df.to_parquet(fn)
+        return
+    if fn.suffix == ".csv":
+        logger.info(f"Saving to csv: {fn}")
+        df.to_csv(fn, index=False)
+        return
+
+    if fn.suffix == ".pt":
+        logger.info(f"Saving to torch: {fn}")
+        torch.save(df, fn)
+        return
+
+    raise ValueError(f"Unsupported file format: {fn.suffix}")
+
+
+def read_csv_parquet_torch(fn: Path) -> pd.DataFrame:
+    if fn.suffix == ".parquet":
+        return pd.read_parquet(fn)
+    if fn.suffix == ".csv":
+        return pd.read_csv(fn)
+    if fn.suffix == ".pt":
+        return torch.load(fn)
+    raise ValueError(f"Unsupported file format: {fn.suffix}")
 
 
 def cosine_similarity(

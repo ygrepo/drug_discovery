@@ -2,9 +2,12 @@ import sys
 import os
 import logging
 from pathlib import Path
-import pandas as pd  # noqa: F401
+import pandas as pd
+from tqdm import tqdm
 import argparse
-import torch  # noqa: F401
+
+import torch
+import numpy as np
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -12,8 +15,8 @@ logger.setLevel(logging.INFO)
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-from src.model_util import retrieve_embeddings, ModelType, load_model_factory
-from src.utils import setup_logging
+from src.model_util import retrieve_pair_embeddings, ModelType, load_model_factory
+from src.utils import setup_logging, cosine_similarity
 
 
 def parse_args():
@@ -124,17 +127,13 @@ def main():
         logger.info("Model loaded successfully.")
 
         # Load data
-        if "bind" in args.data_fn:
-            df = load_binding_data(Path(args.data_fn), args.n, args.seed)
-        else:
-            df = load_data(Path(args.data_fn), args.n, args.seed)
+        df = load_data(Path(args.data_fn), args.n, args.seed)
 
         logger.info("Extracting embeddings...")
-        retrieve_embeddings(
-            model_type=mt,
-            model=model,
-            df=df,
-            seq_col="Target",
+        retrieve_pair_embeddings(
+            mt,
+            model,
+            df,
             tokenizer=tokenizer,
             output_fn=Path(args.output_fn),
         )

@@ -73,7 +73,7 @@ mkdir -p "$LOG_DIR"
 
 # Set up log file with timestamp
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-LOG_FILE="${LOG_DIR}/extract_embeddings_${TIMESTAMP}.log"
+LOG_FILE="${LOG_DIR}/extract_pair_embeddings_${TIMESTAMP}.log"
 
 echo "Starting training at $(date)" | tee -a "$LOG_FILE"
 echo "Logging to: $LOG_FILE" | tee -a "$LOG_FILE"
@@ -94,7 +94,7 @@ export CUDA_LAUNCH_BLOCKING=1
 PYTHON="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.conda/envs/drug_discovery_env/bin/python"
 
 $PYTHON \
-    "src/extract_embeddings.py" \
+    "src/extract_pair_embeddings.py" \
     --data_fn "$DATA_FN" \
     --output_fn "$OUTPUT_FN" \
     --model_type "$MODEL_TYPE" \

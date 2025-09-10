@@ -30,7 +30,7 @@ _ESM2_REPO = {
     36: "facebook/esm2_t36_3B_UR50D",
 }
 
-from src.utils import cosine_similarity
+from src.utils import cosine_similarity, save_csv_parquet_torch
 
 SYS_INFER = (
     "You are an expert at biology and life science. Now a user gives you several protein sequences "
@@ -1182,6 +1182,142 @@ def embed_sequence_sliding(
     if agg == "mean":
         return np.mean(window_vecs, axis=0).astype(np.float32)
     raise ValueError(f"Unknown agg '{agg}'")
+
+
+@torch.no_grad()
+def retrieve_embeddings(
+    model_type,  # ModelType
+    model,
+    df: pd.DataFrame,
+    *,
+    tokenizer=None,  # required for ESM1/ESM2/PROTEINCLIP
+    seq_col: str = "protein1",
+    # Sliding-window params for ESM1/ESM2/PROTEINCLIP:
+    window_size: Optional[int] = None,
+    overlap: int = 64,
+    agg: str = "mean",
+    # Row-batch size:
+    batch_size: int = 16,
+    output_fn: Optional[Path] = None,
+    # --- ProteinCLIP options ---
+    project_to_clip: bool = False,  # set True to project parent PLM vectors to CLIP space
+    clip_model=None,  # ONNX head (will default to model.proteinclip if None)
+) -> pd.DataFrame:
+    """
+    Adds columns: protein1_embedding, protein2_embedding, cosine_similarity.
+
+    Modes:
+      - ESM1/ESM2: embed via sliding windows (parent PLM space). If `project_to_clip=True`
+                   (or model_type==PROTEINCLIP), project with ProteinCLIP and compute cosine in CLIP space.
+      - PROTEINCLIP: same as ESM2 path but forces projection through ProteinCLIP.
+      - MUTAPLM: uses llm_context_cosine(model, wt, mut) per pair.
+
+    Notes:
+      - When projecting to CLIP, embeddings in the output are the 128-d CLIP vectors.
+      - If you want both spaces, run twice (once with projection, once without) and save in different columns.
+    """
+    out = df.copy()
+    del df
+    model.eval()
+
+    # figure out which path we're on
+    is_hf_parent = model_type.name in ("ESMV1", "ESM2", "PROTEINCLIP")
+    use_clip = project_to_clip or (model_type.name == "PROTEINCLIP")
+
+    if is_hf_parent and tokenizer is None:
+        raise ValueError(f"{model_type.name} mode requires a tokenizer.")
+
+    # resolve clip head if needed
+    if is_hf_parent and use_clip and clip_model is None:
+        clip_model = getattr(model, "proteinclip", None)
+        if clip_model is None:
+            raise ValueError(
+                "ProteinCLIP projection requested but no clip_model provided or attached at model.proteinclip."
+            )
+    # for NaN fallbacks
+    clip_out_dim = (
+        int(getattr(clip_model, "output_dim", 128))
+        if (is_hf_parent and use_clip)
+        else None
+    )
+    parent_hidden_size = (
+        int(getattr(getattr(model, "config", None), "hidden_size", 1280))
+        if is_hf_parent
+        else None
+    )
+
+    p_vecs: List[np.ndarray] = []
+    # batching over rows
+    for start in tqdm(range(0, len(out), batch_size), desc="Embedding pairs"):
+        batch_df = out.iloc[start : start + batch_size]
+        s_list = batch_df[seq_col].astype(str).tolist()
+
+        if is_hf_parent:
+            for i, s in enumerate(s_list):
+                idx = start + i
+                try:
+                    v = embed_sequence_sliding(
+                        tokenizer,
+                        model,
+                        s,
+                        window_size=window_size,
+                        overlap=overlap,
+                        agg=agg,
+                        return_nan_on_error=True,
+                    )
+
+                    # If ProteinCLIP projection requested, project both parent vectors
+                    if use_clip:
+                        # ONNX head does its own unit-norm by default (if your wrapper’s predict applies_norm=True)
+                        v = clip_model.predict(v)  # -> (128,)
+
+                    p_vecs.append(v)
+
+                except Exception as e:
+                    logger.exception(
+                        "Embedding error (HF%s) at row %d: %s",
+                        " + CLIP" if use_clip else "",
+                        idx,
+                        e,
+                    )
+                    if use_clip:
+                        H = clip_out_dim or 128
+                    else:
+                        H = parent_hidden_size or 1280
+                    p_vecs.append(np.full(H, np.nan, dtype=np.float32))
+
+        else:
+            # MutaPLM path (unchanged)
+            maybe_ctx = getattr(model, "maybe_autocast", None)
+            ctx = (
+                maybe_ctx()
+                if callable(maybe_ctx)
+                else torch.autocast(
+                    device_type="cuda",
+                    enabled=(next(model.parameters()).device.type == "cuda"),
+                )
+            )
+            with ctx:
+                for i, s in enumerate(s_list):
+                    idx = start + i
+                    try:
+                        v = llm_context_embed_abs(model, s)
+                        p_vecs.append(v.detach().cpu().numpy())
+                    except Exception as e:
+                        logger.exception(
+                            "Embedding error (MutaPLM) at row %d: %s", idx, e
+                        )
+                        H = int(
+                            getattr(
+                                model, "llm_hidden", getattr(model, "hidden_size", 1024)
+                            )
+                        )
+                        p_vecs.append(np.full(H, np.nan, dtype=np.float32))
+
+    out[f"{seq_col}_embedding"] = p_vecs
+    if output_fn is not None:
+        save_csv_parquet_torch(out, output_fn)
+    return out
 
 
 # ---------- unified DF pipeline for ESM1/ESM2 (sliding) and MutaPLM (pair-wise) ----------
