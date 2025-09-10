@@ -139,9 +139,11 @@ def main():
             emb_df.drop(columns=["Target"], inplace=True)
             emb_df.rename({"Target_embedding": f"{mt}_Embedding"}, axis=1, inplace=True)
             df = df.merge(emb_df, on=["Target_ID"], how="left")
+
             logger.info(
-                f"Number of missing embeddings for {mt}: {df[df[f'{mt}_Embedding']].isnull().sum()}"
+                f"Number of missing embeddings for {mt}: {df[df[f'{mt}_Embedding'].isnull()].shape}"
             )
+
         save_csv_parquet_torch(df, Path(args.output_fn))
 
     except Exception as e:
