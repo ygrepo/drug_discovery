@@ -197,10 +197,12 @@ def load_HF_tokenizer(
     """Load ESM tokenizer."""
 
     if HF_TOKEN is not None:
+        logger.info(f"Using HF_TOKEN: {HF_TOKEN}, CACHE_DIR: {CACHE_DIR}")
         tokenizer = AutoTokenizer.from_pretrained(
             model_name, use_fast=True, token=HF_TOKEN, cache_dir=CACHE_DIR
         )
     elif CACHE_DIR is not None:
+        logger.info(f"Using CACHE_DIR: {CACHE_DIR}")
         tokenizer = AutoTokenizer.from_pretrained(model_name, cache_dir=CACHE_DIR)
     else:
         tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
