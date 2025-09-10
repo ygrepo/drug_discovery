@@ -15,6 +15,9 @@ checkpoints/
 notebook/ckpts/
 pretrained/
 hf_models/
+bind_data/
+notebook/.ipynb_checkpoints/
+notebook/Load_Bind_Data.ipynb
 
 # Virtual environments
 .venv
