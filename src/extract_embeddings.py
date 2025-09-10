@@ -2,9 +2,9 @@ import sys
 import os
 import logging
 from pathlib import Path
-import pandas as pd  # noqa: F401
+import pandas as pd
 import argparse
-import torch  # noqa: F401
+import torch
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
