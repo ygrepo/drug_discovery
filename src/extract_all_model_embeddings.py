@@ -14,8 +14,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from src.model_util import (
     retrieve_embeddings,
-    ModelType,
-    MODEL_TYPE,
+    PLM_MODEL,
     load_model_factory,
 )
 from src.utils import setup_logging, save_csv_parquet_torch
@@ -123,7 +122,7 @@ def main():
         else:
             df = load_data(Path(args.data_fn), args.n, args.seed)
 
-        for mt in MODEL_TYPE:
+        for mt in PLM_MODEL:
             logger.info(f"Extracting embeddings for {mt}...")
             model, tokenizer = load_model_factory(mt, config_path=Path(args.config))
             logger.info("Model loaded successfully.")

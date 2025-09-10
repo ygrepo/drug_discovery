@@ -104,6 +104,7 @@ class ModelType(Enum):
         raise ValueError(f"Unknown model type: {s}")
 
 
+PLM_MODEL = [ModelType.ESMV1, ModelType.ESM2, ModelType.MUTAPLM, ModelType.PROTEINCLIP]
 MODEL_TYPE = list(ModelType)
 
 
@@ -205,6 +206,7 @@ def load_HF_tokenizer(
         logger.info(f"Using CACHE_DIR: {CACHE_DIR}")
         tokenizer = AutoTokenizer.from_pretrained(model_name, cache_dir=CACHE_DIR)
     else:
+        logger.info("Using HF_TOKEN: None, CACHE_DIR: None")
         tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
     return tokenizer
 
