@@ -191,17 +191,17 @@ def load_HF_AutoModel(model_name: str) -> AutoModelForCausalLM:
 def load_HF_tokenizer(
     model_name: str,
     *,
-    HF_TOKEN: str,
-    CACHE_DIR: str,
+    HF_TOKEN: str | None = None,
+    CACHE_DIR: str | None = None,
 ) -> AutoTokenizer:
     """Load ESM tokenizer."""
-    logger.info(f"HF_HOME: {os.environ['HF_HOME']}")
-    logger.info(f"Loading Tokenizer: {model_name}")
 
     if HF_TOKEN is not None:
         tokenizer = AutoTokenizer.from_pretrained(
             model_name, use_fast=True, token=HF_TOKEN, cache_dir=CACHE_DIR
         )
+    elif CACHE_DIR is not None:
+        tokenizer = AutoTokenizer.from_pretrained(model_name, cache_dir=CACHE_DIR)
     else:
         tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
     return tokenizer
@@ -318,7 +318,9 @@ def load_model_factory(
         # (unchanged HF path)
         model_path = str(model_type.path)
         model = load_HF_model(model_path).to(device).eval()
-        tokenizer = load_HF_tokenizer(model_path)
+        CACHE_DIR = os.environ.get("HF_CACHE_DIR")
+        logger.info(f"Loading Tokenizer from {CACHE_DIR}")
+        tokenizer = load_HF_tokenizer(model_path, HF_TOKEN=None, CACHE_DIR=CACHE_DIR)
         _attach_max_len(model, model_type)
         logger.info("Loaded HF ESM2: %s", model_path)
         return model, tokenizer
