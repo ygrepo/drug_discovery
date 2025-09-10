@@ -34,8 +34,8 @@ mkdir -p "$TORCH_HOME"
 
 # Must export for Python to see it
 #MODEL_TYPE="ESM2"
-MODEL_TYPE="ESMv1"
-#MODEL_TYPE="MUTAPLM"
+#MODEL_TYPE="ESMv1"
+MODEL_TYPE="MUTAPLM"
 #MODEL_TYPE="ProteinCLIP"
 
 
@@ -43,10 +43,9 @@ MODEL_TYPE="ESMv1"
 DATA_FN="bind_data/BindDB/BindDB.pt"
 OUTPUT_DIR="output/data"
 #OUTPUT_FN="${OUTPUT_DIR}/esmv1_structural_split_train_with_embeddings.csv"
-OUTPUT_FN="${OUTPUT_DIR}/esm1_bindDB_embeddings.pt"
+#OUTPUT_FN="${OUTPUT_DIR}/esm1_bindDB_embeddings.pt"
 #OUTPUT_FN="${OUTPUT_DIR}/esm2_t33_650M_UR50D_bindDB_embeddings.pt"
-#OUTPUT_FN="${OUTPUT_DIR}/mutaplm_structural_split_train_with_embeddings.csv"
-#OUTPUT_FN="${OUTPUT_DIR}/proteinclip_structural_split_train_with_embeddings.csv"
+OUTPUT_FN="${OUTPUT_DIR}/mutaplm_bindDB_embeddings.pt"
 N=2000
 LOG_DIR="logs"
 LOG_LEVEL="INFO"
