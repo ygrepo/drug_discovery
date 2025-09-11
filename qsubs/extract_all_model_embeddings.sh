@@ -36,7 +36,7 @@ mkdir -p "$TORCH_HOME"
 #DATA_FN="bind_data/BindDB/BindDB.pt"
 #DATA_FN="bind_data/Davis/Davis.pt"
 #DATA_FN="bind_data/Kiba/Kiba.pt"
-DATA_FN="../bind_data/BindingDB/BindingDB_All_07282025.tsv"
+DATA_FN="bind_data/BindingDB/BindingDB_All_07282025.tsv"
 
 OUTPUT_DIR="output/data"
 #OUTPUT_FN="${OUTPUT_DIR}/esmv1_structural_split_train_with_embeddings.csv"
