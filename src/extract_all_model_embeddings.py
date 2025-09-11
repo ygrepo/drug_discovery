@@ -208,17 +208,17 @@ def main():
                 output_fn=Path(args.output_fn),
             )
             emb_df.drop(columns=[target_col], inplace=True)
-            emb_df.rename({"Target_embedding": f"{mt}_Embedding"}, axis=1, inplace=True)
+            emb_df.rename({"Target_embedding": f"{mt}_embedding"}, axis=1, inplace=True)
             df_out = merge_embeddings(df_out, emb_df, target_col, target_id_col, mt)
 
             logger.info(
-                f"Number of missing embeddings for {mt}: {df_out[df_out[f'{mt}_Embedding'].isnull()].shape}"
+                f"Number of missing embeddings for {mt}: {df_out[df_out[f'{mt}_embedding'].isnull()].shape}"
             )
 
         save_csv_parquet_torch(df_out, Path(args.output_fn))
 
     except Exception as e:
-        logger.exception("Script failed", e)
+        logger.exception("Script failed: %s", e)
         sys.exit(1)
 
 
