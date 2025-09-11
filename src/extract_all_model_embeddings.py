@@ -137,13 +137,25 @@ def get_target_col(data_fn: Path) -> str:
         return BIND_COLS[1]
 
 
+def get_target_id_col(data_fn: Path) -> str:
+    """Get the target ID column name."""
+    if is_BindDB(data_fn):
+        return BINDDB_COLS[0]
+    else:
+        return BIND_COLS[0]
+
+
 def merge_embeddings(
-    df: pd.DataFrame, emb_df: pd.DataFrame, target_col: str, model_type: ModelType
+    df: pd.DataFrame,
+    emb_df: pd.DataFrame,
+    target_col: str,
+    target_id_col: str,
+    model_type: ModelType,
 ) -> pd.DataFrame:
     """Merge the embeddings into the original dataframe."""
     emb_df.rename({"Target": target_col}, axis=1, inplace=True)
     emb_df.rename({"Target_embedding": f"{model_type}_embedding"}, axis=1, inplace=True)
-    return df.merge(emb_df, on=["Target_ID"], how="left")
+    return df.merge(emb_df, on=[target_id_col], how="left")
 
 
 def main():
@@ -178,7 +190,9 @@ def main():
         else:
             df = load_data(Path(args.data_fn), args.n_samples, args.seed)
 
+        target_id_col = get_target_id_col(Path(args.data_fn))
         target_col = get_target_col(Path(args.data_fn))
+        logger.info(f"Target id col: {target_id_col}-target col: {target_col}")
         df_out = df.copy()
         for mt in PLM_MODEL:
             logger.info(f"Extracting embeddings for {mt}...")
@@ -195,7 +209,7 @@ def main():
             )
             emb_df.drop(columns=[target_col], inplace=True)
             emb_df.rename({"Target_embedding": f"{mt}_Embedding"}, axis=1, inplace=True)
-            df_out = merge_embeddings(df_out, emb_df, target_col, mt)
+            df_out = merge_embeddings(df_out, emb_df, target_col, target_id_col, mt)
 
             logger.info(
                 f"Number of missing embeddings for {mt}: {df_out[df_out[f'{mt}_Embedding'].isnull()].shape}"
