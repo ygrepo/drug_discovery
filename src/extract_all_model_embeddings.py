@@ -208,12 +208,11 @@ def main():
                 output_fn=Path(args.output_fn),
             )
             emb_df.drop(columns=[target_col], inplace=True)
-            emb_df.rename({"Target_embedding": f"{mt}_embedding"}, axis=1, inplace=True)
             df_out = merge_embeddings(df_out, emb_df, target_col, target_id_col, mt)
 
-            logger.info(
-                f"Number of missing embeddings for {mt}: {df_out[df_out[f'{mt}_embedding'].isnull()].shape}"
-            )
+            embedding_col = f"{mt}_embedding"
+            missing_count = df_out[df_out[embedding_col].isnull()].shape[0]
+            logger.info(f"Number of missing embeddings for {mt}: {missing_count}")
 
         save_csv_parquet_torch(df_out, Path(args.output_fn))
 
