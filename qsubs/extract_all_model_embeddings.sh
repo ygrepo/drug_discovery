@@ -8,7 +8,7 @@
 #BSUB -gpu "num=1"
 #BSUB -R h100nvl
 #BSUB -n 1
-#BSUB -R "rusage[mem=32G]"
+#BSUB -R "rusage[mem=64G]"
 #BSUB -W 2:00
 #BSUB -o logs/embeddings.%J.out
 #BSUB -e logs/embeddings.%J.err
@@ -35,7 +35,8 @@ mkdir -p "$TORCH_HOME"
 # Default configuration
 #DATA_FN="bind_data/BindDB/BindDB.pt"
 #DATA_FN="bind_data/Davis/Davis.pt"
-DATA_FN="bind_data/Kiba/Kiba.pt"
+#DATA_FN="bind_data/Kiba/Kiba.pt"
+DATA_FN="../bind_data/BindingDB/BindingDB_All_07282025.tsv"
 
 OUTPUT_DIR="output/data"
 #OUTPUT_FN="${OUTPUT_DIR}/esmv1_structural_split_train_with_embeddings.csv"
@@ -44,8 +45,10 @@ OUTPUT_DIR="output/data"
 #OUTPUT_FN="${OUTPUT_DIR}/mutaplm_bindDB_embeddings.pt"
 #OUTPUT_FN="${OUTPUT_DIR}/BindDB_embeddings.pt"
 #OUTPUT_FN="${OUTPUT_DIR}/Davis_embeddings.pt"
-OUTPUT_FN="${OUTPUT_DIR}/Kiba_embeddings.pt"
-N=0
+#OUTPUT_FN="${OUTPUT_DIR}/Kiba_embeddings.pt"
+OUTPUT_FN="${OUTPUT_DIR}/BindingDB_embeddings.pt"
+N_SAMPLES=0
+NROWS=10
 LOG_DIR="logs"
 LOG_LEVEL="INFO"
 SEED=42
@@ -82,7 +85,8 @@ echo "Starting with the following configuration:" | tee -a "$LOG_FILE"
 echo "  Data fn: ${DATA_FN}" | tee -a "$LOG_FILE"
 echo "  Random seed: ${SEED}" | tee -a "$LOG_FILE"
 echo "  Output fn: ${OUTPUT_FN}" | tee -a "$LOG_FILE"
-echo "  N: ${N}" | tee -a "$LOG_FILE"
+echo "  N_SAMPLES: ${N_SAMPLES}" | tee -a "$LOG_FILE"
+echo "  NROWS: ${NROWS}" | tee -a "$LOG_FILE"
 echo "  Log level: ${LOG_LEVEL}" | tee -a "$LOG_FILE"
 echo "  Log file: ${LOG_FILE}" | tee -a "$LOG_FILE"
 
@@ -97,7 +101,8 @@ $PYTHON \
     --log_fn "$LOG_FILE" \
     --log_level "$LOG_LEVEL" \
     --seed "$SEED" \
-    --n "$N" \
+    --n_samples "$N_SAMPLES" \
+    --nrows "$NROWS" \
     2>&1 | tee -a "$LOG_FILE"
 
 # Check the exit status of the Python script
