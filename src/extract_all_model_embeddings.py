@@ -194,7 +194,7 @@ def main():
         target_id_col = get_target_id_col(Path(args.data_fn))
         target_col = get_target_col(Path(args.data_fn))
         logger.info(f"Target id col: {target_id_col}-target col: {target_col}")
-        df_out = df.copy()
+        df_out = df[[target_id_col, target_col]].copy()
         for mt in PLM_MODEL:
             logger.info(f"Extracting embeddings for {mt}...")
             model, tokenizer = load_model_factory(mt, config_path=Path(args.config))
