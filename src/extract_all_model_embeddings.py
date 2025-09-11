@@ -209,9 +209,9 @@ def main():
                 output_fn=Path(args.output_fn),
             )
             emb_df.drop(columns=[target_col], inplace=True)
-            logger.info(f"Columns in emb_df before merge: {list(emb_df.columns)}")
+            logger.debug(f"Columns in emb_df before merge: {list(emb_df.columns)}")
             df_out = merge_embeddings(df_out, emb_df, target_col, target_id_col, mt)
-            logger.info(f"Columns in df_out after merge: {list(df_out.columns)}")
+            logger.debug(f"Columns in df_out after merge: {list(df_out.columns)}")
 
             embedding_col = f"{mt}_embedding"
             if embedding_col in df_out.columns:
