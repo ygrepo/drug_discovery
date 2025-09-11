@@ -8,7 +8,7 @@
 #BSUB -gpu "num=1"
 #BSUB -R h100nvl
 #BSUB -n 1
-#BSUB -R "rusage[mem=128G]"
+#BSUB -R "rusage[mem=512G]"
 #BSUB -W 2:00
 #BSUB -o logs/embeddings.%J.out
 #BSUB -e logs/embeddings.%J.err
