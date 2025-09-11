@@ -194,7 +194,7 @@ def main():
         target_id_col = get_target_id_col(Path(args.data_fn))
         target_col = get_target_col(Path(args.data_fn))
         logger.info(f"Target id col: {target_id_col}-target col: {target_col}")
-        df_out = df[[target_id_col, target_col]].copy()
+        # df_out = df[[target_id_col, target_col]].copy()
         for mt in PLM_MODEL:
             logger.info(f"Extracting embeddings for {mt}...")
             model, tokenizer = load_model_factory(mt, config_path=Path(args.config))
@@ -210,7 +210,8 @@ def main():
             )
             emb_df.drop(columns=[target_col], inplace=True)
             logger.debug(f"Columns in emb_df before merge: {list(emb_df.columns)}")
-            df_out = merge_embeddings(df_out, emb_df, target_col, target_id_col, mt)
+            df_out = merge_embeddings(df, emb_df, target_col, target_id_col, mt)
+            #          df_out = merge_embeddings(df_out, emb_df, target_col, target_id_col, mt)
             logger.debug(f"Columns in df_out after merge: {list(df_out.columns)}")
 
             embedding_col = f"{mt}_embedding"
@@ -223,7 +224,7 @@ def main():
                     f"Column {embedding_col} not found. Available: {available_cols}"
                 )
 
-        save_csv_parquet_torch(df_out, Path(args.output_fn))
+            save_csv_parquet_torch(df_out, Path(args.output_fn) / f"{mt}.pt")
 
     except Exception as e:
         logger.exception("Script failed: %s", e)
