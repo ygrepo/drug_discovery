@@ -153,8 +153,9 @@ def merge_embeddings(
     model_type: ModelType,
 ) -> pd.DataFrame:
     """Merge the embeddings into the original dataframe."""
-    emb_df.rename({"Target": target_col}, axis=1, inplace=True)
-    emb_df.rename({"Target_embedding": f"{model_type}_embedding"}, axis=1, inplace=True)
+    # The embedding column name is based on the target_col
+    embedding_col_name = f"{target_col}_embedding"
+    emb_df.rename({embedding_col_name: f"{model_type}_embedding"}, axis=1, inplace=True)
     return df.merge(emb_df, on=[target_id_col], how="left")
 
 
@@ -208,11 +209,19 @@ def main():
                 output_fn=Path(args.output_fn),
             )
             emb_df.drop(columns=[target_col], inplace=True)
+            logger.info(f"Columns in emb_df before merge: {list(emb_df.columns)}")
             df_out = merge_embeddings(df_out, emb_df, target_col, target_id_col, mt)
+            logger.info(f"Columns in df_out after merge: {list(df_out.columns)}")
 
             embedding_col = f"{mt}_embedding"
-            missing_count = df_out[df_out[embedding_col].isnull()].shape[0]
-            logger.info(f"Number of missing embeddings for {mt}: {missing_count}")
+            if embedding_col in df_out.columns:
+                missing_count = df_out[df_out[embedding_col].isnull()].shape[0]
+                logger.info(f"Missing embeddings for {mt}: {missing_count}")
+            else:
+                available_cols = list(df_out.columns)
+                logger.error(
+                    f"Column {embedding_col} not found. Available: {available_cols}"
+                )
 
         save_csv_parquet_torch(df_out, Path(args.output_fn))
 
