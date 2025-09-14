@@ -1,0 +1,331 @@
+# scripts/ML_benchmark.py
+import sys
+from pathlib import Path
+import argparse
+import os
+
+
+import pandas as pd
+import numpy as np
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.svm import SVR
+from sklearn.linear_model import LinearRegression
+from sklearn.neural_network import MLPRegressor
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+import sys
+from xgboost import XGBRegressor
+from sklearn.metrics import (
+    mean_squared_error,
+    mean_absolute_error,
+    r2_score,
+    median_absolute_error,
+    explained_variance_score,
+)
+import pickle
+
+from scipy.stats import pearsonr
+import logging
+
+logger = logging.getLogger(__name__)
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT))
+from src.model_util import (
+)
+from src.utils import setup_logging
+
+SEED = 42
+
+def load_data(data_dir: Path, log_level: str = "INFO") -> tuple[np.ndarray, 
+                                                                np.ndarray, 
+                                                                np.ndarray, 
+                                                                np.ndarray, 
+                                                                np.ndarray, 
+                                                                np.ndarray]:
+    logger.setLevel(getattr(logging, log_level.upper(), logging.INFO))
+    train_data = pd.read_parquet(data_dir/"train.parquet")
+    val_data = pd.read_parquet(data_dir/"val.parquet")
+    test_data = pd.read_parquet(data_dir/"test.parquet")
+    X_train = np.hstack(
+        (np.vstack(train_data["Drug_Features"]), 
+         np.vstack(train_data["Target_Features"]))
+    )
+    X_val = np.hstack(
+        (np.vstack(val_data["Drug_Features"]), 
+         np.vstack(val_data["Target_Features"]))
+    )
+    X_test = np.hstack(
+        (np.vstack(test_data["Drug_Features"]), 
+         np.vstack(test_data["Target_Features"]))
+    )
+    y_train, y_val, y_test = (
+        train_data["Affinity"],
+        val_data["Affinity"],
+        test_data["Affinity"],
+    )
+
+    logger.info(f"X_train: {X_train.shape}, X_val: {X_val.shape}, X_test: {X_test.shape}")
+
+# # Scale features for certain models
+# scaler = StandardScaler()
+# X_train_scaled = scaler.fit_transform(X_train)
+# X_val_scaled = scaler.transform(X_val)
+# X_test_scaled = scaler.transform(X_test)
+
+
+    return X_train, X_val, X_test, y_train, y_val, y_test
+
+
+# dataset = sys.argv[1]
+# splitmode = sys.argv[2]
+# train_data = pd.read_parquet(data_dir + "train.parquet")
+# val_data = pd.read_parquet(data_dir + "val.parquet")
+# test_data = pd.read_parquet(data_dir + "test.parquet")
+# result_csv = data_dir + "ML_metrics.csv"
+
+
+def calculate_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> tuple[float, float, float, float, float, float, float]:
+    """
+    Calculate regression metrics including RMSE, MAE, MSE, R2, Pearson correlation,
+    Median Absolute Error, and Explained Variance.
+    """
+    mse = mean_squared_error(y_true, y_pred)
+    rmse = np.sqrt(mse)
+    mae = mean_absolute_error(y_true, y_pred)
+    r2 = r2_score(y_true, y_pred)
+
+    # Calculate Pearson correlation coefficient (returns coefficient and p-value)
+    pearson_corr, _ = pearsonr(y_true, y_pred)
+
+    # Calculate Median Absolute Error
+    median_ae = median_absolute_error(y_true, y_pred)
+
+    # Calculate Explained Variance Score
+    explained_variance = explained_variance_score(y_true, y_pred)
+
+    return rmse, mae, mse, r2, pearson_corr, median_ae, explained_variance
+
+
+def evaluate_model(metrics_df: pd.DataFrame, 
+                   model_name: str, 
+                   model, 
+                   X_train: np.ndarray, 
+                   y_train: np.ndarray, 
+                   X_val: np.ndarray, 
+                   y_val: np.ndarray, 
+                   X_test: np.ndarray, 
+                   y_test: np.ndarray):
+    """
+    Train and evaluate a model, and save metrics to a global DataFrame.
+
+    Parameters:
+      - model_name: Name of the model.
+      - model: The regression model object with a .predict() method.
+      - X_train, y_train: Training features and labels.
+      - X_val, y_val: Validation features and labels.
+      - X_test, y_test: Test features and labels.
+      - data_dir: Directory to save the model file.
+    """
+
+    # Get predictions and calculate metrics for each split.
+    train_pred = model.predict(X_train)
+    train_metrics = calculate_metrics(y_train, train_pred)
+
+    val_pred = model.predict(X_val)
+    val_metrics = calculate_metrics(y_val, val_pred)
+
+    test_pred = model.predict(X_test)
+    test_metrics = calculate_metrics(y_test, test_pred)
+
+    # Prepare a list of datasets and corresponding metrics.
+    datasets = ["Training", "Validation", "Test"]
+    metrics = [train_metrics, val_metrics, test_metrics]
+    rows = []
+    for dataset, metric in zip(datasets, metrics):
+        rmse, mae, mse, r2, pearson_corr, median_ae, explained_variance = metric
+        rows.append(
+            {
+                "Model": model_name,
+                "Dataset": dataset,
+                "RMSE": rmse,
+                "MAE": mae,
+                "MSE": mse,
+                "R2": r2,
+                "Pearson": pearson_corr,
+                "Median_AE": median_ae,
+                "Explained_Variance": explained_variance,
+            }
+        )
+
+    # Update the global metrics DataFrame
+    metrics_df = pd.concat([metrics_df, pd.DataFrame(rows)], ignore_index=True)
+
+def save_model(model, model_name, model_dir: Path):
+    # Save the model to disk
+    model_filename = model_dir/f"{model_name.replace(' ', '_')}_model_regression.pkl"
+    pickle.dump(model, model_filename)
+    logger.info(f"{model_name} model saved to {model_filename}")
+
+
+def parse_args():
+    p = argparse.ArgumentParser(description="Create and load PLM model")
+    p.add_argument("--log_fn", type=str, default="")
+    p.add_argument("--log_level", type=str, default="INFO")
+    p.add_argument("--dataset", type=str, default="")
+    p.add_argument("--splitmode", type=str, default="")
+    p.add_argument("--model_dir", type=str, default="")
+    p.add_argument("--output_dir", type=str, default="")
+    p.add_argument("--data_dir", type=str, default="")
+    return p.parse_args()
+
+
+def main():
+
+    args = parse_args()
+    logger = setup_logging(Path(args.log_fn), args.log_level)
+    try:
+        # Log configuration
+        logger.info(f"Current working directory: {os.getcwd()}")
+        logger.info(f"Logging to: {args.log_fn}")
+        logger.info(f"Dataset: {args.dataset}")
+        logger.info(f"Split mode: {args.splitmode}")
+        logger.info(f"Data dir: {args.data_dir}")
+        data_dir = Path(args.data_dir)
+        data_dir =data_dir/{args.dataset}_{args.splitmode}
+        logger.info(f"Data dir: {data_dir}")
+
+        X_train, X_val, X_test, y_train, y_val, y_test = load_data(data_dir, args.log_level)
+
+
+        logger.info("Running models...")
+
+        logger.info("Random Forest")
+        # Random Forest
+        rf_model = RandomForestRegressor(n_estimators=100, random_state=SEED)
+        rf_model.fit(X_train, y_train)
+        metrics_df = pd.DataFrame(columns=[
+            'Model', 'Dataset', 'RMSE', 'MAE', 'MSE', 'R2', 'Pearson', 'Median_AE', 'Explained_Variance'
+        ])
+        evaluate_model(
+            metrics_df,
+            "Random Forest", 
+            rf_model, 
+            X_train, 
+            y_train, 
+            X_val, 
+            y_val, 
+            X_test, 
+            y_test
+        )
+        model_dir = Path(args.model_dir)
+        save_model(rf_model, "Random Forest", model_dir)
+
+        logger.info("SVR")
+        # SVR
+        svr_model = SVR(kernel="rbf")
+        svr_model.fit(X_train, y_train)
+        evaluate_model(
+            metrics_df,
+            "SVR", 
+            svr_model, 
+            X_train, 
+            y_train, 
+            X_val, 
+            y_val, 
+            X_test, 
+            y_test
+        )
+        save_model(svr_model, "SVR", model_dir)
+        
+        logger.info("GBM")
+        # GBM
+        gbm_model = GradientBoostingRegressor(
+            n_estimators=100, learning_rate=0.1, random_state=SEED
+        )
+        gbm_model.fit(X_train, y_train)
+        evaluate_model(
+            metrics_df,
+            "GBM", 
+            gbm_model, 
+            X_train, 
+            y_train, 
+            X_val, 
+            y_val, 
+            X_test, 
+            y_test
+        )
+        save_model(gbm_model, "GBM", model_dir)
+
+        logger.info("Linear Regression")
+        # Linear Regression
+        lin_reg_model = LinearRegression()
+        lin_reg_model.fit(X_train, y_train)
+        evaluate_model(
+            metrics_df,
+            "Linear Regression", 
+            lin_reg_model, 
+            X_train, 
+            y_train, 
+            X_val, 
+            y_val, 
+            X_test, 
+            y_test
+        )
+        save_model(lin_reg_model, "Linear Regression", model_dir)
+
+        logger.info("MLP")
+        # MLP
+        mlp_model = MLPRegressor(
+            hidden_layer_sizes=(512, 256), activation="relu", max_iter=200, random_state=SEED
+        )
+        mlp_model.fit(X_train, y_train)
+        evaluate_model(
+            metrics_df,
+            "MLP", 
+            mlp_model, 
+            X_train, 
+            y_train, 
+            X_val, 
+            y_val, 
+            X_test, 
+            y_test
+        )
+        save_model(mlp_model, "MLP", model_dir)
+
+        logger.info("XGBoost")
+        # XGBoost
+        xgb_model = XGBRegressor(random_state=SEED, eval_metric="rmse")
+        xgb_model.fit(X_train, y_train)
+        evaluate_model(
+            metrics_df,
+            "XGBoost", 
+            xgb_model, 
+            X_train, 
+            y_train, 
+            X_val, 
+            y_val, 
+            X_test, 
+            y_test
+        )
+        save_model(xgb_model, "XGBoost", model_dir)
+
+        logger.info("Done!")
+
+        output_dir = Path(args.output_dir)
+        result_csv = output_dir/"ML_metrics.csv"
+
+        logger.info("Saving metrics to", result_csv)
+        # Save metrics_df to CSV
+        metrics_df.to_csv(result_csv, index=False)
+        logger.info("Metrics saved!")
+
+    except Exception as e:
+        logger.exception("Script failed: %s", e)  # or this
+        sys.exit(1)
+
+
+
+if __name__ == "__main__":
+    main()
+
+
