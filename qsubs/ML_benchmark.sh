@@ -5,8 +5,8 @@
 #BSUB -P acc_DiseaseGeneCell   # allocation account
 #BSUB -q premium               # queue
 #BSUB -n 8                    # number of compute cores
-#BSUB -W 72:00                 # walltime in HH:MM
-#BSUB -R rusage[mem=8000]     # 8 GB of memory (8 GB per core)
+#BSUB -W 100:00                 # walltime in HH:MM
+#BSUB -R rusage[mem=16000]     # 16 GB of memory (8 GB per core)
 #BSUB -R span[hosts=1]         # all cores from the same node
 #BSUB -o logs/ML_bench.%J.out
 #BSUB -e logs/ML_bench.%J.err

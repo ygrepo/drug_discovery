@@ -162,9 +162,8 @@ def evaluate_model(
     return metrics_df
 
 
-def save_model(model, model_name, model_dir: Path):
+def save_model(model, model_name, model_filename: Path):
     # Save the model to disk
-    model_filename = model_dir / f"{model_name.replace(' ', '_')}_model_regression.pkl"
     with open(model_filename, "wb") as f:
         pickle.dump(model, f)
     logger.info(f"{model_name} model saved to {model_filename}")
@@ -299,12 +298,16 @@ def main():
             X_test,
             y_test,
         )
-        save_model(xgb_model, "XGBoost", model_dir)
+        model_filename = (
+            model_dir
+            / f"{model_name.replace(' ', '_')}_{args.dataset}_{args.splitmode}_model_regression.pkl"
+        )
+        save_model(xgb_model, "XGBoost", model_filename)
 
         logger.info("Done!")
 
         output_dir = Path(args.output_dir)
-        result_csv = output_dir / "ML_metrics.csv"
+        result_csv = output_dir / f"ML_metrics_{args.dataset}_{args.splitmode}.csv"
 
         logger.info(f"Saving metrics to {result_csv}")
         # Save metrics_df to CSV
