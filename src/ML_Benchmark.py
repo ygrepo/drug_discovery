@@ -36,7 +36,7 @@ SEED = 42
 
 
 def load_data(
-    data_dir: Path, log_level: str = "INFO"
+    data_dir: Path,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     train_data = pd.read_parquet(data_dir / "train.parquet")
     val_data = pd.read_parquet(data_dir / "val.parquet")
@@ -114,7 +114,7 @@ def evaluate_model(
     y_val: np.ndarray,
     X_test: np.ndarray,
     y_test: np.ndarray,
-):
+) -> pd.DataFrame:
     """
     Train and evaluate a model, and save metrics to a global DataFrame.
 
@@ -159,6 +159,7 @@ def evaluate_model(
 
     # Update the global metrics DataFrame
     metrics_df = pd.concat([metrics_df, pd.DataFrame(rows)], ignore_index=True)
+    return metrics_df
 
 
 def save_model(model, model_name, model_dir: Path):
@@ -185,7 +186,6 @@ def main():
 
     args = parse_args()
     setup_logging(Path(args.log_fn), args.log_level)
-    logger = get_logger("main")
 
     try:
         # Log configuration
@@ -198,9 +198,7 @@ def main():
         data_dir = data_dir / f"{args.dataset}_{args.splitmode}"
         logger.info(f"Data dir: {data_dir}")
 
-        X_train, X_val, X_test, y_train, y_val, y_test = load_data(
-            data_dir, args.log_level
-        )
+        X_train, X_val, X_test, y_train, y_val, y_test = load_data(data_dir)
 
         logger.info("Running models...")
 
@@ -221,7 +219,7 @@ def main():
                 "Explained_Variance",
             ]
         )
-        evaluate_model(
+        metrics_df = evaluate_model(
             metrics_df,
             "Random Forest",
             rf_model,
@@ -239,7 +237,7 @@ def main():
         # SVR
         svr_model = SVR(kernel="rbf")
         svr_model.fit(X_train, y_train)
-        evaluate_model(
+        metrics_df = evaluate_model(
             metrics_df, "SVR", svr_model, X_train, y_train, X_val, y_val, X_test, y_test
         )
         save_model(svr_model, "SVR", model_dir)
@@ -250,7 +248,7 @@ def main():
             n_estimators=100, learning_rate=0.1, random_state=SEED
         )
         gbm_model.fit(X_train, y_train)
-        evaluate_model(
+        metrics_df = evaluate_model(
             metrics_df, "GBM", gbm_model, X_train, y_train, X_val, y_val, X_test, y_test
         )
         save_model(gbm_model, "GBM", model_dir)
@@ -259,7 +257,7 @@ def main():
         # Linear Regression
         lin_reg_model = LinearRegression()
         lin_reg_model.fit(X_train, y_train)
-        evaluate_model(
+        metrics_df = evaluate_model(
             metrics_df,
             "Linear Regression",
             lin_reg_model,
@@ -281,7 +279,7 @@ def main():
             random_state=SEED,
         )
         mlp_model.fit(X_train, y_train)
-        evaluate_model(
+        metrics_df = evaluate_model(
             metrics_df, "MLP", mlp_model, X_train, y_train, X_val, y_val, X_test, y_test
         )
         save_model(mlp_model, "MLP", model_dir)
@@ -290,7 +288,7 @@ def main():
         # XGBoost
         xgb_model = XGBRegressor(random_state=SEED, eval_metric="rmse")
         xgb_model.fit(X_train, y_train)
-        evaluate_model(
+        metrics_df = evaluate_model(
             metrics_df,
             "XGBoost",
             xgb_model,

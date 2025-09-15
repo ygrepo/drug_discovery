@@ -9,39 +9,46 @@ from sklearn.preprocessing import StandardScaler
 import torch
 
 import logging
-from logging import getLogger
 
-logger = getLogger("drug_discovery")
+# ---- One base for everything ----
+BASE_LOGGER = "drugdiscovery"
+_BASE = logging.getLogger(BASE_LOGGER)  # the only logger we configure here
 
 
 def setup_logging(log_path: str | Path | None, level: str = "INFO") -> logging.Logger:
-    # If you might call this twice, guard it:
-    if getattr(logger, "_configured", False):
-        return logger
+    """Configure the base logger once (file + console)."""
+    if getattr(_BASE, "_configured", False):
+        return _BASE
 
-    logger.handlers.clear()
-    logger.setLevel(getattr(logging, level.upper(), logging.INFO))
+    _BASE.handlers.clear()
+    _BASE.setLevel(getattr(logging, level.upper(), logging.INFO))
+
     fmt = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
-    # File
+    # Optional file handler
     if log_path:
-        fh = logging.FileHandler(str(log_path))
+        fh = logging.FileHandler(str(log_path), encoding="utf-8")
         fh.setFormatter(fmt)
-        logger.addHandler(fh)
+        _BASE.addHandler(fh)
 
-    # Console (remove if you want file-only)
+    # Console handler
     sh = logging.StreamHandler(sys.stdout)
     sh.setFormatter(fmt)
-    logger.addHandler(sh)
+    _BASE.addHandler(sh)
 
-    logger.propagate = False
-    logger._configured = True
-    return logger
+    # Do not bubble to the *root* logger
+    _BASE.propagate = False
+    _BASE._configured = True
+    return _BASE
 
 
-def get_logger(name: str | None = None):
-    base = "mlbench"
-    return logging.getLogger(base if not name else f"{base}.{name}")
+def get_logger(name: str | None = None) -> logging.Logger:
+    """Get a child logger that inherits the base handlers."""
+    return logging.getLogger(BASE_LOGGER if not name else f"{BASE_LOGGER}.{name}")
+
+
+# Convenience logger for this module
+logger = get_logger(__name__)
 
 
 def save_csv_parquet_torch(df: pd.DataFrame, fn: Path) -> None:
@@ -111,7 +118,6 @@ def load_embeddings_pair(
     return_arrays: bool = False,
     log_level: str = "INFO",
 ):
-    logger.setLevel(getattr(logging, log_level.upper(), logging.INFO))
 
     base_path = Path(base_path)
 
@@ -170,7 +176,6 @@ def stack_embeddings(
     n : int
         Number of clean wild-type embeddings (so mutant starts at n).
     """
-    logger.setLevel(getattr(logging, log_level.upper(), logging.INFO))
 
     protein1_embeddings = []
     protein2_embeddings = []
