@@ -24,13 +24,13 @@ from sklearn.metrics import (
 import pickle
 
 from scipy.stats import pearsonr
-import logging
 
-logger = logging.getLogger(__name__)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
-from src.utils import setup_logging
+from src.utils import setup_logging, get_logger
+
+logger = get_logger(__name__)
 
 SEED = 42
 
@@ -38,7 +38,6 @@ SEED = 42
 def load_data(
     data_dir: Path, log_level: str = "INFO"
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    logger.setLevel(getattr(logging, log_level.upper(), logging.INFO))
     train_data = pd.read_parquet(data_dir / "train.parquet")
     val_data = pd.read_parquet(data_dir / "val.parquet")
     test_data = pd.read_parquet(data_dir / "test.parquet")
@@ -165,7 +164,8 @@ def evaluate_model(
 def save_model(model, model_name, model_dir: Path):
     # Save the model to disk
     model_filename = model_dir / f"{model_name.replace(' ', '_')}_model_regression.pkl"
-    pickle.dump(model, model_filename)
+    with open(model_filename, "wb") as f:
+        pickle.dump(model, f)
     logger.info(f"{model_name} model saved to {model_filename}")
 
 
@@ -184,7 +184,9 @@ def parse_args():
 def main():
 
     args = parse_args()
-    logger = setup_logging(Path(args.log_fn), args.log_level)
+    setup_logging(Path(args.log_fn), args.log_level)
+    logger = get_logger("main")
+
     try:
         # Log configuration
         logger.info(f"Current working directory: {os.getcwd()}")
@@ -306,7 +308,7 @@ def main():
         output_dir = Path(args.output_dir)
         result_csv = output_dir / "ML_metrics.csv"
 
-        logger.info("Saving metrics to", result_csv)
+        logger.info(f"Saving metrics to {result_csv}")
         # Save metrics_df to CSV
         metrics_df.to_csv(result_csv, index=False)
         logger.info("Metrics saved!")

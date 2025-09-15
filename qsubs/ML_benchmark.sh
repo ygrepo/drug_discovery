@@ -42,8 +42,8 @@ mkdir -p "$MODEL_DIR"
 OUTPUT_DIR="output/data"
 mkdir -p "$OUTPUT_DIR"
 
-DATASETS=( "BindDB" "Davis" )     
-SPLITMODES=( "random" "random" )  
+DATASETS=( "BindDB" "Davis" "Kiba" )     
+SPLITMODES=( "random" "cold_protein" )  
 
 echo "Starting batch at $(date)"
 echo "Base data dir: $BASE_DATA_DIR"
@@ -71,9 +71,8 @@ for dataset in "${DATASETS[@]}"; do
       --dataset "${dataset}" \
       --splitmode "${splitmode}" \
       --model_dir "${MODEL_DIR}" \
-      --output_dir "${OUTPUT_DIR}" \
-      2>&1 | tee -a "${log_file}"
-    exit_code=${PIPESTATUS[0]}
+      --output_dir "${OUTPUT_DIR}"
+    exit_code=$?
     set -e
 
     if [[ ${exit_code} -eq 0 ]]; then

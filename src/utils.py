@@ -9,30 +9,39 @@ from sklearn.preprocessing import StandardScaler
 import torch
 
 import logging
+from logging import getLogger
 
-logger = logging.getLogger(__name__)
+logger = getLogger("drug_discovery")
 
 
-def setup_logging(log_file: Path, log_level: str = "INFO") -> logging.Logger:
-    """Set up logging configuration.
+def setup_logging(log_path: str | Path | None, level: str = "INFO") -> logging.Logger:
+    # If you might call this twice, guard it:
+    if getattr(logger, "_configured", False):
+        return logger
 
-    Args:
-        log_file: Path to save log file
-        log_level: Logging level (e.g., 'INFO', 'DEBUG')
+    logger.handlers.clear()
+    logger.setLevel(getattr(logging, level.upper(), logging.INFO))
+    fmt = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
-    Returns:
-        Configured logger instance
-    """
-    # Configure logging
-    logging.basicConfig(
-        level=getattr(logging, log_level),
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[logging.FileHandler(log_file), logging.StreamHandler(sys.stdout)],
-    )
+    # File
+    if log_path:
+        fh = logging.FileHandler(str(log_path))
+        fh.setFormatter(fmt)
+        logger.addHandler(fh)
 
-    logger = logging.getLogger(__name__)
-    logger.info(f"Logging to {log_file}")
+    # Console (remove if you want file-only)
+    sh = logging.StreamHandler(sys.stdout)
+    sh.setFormatter(fmt)
+    logger.addHandler(sh)
+
+    logger.propagate = False
+    logger._configured = True
     return logger
+
+
+def get_logger(name: str | None = None):
+    base = "mlbench"
+    return logging.getLogger(base if not name else f"{base}.{name}")
 
 
 def save_csv_parquet_torch(df: pd.DataFrame, fn: Path) -> None:
