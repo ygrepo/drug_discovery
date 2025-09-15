@@ -29,55 +29,11 @@ from scipy.stats import pearsonr
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 from src.utils import setup_logging, get_logger
+from src.data_util import load_data, stack_dataset
 
 logger = get_logger(__name__)
 
 SEED = 42
-
-
-def load_data(
-    data_dir: Path,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    train_data = pd.read_parquet(data_dir / "train.parquet")
-    val_data = pd.read_parquet(data_dir / "val.parquet")
-    test_data = pd.read_parquet(data_dir / "test.parquet")
-    X_train = np.hstack(
-        (
-            np.vstack(train_data["Drug_Features"]),
-            np.vstack(train_data["Target_Features"]),
-        )
-    )
-    X_val = np.hstack(
-        (np.vstack(val_data["Drug_Features"]), np.vstack(val_data["Target_Features"]))
-    )
-    X_test = np.hstack(
-        (np.vstack(test_data["Drug_Features"]), np.vstack(test_data["Target_Features"]))
-    )
-    y_train, y_val, y_test = (
-        train_data["Affinity"],
-        val_data["Affinity"],
-        test_data["Affinity"],
-    )
-
-    logger.info(
-        f"X_train: {X_train.shape}, X_val: {X_val.shape}, X_test: {X_test.shape}"
-    )
-
-    # # Scale features for certain models
-    # scaler = StandardScaler()
-    # X_train_scaled = scaler.fit_transform(X_train)
-    # X_val_scaled = scaler.transform(X_val)
-    # X_test_scaled = scaler.transform(X_test)
-
-    return X_train, X_val, X_test, y_train, y_val, y_test
-
-
-# dataset = sys.argv[1]
-# splitmode = sys.argv[2]
-# train_data = pd.read_parquet(data_dir + "train.parquet")
-# val_data = pd.read_parquet(data_dir + "val.parquet")
-# test_data = pd.read_parquet(data_dir + "test.parquet")
-# result_csv = data_dir + "ML_metrics.csv"
 
 
 def calculate_metrics(
@@ -197,7 +153,10 @@ def main():
         data_dir = data_dir / f"{args.dataset}_{args.splitmode}"
         logger.info(f"Data dir: {data_dir}")
 
-        X_train, X_val, X_test, y_train, y_val, y_test = load_data(data_dir)
+        train_data, val_data, test_data = load_data(data_dir)
+        X_train, X_val, X_test, y_train, y_val, y_test = stack_dataset(
+            train_data, val_data, test_data
+        )
 
         logger.info("Running models...")
 
