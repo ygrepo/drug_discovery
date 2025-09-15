@@ -8,9 +8,8 @@
 #BSUB -W 72:00                 # walltime in HH:MM
 #BSUB -R rusage[mem=8000]     # 8 GB of memory (8 GB per core)
 #BSUB -R span[hosts=1]         # all cores from the same node
-#BSUB -o %J.stdout             # output log (%J : JobID)
-#BSUB -eo %J.stderr            # error log
-#BSUB -L /bin/bash             # Initialize the execution environment
+#BSUB -o logs/ML_bench.%J.out
+#BSUB -e logs/ML_bench.%J.err
 
 set -euo pipefail
 
@@ -43,8 +42,8 @@ mkdir -p "$MODEL_DIR"
 OUTPUT_DIR="output/data"
 mkdir -p "$OUTPUT_DIR"
 
-DATASETS=( "BindDB" "Davis" )     # <<< put your dataset names here
-SPLITMODES=( "random" "random" )    # <<< put your split modes her
+DATASETS=( "BindDB" "Davis" )     
+SPLITMODES=( "random" "random" )  
 
 echo "Starting batch at $(date)"
 echo "Base data dir: $BASE_DATA_DIR"

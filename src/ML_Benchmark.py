@@ -30,8 +30,6 @@ logger = logging.getLogger(__name__)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
-from src.model_util import (
-)
 from src.utils import setup_logging
 
 SEED = 42
