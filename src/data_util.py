@@ -1,5 +1,5 @@
 import sys
-from typing import Callable, Optional, Dict, List, Tuple
+from typing import Optional, Dict, List, Tuple
 from pathlib import Path
 
 import numpy as np
@@ -39,7 +39,7 @@ def stack_dataset(
     train_data: pd.DataFrame,
     val_data: pd.DataFrame,
     test_data: pd.DataFrame,
-):
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     X_train = np.hstack(
         (
             np.vstack(train_data["Drug_Features"]),
@@ -65,43 +65,25 @@ def stack_dataset(
 
 
 class DTIDataset(Dataset):
-    """
-    Efficient DTI dataset:
-      - Pre-stacks columns to NumPy arrays once (zero-copy to tensors in __getitem__)
-      - Returns keys compatible with your Lightning module: 'drug', 'protein', 'y'
-    """
-
     def __init__(
         self,
         df,
         drug_col: str = "Drug_Features",
         protein_col: str = "Target_Features",
         y_col: str = "Affinity",
-        transform: Optional[
-            Callable[[Dict[str, torch.Tensor]], Dict[str, torch.Tensor]]
-        ] = None,
+        scale: Optional[str] = None,  # None | "zscore" | "minmax"
         check_nan: bool = True,
     ):
-        self.transform = transform
+        self.scale = scale
 
-        # Extract & stack feature arrays once
-        try:
-            drug_list = df[drug_col].tolist()
-            prot_list = df[protein_col].tolist()
-        except KeyError as e:
-            raise KeyError(f"Missing expected column: {e}")
-
-        # Enforce array type/shape early
+        # Convert to stacked NumPy arrays
         self.drug = np.stack(
-            [np.asarray(x, dtype=np.float32) for x in drug_list], axis=0
+            [np.asarray(x, dtype=np.float32) for x in df[drug_col]], axis=0
         )
         self.prot = np.stack(
-            [np.asarray(x, dtype=np.float32) for x in prot_list], axis=0
+            [np.asarray(x, dtype=np.float32) for x in df[protein_col]], axis=0
         )
-
-        # Targets (ensure 2D: (N,1))
-        y_np = np.asarray(df[y_col].to_numpy(), dtype=np.float32).reshape(-1, 1)
-        self.y = y_np
+        self.y = np.asarray(df[y_col].to_numpy(), dtype=np.float32).reshape(-1, 1)
 
         if check_nan:
             for name, arr in [
@@ -110,34 +92,42 @@ class DTIDataset(Dataset):
                 ("y", self.y),
             ]:
                 if not np.isfinite(arr).all():
-                    bad = np.argwhere(~np.isfinite(arr))
-                    idx = bad[0, 0]
-                    raise ValueError(
-                        f"Non-finite values found in '{name}' (example index {idx})."
-                    )
+                    raise ValueError(f"NaN/Inf found in '{name}'")
 
-        # Cache shapes for quick introspection
-        self.N = self.drug.shape[0]
-        self.Dd = self.drug.shape[1]
+        # Save shapes
+        self.N, self.Dd = self.drug.shape
         self.Dp = self.prot.shape[1]
 
-    def __len__(self) -> int:
+        # Apply scaling if requested
+        self.y_mu, self.y_sigma = None, None
+        self.y_min, self.y_max = None, None
+
+        if self.scale == "zscore":
+            self.y_mu = self.y.mean()
+            self.y_sigma = self.y.std() + 1e-8
+            self.y = (self.y - self.y_mu) / self.y_sigma
+        elif self.scale == "minmax":
+            self.y_min = self.y.min()
+            self.y_max = self.y.max()
+            self.y = (self.y - self.y_min) / (self.y_max - self.y_min + 1e-8)
+
+    def __len__(self):
         return self.N
 
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
-        # Zero-copy: from_numpy creates a torch Tensor view on the underlying memory
-        drug = torch.from_numpy(self.drug[idx])  # (Dd,)
-        prot = torch.from_numpy(self.prot[idx])  # (Dp,)
-        y = torch.from_numpy(self.y[idx])  # (1,)
+        return {
+            "drug": torch.from_numpy(self.drug[idx]),
+            "protein": torch.from_numpy(self.prot[idx]),
+            "y": torch.from_numpy(self.y[idx]),
+        }
 
-        sample = {"drug": drug, "protein": prot, "y": y}
-
-        if self.transform is not None:
-            sample = self.transform(sample)
-        return sample
-
-    def __repr__(self) -> str:
-        return f"DTIDataset(N={self.N}, drug_dim={self.Dd}, protein_dim={self.Dp})"
+    # Inverse transform utility
+    def inverse_transform_y(self, y_scaled: np.ndarray) -> np.ndarray:
+        if self.scale == "zscore":
+            return y_scaled * self.y_sigma + self.y_mu
+        elif self.scale == "minmax":
+            return y_scaled * (self.y_max - self.y_min) + self.y_min
+        return y_scaled
 
 
 def dti_collate(batch: List[Dict[str, torch.Tensor]]) -> Dict[str, torch.Tensor]:
@@ -146,6 +136,70 @@ def dti_collate(batch: List[Dict[str, torch.Tensor]]) -> Dict[str, torch.Tensor]
         "protein": torch.stack([b["protein"] for b in batch], dim=0),
         "y": torch.stack([b["y"] for b in batch], dim=0),
     }
+
+
+def create_data_loader(
+    train_data: pd.DataFrame,
+    val_data: pd.DataFrame,
+    test_data: pd.DataFrame,
+    batch_size: int = 32,
+    num_workers: int = 0,
+    pin_memory: bool = True,
+    shuffle: bool = True,
+    check_nan: bool = True,
+    scale: Optional[str] = None,  # <-- "zscore", "minmax", or None
+) -> Tuple[DataLoader, DataLoader, DataLoader, DTIDataset]:
+    # Train dataset
+    train_dataset = DTIDataset(train_data, check_nan=check_nan, scale=scale)
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
+        collate_fn=dti_collate,
+    )
+
+    # Val/Test must use the SAME scaling params as train
+    val_dataset = DTIDataset(val_data, check_nan=check_nan, scale=None)
+    val_dataset.y_mu, val_dataset.y_sigma = train_dataset.y_mu, train_dataset.y_sigma
+    val_dataset.y_min, val_dataset.y_max = train_dataset.y_min, train_dataset.y_max
+    if scale == "zscore":
+        val_dataset.y = (val_dataset.y - val_dataset.y_mu) / val_dataset.y_sigma
+    elif scale == "minmax":
+        val_dataset.y = (val_dataset.y - val_dataset.y_min) / (
+            val_dataset.y_max - val_dataset.y_min + 1e-8
+        )
+
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
+        collate_fn=dti_collate,
+    )
+
+    test_dataset = DTIDataset(test_data, check_nan=check_nan, scale=None)
+    test_dataset.y_mu, test_dataset.y_sigma = train_dataset.y_mu, train_dataset.y_sigma
+    test_dataset.y_min, test_dataset.y_max = train_dataset.y_min, train_dataset.y_max
+    if scale == "zscore":
+        test_dataset.y = (test_dataset.y - test_dataset.y_mu) / test_dataset.y_sigma
+    elif scale == "minmax":
+        test_dataset.y = (test_dataset.y - test_dataset.y_min) / (
+            test_dataset.y_max - test_dataset.y_min + 1e-8
+        )
+
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
+        collate_fn=dti_collate,
+    )
+
+    return train_loader, val_loader, test_loader, train_dataset
 
 
 class ZScore:
