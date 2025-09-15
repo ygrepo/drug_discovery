@@ -34,27 +34,25 @@ from src.utils import setup_logging
 
 SEED = 42
 
-def load_data(data_dir: Path, log_level: str = "INFO") -> tuple[np.ndarray, 
-                                                                np.ndarray, 
-                                                                np.ndarray, 
-                                                                np.ndarray, 
-                                                                np.ndarray, 
-                                                                np.ndarray]:
+
+def load_data(
+    data_dir: Path, log_level: str = "INFO"
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     logger.setLevel(getattr(logging, log_level.upper(), logging.INFO))
-    train_data = pd.read_parquet(data_dir/"train.parquet")
-    val_data = pd.read_parquet(data_dir/"val.parquet")
-    test_data = pd.read_parquet(data_dir/"test.parquet")
+    train_data = pd.read_parquet(data_dir / "train.parquet")
+    val_data = pd.read_parquet(data_dir / "val.parquet")
+    test_data = pd.read_parquet(data_dir / "test.parquet")
     X_train = np.hstack(
-        (np.vstack(train_data["Drug_Features"]), 
-         np.vstack(train_data["Target_Features"]))
+        (
+            np.vstack(train_data["Drug_Features"]),
+            np.vstack(train_data["Target_Features"]),
+        )
     )
     X_val = np.hstack(
-        (np.vstack(val_data["Drug_Features"]), 
-         np.vstack(val_data["Target_Features"]))
+        (np.vstack(val_data["Drug_Features"]), np.vstack(val_data["Target_Features"]))
     )
     X_test = np.hstack(
-        (np.vstack(test_data["Drug_Features"]), 
-         np.vstack(test_data["Target_Features"]))
+        (np.vstack(test_data["Drug_Features"]), np.vstack(test_data["Target_Features"]))
     )
     y_train, y_val, y_test = (
         train_data["Affinity"],
@@ -62,14 +60,15 @@ def load_data(data_dir: Path, log_level: str = "INFO") -> tuple[np.ndarray,
         test_data["Affinity"],
     )
 
-    logger.info(f"X_train: {X_train.shape}, X_val: {X_val.shape}, X_test: {X_test.shape}")
+    logger.info(
+        f"X_train: {X_train.shape}, X_val: {X_val.shape}, X_test: {X_test.shape}"
+    )
 
-# # Scale features for certain models
-# scaler = StandardScaler()
-# X_train_scaled = scaler.fit_transform(X_train)
-# X_val_scaled = scaler.transform(X_val)
-# X_test_scaled = scaler.transform(X_test)
-
+    # # Scale features for certain models
+    # scaler = StandardScaler()
+    # X_train_scaled = scaler.fit_transform(X_train)
+    # X_val_scaled = scaler.transform(X_val)
+    # X_test_scaled = scaler.transform(X_test)
 
     return X_train, X_val, X_test, y_train, y_val, y_test
 
@@ -82,7 +81,9 @@ def load_data(data_dir: Path, log_level: str = "INFO") -> tuple[np.ndarray,
 # result_csv = data_dir + "ML_metrics.csv"
 
 
-def calculate_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> tuple[float, float, float, float, float, float, float]:
+def calculate_metrics(
+    y_true: np.ndarray, y_pred: np.ndarray
+) -> tuple[float, float, float, float, float, float, float]:
     """
     Calculate regression metrics including RMSE, MAE, MSE, R2, Pearson correlation,
     Median Absolute Error, and Explained Variance.
@@ -104,15 +105,17 @@ def calculate_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> tuple[float, fl
     return rmse, mae, mse, r2, pearson_corr, median_ae, explained_variance
 
 
-def evaluate_model(metrics_df: pd.DataFrame, 
-                   model_name: str, 
-                   model, 
-                   X_train: np.ndarray, 
-                   y_train: np.ndarray, 
-                   X_val: np.ndarray, 
-                   y_val: np.ndarray, 
-                   X_test: np.ndarray, 
-                   y_test: np.ndarray):
+def evaluate_model(
+    metrics_df: pd.DataFrame,
+    model_name: str,
+    model,
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    X_val: np.ndarray,
+    y_val: np.ndarray,
+    X_test: np.ndarray,
+    y_test: np.ndarray,
+):
     """
     Train and evaluate a model, and save metrics to a global DataFrame.
 
@@ -158,9 +161,10 @@ def evaluate_model(metrics_df: pd.DataFrame,
     # Update the global metrics DataFrame
     metrics_df = pd.concat([metrics_df, pd.DataFrame(rows)], ignore_index=True)
 
+
 def save_model(model, model_name, model_dir: Path):
     # Save the model to disk
-    model_filename = model_dir/f"{model_name.replace(' ', '_')}_model_regression.pkl"
+    model_filename = model_dir / f"{model_name.replace(' ', '_')}_model_regression.pkl"
     pickle.dump(model, model_filename)
     logger.info(f"{model_name} model saved to {model_filename}")
 
@@ -189,11 +193,12 @@ def main():
         logger.info(f"Split mode: {args.splitmode}")
         logger.info(f"Data dir: {args.data_dir}")
         data_dir = Path(args.data_dir)
-        data_dir =data_dir/{args.dataset}_{args.splitmode}
+        data_dir = data_dir / f"{args.dataset}_{args.splitmode}"
         logger.info(f"Data dir: {data_dir}")
 
-        X_train, X_val, X_test, y_train, y_val, y_test = load_data(data_dir, args.log_level)
-
+        X_train, X_val, X_test, y_train, y_val, y_test = load_data(
+            data_dir, args.log_level
+        )
 
         logger.info("Running models...")
 
@@ -201,19 +206,29 @@ def main():
         # Random Forest
         rf_model = RandomForestRegressor(n_estimators=100, random_state=SEED)
         rf_model.fit(X_train, y_train)
-        metrics_df = pd.DataFrame(columns=[
-            'Model', 'Dataset', 'RMSE', 'MAE', 'MSE', 'R2', 'Pearson', 'Median_AE', 'Explained_Variance'
-        ])
+        metrics_df = pd.DataFrame(
+            columns=[
+                "Model",
+                "Dataset",
+                "RMSE",
+                "MAE",
+                "MSE",
+                "R2",
+                "Pearson",
+                "Median_AE",
+                "Explained_Variance",
+            ]
+        )
         evaluate_model(
             metrics_df,
-            "Random Forest", 
-            rf_model, 
-            X_train, 
-            y_train, 
-            X_val, 
-            y_val, 
-            X_test, 
-            y_test
+            "Random Forest",
+            rf_model,
+            X_train,
+            y_train,
+            X_val,
+            y_val,
+            X_test,
+            y_test,
         )
         model_dir = Path(args.model_dir)
         save_model(rf_model, "Random Forest", model_dir)
@@ -223,18 +238,10 @@ def main():
         svr_model = SVR(kernel="rbf")
         svr_model.fit(X_train, y_train)
         evaluate_model(
-            metrics_df,
-            "SVR", 
-            svr_model, 
-            X_train, 
-            y_train, 
-            X_val, 
-            y_val, 
-            X_test, 
-            y_test
+            metrics_df, "SVR", svr_model, X_train, y_train, X_val, y_val, X_test, y_test
         )
         save_model(svr_model, "SVR", model_dir)
-        
+
         logger.info("GBM")
         # GBM
         gbm_model = GradientBoostingRegressor(
@@ -242,15 +249,7 @@ def main():
         )
         gbm_model.fit(X_train, y_train)
         evaluate_model(
-            metrics_df,
-            "GBM", 
-            gbm_model, 
-            X_train, 
-            y_train, 
-            X_val, 
-            y_val, 
-            X_test, 
-            y_test
+            metrics_df, "GBM", gbm_model, X_train, y_train, X_val, y_val, X_test, y_test
         )
         save_model(gbm_model, "GBM", model_dir)
 
@@ -260,33 +259,28 @@ def main():
         lin_reg_model.fit(X_train, y_train)
         evaluate_model(
             metrics_df,
-            "Linear Regression", 
-            lin_reg_model, 
-            X_train, 
-            y_train, 
-            X_val, 
-            y_val, 
-            X_test, 
-            y_test
+            "Linear Regression",
+            lin_reg_model,
+            X_train,
+            y_train,
+            X_val,
+            y_val,
+            X_test,
+            y_test,
         )
         save_model(lin_reg_model, "Linear Regression", model_dir)
 
         logger.info("MLP")
         # MLP
         mlp_model = MLPRegressor(
-            hidden_layer_sizes=(512, 256), activation="relu", max_iter=200, random_state=SEED
+            hidden_layer_sizes=(512, 256),
+            activation="relu",
+            max_iter=200,
+            random_state=SEED,
         )
         mlp_model.fit(X_train, y_train)
         evaluate_model(
-            metrics_df,
-            "MLP", 
-            mlp_model, 
-            X_train, 
-            y_train, 
-            X_val, 
-            y_val, 
-            X_test, 
-            y_test
+            metrics_df, "MLP", mlp_model, X_train, y_train, X_val, y_val, X_test, y_test
         )
         save_model(mlp_model, "MLP", model_dir)
 
@@ -296,21 +290,21 @@ def main():
         xgb_model.fit(X_train, y_train)
         evaluate_model(
             metrics_df,
-            "XGBoost", 
-            xgb_model, 
-            X_train, 
-            y_train, 
-            X_val, 
-            y_val, 
-            X_test, 
-            y_test
+            "XGBoost",
+            xgb_model,
+            X_train,
+            y_train,
+            X_val,
+            y_val,
+            X_test,
+            y_test,
         )
         save_model(xgb_model, "XGBoost", model_dir)
 
         logger.info("Done!")
 
         output_dir = Path(args.output_dir)
-        result_csv = output_dir/"ML_metrics.csv"
+        result_csv = output_dir / "ML_metrics.csv"
 
         logger.info("Saving metrics to", result_csv)
         # Save metrics_df to CSV
@@ -322,8 +316,5 @@ def main():
         sys.exit(1)
 
 
-
 if __name__ == "__main__":
     main()
-
-
