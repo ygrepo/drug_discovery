@@ -71,7 +71,7 @@ for dataset in "${DATASETS[@]}"; do
 
     # Per-combo log dir & file
     ts=$(date +"%Y%m%d_%H%M%S")
-    log_file=${LOG_DIR}/"${ts}_${combo}.log"
+    log_file=${LOG_DIR}/"${ts}_flow_matching_${combo}.log"
 
     echo "=== Running ${combo} ==="
     echo "  data_dir : ${combo_data_dir}"

@@ -39,7 +39,7 @@ BASE_DATA_DIR="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/wangcDrugRep
 PYTHON="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.conda/envs/drug_discovery_env/bin/python"
 MAIN="src/gnn_run.py"
 
-MODEL_DIR="output/models"
+MODEL_DIR="output/models/gnn"
 mkdir -p "$MODEL_DIR"
 OUTPUT_DIR="output/data"
 mkdir -p "$OUTPUT_DIR"
@@ -71,7 +71,7 @@ for dataset in "${DATASETS[@]}"; do
 
     # Per-combo log dir & file
     ts=$(date +"%Y%m%d_%H%M%S")
-    log_file=${LOG_DIR}/"${ts}_${combo}.log"
+    log_file=${LOG_DIR}/"${ts}_gnn_${combo}.log"
 
     echo "=== Running ${combo} ==="
     echo "  data_dir : ${combo_data_dir}"
