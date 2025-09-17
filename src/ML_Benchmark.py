@@ -131,6 +131,7 @@ def parse_args():
     p.add_argument("--log_level", type=str, default="INFO")
     p.add_argument("--dataset", type=str, default="")
     p.add_argument("--splitmode", type=str, default="")
+    p.add_argument("--embedding", type=str, default="")
     p.add_argument("--model_dir", type=str, default="")
     p.add_argument("--output_dir", type=str, default="")
     p.add_argument("--data_dir", type=str, default="")
@@ -148,9 +149,10 @@ def main():
         logger.info(f"Logging to: {args.log_fn}")
         logger.info(f"Dataset: {args.dataset}")
         logger.info(f"Split mode: {args.splitmode}")
+        logger.info(f"Embedding: {args.embedding}")
         logger.info(f"Data dir: {args.data_dir}")
         data_dir = Path(args.data_dir)
-        data_dir = data_dir / f"{args.dataset}_{args.splitmode}"
+        data_dir = data_dir / f"{args.embedding}_{args.dataset}_{args.splitmode}"
         logger.info(f"Data dir: {data_dir}")
 
         train_data, val_data, test_data = load_data(data_dir)
@@ -192,7 +194,7 @@ def main():
         model_dir = Path(args.model_dir)
         model_filename = (
             model_dir
-            / f"{model_name.replace(' ', '_')}_{args.dataset}_{args.splitmode}_model_regression.pkl"
+            / f"{model_name.replace(' ', '_')}_{args.embedding}_{args.dataset}_{args.splitmode}_model_regression.pkl"
         )
         save_model(rf_model, model_name, model_filename)
 
@@ -214,7 +216,7 @@ def main():
         )
         model_filename = (
             model_dir
-            / f"{model_name.replace(' ', '_')}_{args.dataset}_{args.splitmode}_model_regression.pkl"
+            / f"{model_name.replace(' ', '_')}_{args.embedding}_{args.dataset}_{args.splitmode}_model_regression.pkl"
         )
         save_model(svr_model, model_name, model_filename)
 
@@ -238,7 +240,7 @@ def main():
         )
         model_filename = (
             model_dir
-            / f"{model_name.replace(' ', '_')}_{args.dataset}_{args.splitmode}_model_regression.pkl"
+            / f"{model_name.replace(' ', '_')}_{args.embedding}_{args.dataset}_{args.splitmode}_model_regression.pkl"
         )
         save_model(gbm_model, model_name, model_filename)
 
@@ -260,7 +262,7 @@ def main():
         )
         model_filename = (
             model_dir
-            / f"{model_name.replace(' ', '_')}_{args.dataset}_{args.splitmode}_model_regression.pkl"
+            / f"{model_name.replace(' ', '_')}_{args.embedding}_{args.dataset}_{args.splitmode}_model_regression.pkl"
         )
         save_model(lin_reg_model, model_name, model_filename)
 
@@ -287,7 +289,7 @@ def main():
         )
         model_filename = (
             model_dir
-            / f"{model_name.replace(' ', '_')}_{args.dataset}_{args.splitmode}_model_regression.pkl"
+            / f"{model_name.replace(' ', '_')}_{args.embedding}_{args.dataset}_{args.splitmode}_model_regression.pkl"
         )
         save_model(mlp_model, model_name, model_filename)
 
@@ -309,7 +311,7 @@ def main():
         )
         model_filename = (
             model_dir
-            / f"{model_name.replace(' ', '_')}_{args.dataset}_{args.splitmode}_model_regression.pkl"
+            / f"{model_name.replace(' ', '_')}_{args.embedding}_{args.dataset}_{args.splitmode}_model_regression.pkl"
         )
         save_model(xgb_model, model_name, model_filename)
 
@@ -318,7 +320,8 @@ def main():
         output_dir = Path(args.output_dir)
         datestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         result_csv = (
-            output_dir / f"{datestamp}_ML_metrics_{args.dataset}_{args.splitmode}.csv"
+            output_dir
+            / f"{datestamp}_ML_metrics_{args.embedding}_{args.dataset}_{args.splitmode}.csv"
         )
 
         logger.info(f"Saving metrics to {result_csv}")

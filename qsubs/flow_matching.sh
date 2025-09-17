@@ -54,7 +54,7 @@ echo "Base data dir: $BASE_DATA_DIR"
 
 BATCH_SIZE=32
 NUM_WORKERS=20
-PIN_MEMORY=true
+PIN_MEMORY=false
 SHUFFLE=true
 CHECK_NAN=true
 #SCALE="zscore"

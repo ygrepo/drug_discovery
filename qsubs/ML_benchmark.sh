@@ -43,35 +43,38 @@ OUTPUT_DIR="output/data"
 mkdir -p "$OUTPUT_DIR"
 
 DATASETS=( "BindDB" "Davis" "Kiba" )     
-SPLITMODES=( "random" "cold_protein" )  
+SPLITMODES=( "random" "cold_protein" "cold_drug" )  
+EMBEDDINGS=( "ESMv1" "ESM2" "MUTAPLM" "ProteinCLIP" )
 
 echo "Starting batch at $(date)"
 echo "Base data dir: $BASE_DATA_DIR"
 
 for dataset in "${DATASETS[@]}"; do
   for splitmode in "${SPLITMODES[@]}"; do
-    # Per-combo variables
-    combo="${dataset}_${splitmode}"
-    combo_data_dir="${BASE_DATA_DIR}/${combo}/"
+    for embedding in "${EMBEDDINGS[@]}"; do
+      # Per-combo variables
+      combo="${embedding}_ ${dataset}_${splitmode}_"
+      combo_data_dir="${BASE_DATA_DIR}/${combo}/"
 
-    # Per-combo log dir & file
-    ts=$(date +"%Y%m%d_%H%M%S")
-    log_file=${LOG_DIR}/"${ts}_${combo}.log"
+      # Per-combo log dir & file
+      ts=$(date +"%Y%m%d_%H%M%S")
+      log_file=${LOG_DIR}/"${ts}_${combo}.log"
 
-    echo "=== Running ${combo} ==="
-    echo "  data_dir : ${combo_data_dir}"
-    echo "  log_file : ${log_file}"
+      echo "=== Running ${combo} ==="
+      echo "  data_dir : ${combo_data_dir}"
+      echo "  log_file : ${log_file}"
 
-    # Run once per combo
-    set +e
-    "${PYTHON}" "${MAIN}" \
-      --log_fn "${log_file}" \
-      --log_level "${LOG_LEVEL}" \
-      --data_dir "${BASE_DATA_DIR}" \
-      --dataset "${dataset}" \
-      --splitmode "${splitmode}" \
-      --model_dir "${MODEL_DIR}" \
-      --output_dir "${OUTPUT_DIR}"
+      # Run once per combo
+      set +e
+      "${PYTHON}" "${MAIN}" \
+        --log_fn "${log_file}" \
+        --log_level "${LOG_LEVEL}" \
+        --data_dir "${BASE_DATA_DIR}" \
+        --dataset "${dataset}" \
+        --splitmode "${splitmode}" \
+        --embedding "${embedding}" \
+        --model_dir "${MODEL_DIR}" \
+        --output_dir "${OUTPUT_DIR}"
     exit_code=$?
     set -e
 
