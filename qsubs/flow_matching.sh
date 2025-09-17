@@ -44,7 +44,7 @@ mkdir -p "$MODEL_DIR"
 OUTPUT_DIR="output/data"
 mkdir -p "$OUTPUT_DIR"
 
-ATASETS=( "BindDB" "Davis" "Kiba" )     
+DATASETS=( "BindDB" "Davis" "Kiba" )     
 SPLITMODES=( "random" "cold_protein" "cold_drug" )  
 EMBEDDINGS=( "ESMv1" "ESM2" "MUTAPLM" "ProteinCLIP" )
 
