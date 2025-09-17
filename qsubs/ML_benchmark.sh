@@ -33,7 +33,7 @@ LOG_DIR="logs"
 LOG_LEVEL="INFO"
 mkdir -p "$LOG_DIR"
 
-BASE_DATA_DIR="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/wangcDrugRepoProject/BindDBdata"
+BASE_DATA_DIR="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/wangcDrugRepoProject/BindDBdata/Embedding_Benchmark_Data"
 PYTHON="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.conda/envs/drug_discovery_env/bin/python"
 MAIN="src/ML_Benchmark.py"
 
