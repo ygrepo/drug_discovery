@@ -33,6 +33,7 @@ def parse_args():
     p.add_argument("--log_level", type=str, default="INFO")
     p.add_argument("--dataset", type=str, default="")
     p.add_argument("--splitmode", type=str, default="")
+    p.add_argument("--embedding", type=str, default="")
     p.add_argument("--model_dir", type=str, default="")
     p.add_argument("--batch_size", type=int, default=32)
     p.add_argument("--num_workers", type=int, default=20)
@@ -73,6 +74,9 @@ def main():
         logger.info(f"Split mode: {args.splitmode}")
         logger.info(f"Data dir: {args.data_dir}")
         data_dir = Path(args.data_dir)
+        data_dir = data_dir / f"{args.embedding}_{args.dataset}_{args.splitmode}"
+        logger.info(f"Data dir: {data_dir}")
+
         data_dir = data_dir / f"{args.dataset}_{args.splitmode}"
         logger.info(f"Data dir: {data_dir}")
         logger.info(f"Output dir: {args.output_dir}")

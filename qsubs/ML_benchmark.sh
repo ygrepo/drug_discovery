@@ -53,7 +53,7 @@ for dataset in "${DATASETS[@]}"; do
   for splitmode in "${SPLITMODES[@]}"; do
     for embedding in "${EMBEDDINGS[@]}"; do
       # Per-combo variables
-      combo="${embedding}_ ${dataset}_${splitmode}_"
+      combo="${embedding}_${dataset}_${splitmode}"
       combo_data_dir="${BASE_DATA_DIR}/${combo}/"
 
       # Per-combo log dir & file

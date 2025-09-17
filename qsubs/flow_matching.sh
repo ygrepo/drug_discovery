@@ -35,7 +35,7 @@ LOG_DIR="logs"
 LOG_LEVEL="INFO"
 mkdir -p "$LOG_DIR"
 
-BASE_DATA_DIR="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/wangcDrugRepoProject/BindDBdata"
+BASE_DATA_DIR="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/wangcDrugRepoProject/BindDBdata/Embedding_Benchmark_Data"
 PYTHON="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.conda/envs/drug_discovery_env/bin/python"
 MAIN="src/flow_matching_run.py"
 
@@ -44,10 +44,9 @@ mkdir -p "$MODEL_DIR"
 OUTPUT_DIR="output/data"
 mkdir -p "$OUTPUT_DIR"
 
-DATASETS=( "BindDB" )     
-SPLITMODES=( "cold_protein" )  
-# DATASETS=( "BindDB" "Davis" "Kiba" )     
-# SPLITMODES=( "random" "cold_protein" )  
+ATASETS=( "BindDB" "Davis" "Kiba" )     
+SPLITMODES=( "random" "cold_protein" "cold_drug" )  
+EMBEDDINGS=( "ESMv1" "ESM2" "MUTAPLM" "ProteinCLIP" )
 
 echo "Starting batch at $(date)"
 echo "Base data dir: $BASE_DATA_DIR"
@@ -65,8 +64,9 @@ mkdir -p "$CHECKPOINTS_DIR"
 
 for dataset in "${DATASETS[@]}"; do
   for splitmode in "${SPLITMODES[@]}"; do
+    for embedding in "${EMBEDDINGS[@]}"; do  
     # Per-combo variables
-    combo="${dataset}_${splitmode}"
+    combo="${embedding}_${dataset}_${splitmode}"
     combo_data_dir="${BASE_DATA_DIR}/${combo}/"
 
     # Per-combo log dir & file
@@ -85,6 +85,7 @@ for dataset in "${DATASETS[@]}"; do
       --data_dir "${BASE_DATA_DIR}" \
       --dataset "${dataset}" \
       --splitmode "${splitmode}" \
+      --embedding "${embedding}" \
       --model_dir "${MODEL_DIR}" \
       --output_dir "${OUTPUT_DIR}" \
       --max_epochs "${MAX_EPOCHS}" \
@@ -107,6 +108,7 @@ for dataset in "${DATASETS[@]}"; do
     fi
 
     echo
+    done
   done
 done
 
