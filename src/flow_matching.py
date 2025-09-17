@@ -133,30 +133,32 @@ class DrugProteinFlowMatchingPL(pl.LightningModule):
         # -------- Metrics (epoch-level only) --------
         # Train
         self.train_mae = MeanAbsoluteError()
-        self.train_r2 = R2Score(num_outputs=1, multioutput="uniform_average")
-        self.train_pearson = PearsonCorrCoef(num_outputs=1)
-        self.train_ev = ExplainedVariance(num_outputs=1, multioutput="uniform_average")
+        self.train_r2 = R2Score(multioutput="uniform_average")
+        self.train_pearson = PearsonCorrCoef()
+        self.train_ev = ExplainedVariance(multioutput="uniform_average")
         # Val
         self.val_mae = MeanAbsoluteError()
-        self.val_r2 = R2Score(num_outputs=1, multioutput="uniform_average")
-        self.val_pearson = PearsonCorrCoef(num_outputs=1)
-        self.val_ev = ExplainedVariance(num_outputs=1, multioutput="uniform_average")
+        self.val_r2 = R2Score(multioutput="uniform_average")
+        self.val_pearson = PearsonCorrCoef()
+        self.val_ev = ExplainedVariance(multioutput="uniform_average")
         # Test
         self.test_mae = MeanAbsoluteError()
-        self.test_r2 = R2Score(num_outputs=1, multioutput="uniform_average")
-        self.test_pearson = PearsonCorrCoef(num_outputs=1)
-        self.test_ev = ExplainedVariance(num_outputs=1, multioutput="uniform_average")
+        self.test_r2 = R2Score(multioutput="uniform_average")
+        self.test_pearson = PearsonCorrCoef()
+        self.test_ev = ExplainedVariance(multioutput="uniform_average")
 
         # ===== eval-only metrics on prediction mean vs y_true =====
         self.val_mae_y = MeanAbsoluteError()
-        self.val_r2_y = R2Score(num_outputs=1, multioutput="uniform_average")
-        self.val_pearson_y = PearsonCorrCoef(num_outputs=1)
-        self.val_ev_y = ExplainedVariance(num_outputs=1, multioutput="uniform_average")
+        self.val_r2_y = R2Score(multioutput="uniform_average")
+        self.val_pearson_y = PearsonCorrCoef()
+        self.val_ev_y = ExplainedVariance(multioutput="uniform_average")
 
         self.test_mae_y = MeanAbsoluteError()
-        self.test_r2_y = R2Score(num_outputs=1, multioutput="uniform_average")
-        self.test_pearson_y = PearsonCorrCoef(num_outputs=1)
-        self.test_ev_y = ExplainedVariance(num_outputs=1, multioutput="uniform_average")
+        self.test_r2_y = R2Score(multioutput="uniform_average")
+        self.test_pearson_y = PearsonCorrCoef()
+        self.test_ev_y = ExplainedVariance(multioutput="uniform_average")
+
+        self.enable_sampled_eval = enable_sampled_eval
 
     # -------- Training / Val / Test --------
     def training_step(self, batch: Dict[str, torch.Tensor], batch_idx: int):
