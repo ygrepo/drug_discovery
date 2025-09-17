@@ -239,7 +239,7 @@ def main():
             pi_alpha=args.pi_alpha,  # 95% PI
         )
         pl_model.model.apply(init_weights)
-        model_name = "Flow Matching"
+        model_name = "FlowMatching"
         checkpoint_dir = Path(args.checkpoints_dir) / model_name
         checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
@@ -255,14 +255,14 @@ def main():
             EarlyStopping(monitor="val_loss", mode="min", patience=args.patience),
             LearningRateMonitor(logging_interval="epoch"),
         ]
-        CSVLogger = CSVLogger(save_dir=Path(args.model_log_dir), name="flow_matching")
+        csv_logger = CSVLogger(save_dir=Path(args.model_log_dir), name=model_name)
 
         trainer = pl.Trainer(
             accelerator=args.accelerator,
             devices=args.devices,
             max_epochs=args.max_epochs,
             callbacks=callbacks,
-            logger=CSVLogger,
+            logger=csv_logger,
             log_every_n_steps=10,
         )
         logger.info("Training...")
