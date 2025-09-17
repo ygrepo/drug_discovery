@@ -59,7 +59,7 @@ SHUFFLE=true
 CHECK_NAN=true
 #SCALE="zscore"
 DEVICE="cuda"
-MAX_EPOCHS=2
+MAX_EPOCHS=100
 CHECKPOINTS_DIR="output/checkpoints/flow_matching"
 mkdir -p "$CHECKPOINTS_DIR"
 
