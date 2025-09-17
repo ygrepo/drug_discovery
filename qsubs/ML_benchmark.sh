@@ -87,6 +87,7 @@ for dataset in "${DATASETS[@]}"; do
     fi
 
     echo
+    done
   done
 done
 
