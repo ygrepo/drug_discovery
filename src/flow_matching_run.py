@@ -159,7 +159,7 @@ def parse_args():
     p.add_argument("--patience", type=int, default=10)
     p.add_argument("--accelerator", type=str, default="gpu")
     p.add_argument("--devices", type=int, default=1)
-    p.add_argument("checkpoints_dir", type=str, default="./checkpoints/flow_matching")
+    p.add_argument("--checkpoints_dir", type=str, default="./checkpoints/flow_matching")
     p.add_argument("--model_log_dir", type=str, default="./logs/flow_matching")
     return p.parse_args()
 
@@ -179,6 +179,35 @@ def main():
         data_dir = Path(args.data_dir)
         data_dir = data_dir / f"{args.dataset}_{args.splitmode}"
         logger.info(f"Data dir: {data_dir}")
+        logger.info(f"Output dir: {args.output_dir}")
+
+        logger.info(f"Checkpoints dir: {args.checkpoints_dir}")
+        logger.info(f"Model log dir: {args.model_log_dir}")
+        logger.info(f"Batch size: {args.batch_size}")
+        logger.info(f"Number of workers: {args.num_workers}")
+        logger.info(f"Pin memory: {args.pin_memory}")
+        logger.info(f"Shuffle: {args.shuffle}")
+        logger.info(f"Check NaN: {args.check_nan}")
+        logger.info(f"Scale: {args.scale}")
+        logger.info(f"Hidden: {args.hidden}")
+        logger.info(f"Steps: {args.steps}")
+        logger.info(f"Learning rate: {args.lr}")
+        logger.info(f"Weight decay: {args.weight_decay}")
+        logger.info(f"Dropout: {args.dropout}")
+        logger.info(f"Prediction num samples: {args.pred_num_samples}")
+        logger.info(f"Prediction steps: {args.pred_steps}")
+        logger.info(f"PI alpha: {args.pi_alpha}")
+        logger.info(f"Patience: {args.patience}")
+        logger.info(f"Max epochs: {args.max_epochs}")
+        logger.info(f"Device: {args.device}")
+        logger.info(f"Accelerator: {args.accelerator}")
+        logger.info(f"Devices: {args.devices}")
+        logger.info(f"Model dir: {args.model_dir}")
+        logger.info(f"Output dir: {args.output_dir}")
+        logger.info(f"Log level: {args.log_level}")
+        logger.info(f"Log fn: {args.log_fn}")
+        logger.info(f"Split mode: {args.splitmode}")
+        logger.info(f"Dataset: {args.dataset}")
 
         train_data, val_data, test_data = load_data(data_dir)
         train_loader, val_loader, test_loader, train_dataset = create_data_loader(
@@ -194,14 +223,20 @@ def main():
         )
 
         logger.info("Running models...")
-        cfg = FlowConfig(hidden=256, steps=50, lr=1e-3, weight_decay=1e-4, dropout=0.1)
+        cfg = FlowConfig(
+            hidden=args.hidden,
+            steps=args.steps,
+            lr=args.lr,
+            weight_decay=args.weight_decay,
+            dropout=args.dropout,
+        )
         pl_model = DrugProteinFlowMatchingPL(
-            drug_input_dim=train_dataset.Dd,
-            protein_input_dim=train_dataset.Dp,
+            drug_input_dim=train_dataset.drug_input_dim,
+            protein_input_dim=train_dataset.protein_input_dim,
             cfg=cfg,
-            pred_num_samples=50,  # for predict_step
-            pred_steps=None,  # use cfg.steps
-            pi_alpha=0.05,  # 95% PI
+            pred_num_samples=args.pred_num_samples,  # for predict_step
+            pred_steps=args.pred_steps,  # use cfg.steps
+            pi_alpha=args.pi_alpha,  # 95% PI
         )
         pl_model.model.apply(init_weights)
         model_name = "Flow Matching"
@@ -217,14 +252,14 @@ def main():
                 save_last=True,
                 filename=model_name,
             ),
-            EarlyStopping(monitor="val_loss", mode="min", patience=5),
+            EarlyStopping(monitor="val_loss", mode="min", patience=args.patience),
             LearningRateMonitor(logging_interval="epoch"),
         ]
         CSVLogger = CSVLogger(save_dir=Path(args.model_log_dir), name="flow_matching")
 
         trainer = pl.Trainer(
-            accelerator="gpu" if torch.cuda.is_available() else "cpu",
-            devices=1,
+            accelerator=args.accelerator,
+            devices=args.devices,
             max_epochs=args.max_epochs,
             callbacks=callbacks,
             logger=CSVLogger,

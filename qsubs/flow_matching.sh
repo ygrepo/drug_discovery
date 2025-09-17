@@ -93,6 +93,7 @@ for dataset in "${DATASETS[@]}"; do
       --pin_memory "${PIN_MEMORY}" \
       --shuffle "${SHUFFLE}" \
       --check_nan "${CHECK_NAN}" \
+      --checkpoints_dir "${CHECKPOINTS_DIR}" \
       --device "${DEVICE}"
     exit_code=$?
     set -e
