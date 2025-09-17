@@ -6,12 +6,12 @@
 #BSUB -q gpu                  # queue
 #BSUB -gpu "num=1"
 #BSUB -R h100nvl
-#BSUB -n 8                    # number of compute cores
+#BSUB -n 1                   # number of compute cores
 #BSUB -W 100:00                 # walltime in HH:MM
-#BSUB -R rusage[mem=32G]       #16 GB of memory (8 GB per core)
-#BSUB -R span[hosts=1]         # all cores from the same node
+#BSUB -R rusage[mem=512G]       #16 GB of memory (8 GB per core)
 #BSUB -o logs/flow_matching.%J.out
 #BSUB -e logs/flow_matching.%J.err
+
 
 set -euo pipefail
 
