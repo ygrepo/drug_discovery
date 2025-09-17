@@ -1,19 +1,13 @@
-# scripts/ML_benchmark.py
+# scripts/flow_matching_run.py
 import sys
 from pathlib import Path
 import argparse
 import os
-
+import torch
 from datetime import datetime
 import pandas as pd
 import numpy as np
-from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
-from sklearn.svm import SVR
-from sklearn.linear_model import LinearRegression
-from sklearn.neural_network import MLPRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-import sys
-from xgboost import XGBRegressor
 from sklearn.metrics import (
     mean_squared_error,
     mean_absolute_error,
@@ -22,6 +16,13 @@ from sklearn.metrics import (
     explained_variance_score,
 )
 import pickle
+import pytorch_lightning as pl
+from pytorch_lightning.callbacks import (
+    ModelCheckpoint,
+    EarlyStopping,
+    LearningRateMonitor,
+)
+from pytorch_lightning.loggers import CSVLogger
 
 from scipy.stats import pearsonr
 
@@ -29,7 +30,12 @@ from scipy.stats import pearsonr
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 from src.utils import setup_logging, get_logger
-from src.data_util import load_data, stack_dataset
+from src.data_util import load_data, create_data_loader
+from src.flow_matching import (
+    FlowConfig,
+    DrugProteinFlowMatchingPL,
+)
+from src.model_util import select_device, init_weights
 
 logger = get_logger(__name__)
 
@@ -132,8 +138,29 @@ def parse_args():
     p.add_argument("--dataset", type=str, default="")
     p.add_argument("--splitmode", type=str, default="")
     p.add_argument("--model_dir", type=str, default="")
+    p.add_argument("--batch_size", type=int, default=32)
+    p.add_argument("--num_workers", type=int, default=20)
+    p.add_argument("--pin_memory", type=bool, default=True)
+    p.add_argument("--shuffle", type=bool, default=True)
+    p.add_argument("--check_nan", type=bool, default=True)
+    p.add_argument("--scale", type=str, default=None)
     p.add_argument("--output_dir", type=str, default="")
     p.add_argument("--data_dir", type=str, default="")
+    p.add_argument("--device", type=str, default="cpu")
+    p.add_argument("--max_epochs", type=int, default=100)
+    p.add_argument("--hidden", type=int, default=256)
+    p.add_argument("--steps", type=int, default=50)
+    p.add_argument("--lr", type=float, default=1e-3)
+    p.add_argument("--weight_decay", type=float, default=1e-4)
+    p.add_argument("--dropout", type=float, default=0.1)
+    p.add_argument("--pred_num_samples", type=int, default=50)
+    p.add_argument("--pred_steps", type=int, default=None)
+    p.add_argument("--pi_alpha", type=float, default=0.05)
+    p.add_argument("--patience", type=int, default=10)
+    p.add_argument("--accelerator", type=str, default="gpu")
+    p.add_argument("--devices", type=int, default=1)
+    p.add_argument("checkpoints_dir", type=str, default="./checkpoints/flow_matching")
+    p.add_argument("--model_log_dir", type=str, default="./logs/flow_matching")
     return p.parse_args()
 
 
@@ -154,177 +181,85 @@ def main():
         logger.info(f"Data dir: {data_dir}")
 
         train_data, val_data, test_data = load_data(data_dir)
-        X_train, X_val, X_test, y_train, y_val, y_test = stack_dataset(
-            train_data, val_data, test_data
+        train_loader, val_loader, test_loader, train_dataset = create_data_loader(
+            train_data,
+            val_data,
+            test_data,
+            batch_size=args.batch_size,
+            num_workers=args.num_workers,
+            pin_memory=args.pin_memory,
+            shuffle=args.shuffle,
+            check_nan=args.check_nan,
+            scale=args.scale,
         )
 
         logger.info("Running models...")
+        cfg = FlowConfig(hidden=256, steps=50, lr=1e-3, weight_decay=1e-4, dropout=0.1)
+        pl_model = DrugProteinFlowMatchingPL(
+            drug_input_dim=train_dataset.Dd,
+            protein_input_dim=train_dataset.Dp,
+            cfg=cfg,
+            pred_num_samples=50,  # for predict_step
+            pred_steps=None,  # use cfg.steps
+            pi_alpha=0.05,  # 95% PI
+        )
+        pl_model.model.apply(init_weights)
+        model_name = "Flow Matching"
+        checkpoint_dir = Path(args.checkpoints_dir) / model_name
+        checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
-        logger.info("Random Forest")
-        # Random Forest
-        rf_model = RandomForestRegressor(n_estimators=100, random_state=SEED)
-        rf_model.fit(X_train, y_train)
-        metrics_df = pd.DataFrame(
-            columns=[
-                "Model",
-                "Dataset",
-                "RMSE",
-                "MAE",
-                "MSE",
-                "R2",
-                "Pearson",
-                "Median_AE",
-                "Explained_Variance",
-            ]
-        )
-        model_name = "Random Forest"
-        metrics_df = evaluate_model(
-            metrics_df,
-            model_name,
-            rf_model,
-            X_train,
-            y_train,
-            X_val,
-            y_val,
-            X_test,
-            y_test,
-        )
-        model_dir = Path(args.model_dir)
-        model_filename = (
-            model_dir
-            / f"{model_name.replace(' ', '_')}_{args.dataset}_{args.splitmode}_model_regression.pkl"
-        )
-        save_model(rf_model, model_name, model_filename)
+        callbacks = [
+            ModelCheckpoint(
+                monitor="val_loss",
+                mode="min",
+                save_top_k=1,
+                dirpath=checkpoint_dir,
+                save_last=True,
+                filename=model_name,
+            ),
+            EarlyStopping(monitor="val_loss", mode="min", patience=5),
+            LearningRateMonitor(logging_interval="epoch"),
+        ]
+        CSVLogger = CSVLogger(save_dir=Path(args.model_log_dir), name="flow_matching")
 
-        logger.info("SVR")
-        # SVR
-        svr_model = SVR(kernel="rbf")
-        svr_model.fit(X_train, y_train)
-        model_name = "SVR"
-        metrics_df = evaluate_model(
-            metrics_df,
-            model_name,
-            svr_model,
-            X_train,
-            y_train,
-            X_val,
-            y_val,
-            X_test,
-            y_test,
+        trainer = pl.Trainer(
+            accelerator="gpu" if torch.cuda.is_available() else "cpu",
+            devices=1,
+            max_epochs=args.max_epochs,
+            callbacks=callbacks,
+            logger=CSVLogger,
+            log_every_n_steps=10,
         )
-        model_filename = (
-            model_dir
-            / f"{model_name.replace(' ', '_')}_{args.dataset}_{args.splitmode}_model_regression.pkl"
-        )
-        save_model(svr_model, model_name, model_filename)
+        logger.info("Training...")
+        trainer.fit(pl_model, train_loader, val_loader)
+        logger.info("Testing...")
+        trainer.test(pl_model, test_loader, ckpt_path="best")
 
-        logger.info("GBM")
-        # GBM
-        gbm_model = GradientBoostingRegressor(
-            n_estimators=100, learning_rate=0.1, random_state=SEED
-        )
-        gbm_model.fit(X_train, y_train)
-        model_name = "GBM"
-        metrics_df = evaluate_model(
-            metrics_df,
-            model_name,
-            gbm_model,
-            X_train,
-            y_train,
-            X_val,
-            y_val,
-            X_test,
-            y_test,
-        )
-        model_filename = (
-            model_dir
-            / f"{model_name.replace(' ', '_')}_{args.dataset}_{args.splitmode}_model_regression.pkl"
-        )
-        save_model(gbm_model, model_name, model_filename)
+        # metrics_df = pd.DataFrame(
+        #     columns=[
+        #         "Model",
+        #         "Dataset",
+        #         "RMSE",
+        #         "MAE",
+        #         "MSE",
+        #         "R2",
+        #         "Pearson",
+        #         "Median_AE",
+        #         "Explained_Variance",
+        #     ]
+        # )
+        # logger.info("Done!")
 
-        logger.info("Linear Regression")
-        # Linear Regression
-        lin_reg_model = LinearRegression()
-        lin_reg_model.fit(X_train, y_train)
-        model_name = "Linear Regression"
-        metrics_df = evaluate_model(
-            metrics_df,
-            model_name,
-            lin_reg_model,
-            X_train,
-            y_train,
-            X_val,
-            y_val,
-            X_test,
-            y_test,
-        )
-        model_filename = (
-            model_dir
-            / f"{model_name.replace(' ', '_')}_{args.dataset}_{args.splitmode}_model_regression.pkl"
-        )
-        save_model(lin_reg_model, model_name, model_filename)
+        # output_dir = Path(args.output_dir)
+        # datestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        # result_csv = (
+        #     output_dir / f"{datestamp}_ML_metrics_{args.dataset}_{args.splitmode}.csv"
+        # )
 
-        logger.info("MLP")
-        # MLP
-        mlp_model = MLPRegressor(
-            hidden_layer_sizes=(512, 256),
-            activation="relu",
-            max_iter=200,
-            random_state=SEED,
-        )
-        mlp_model.fit(X_train, y_train)
-        model_name = "MLP"
-        metrics_df = evaluate_model(
-            metrics_df,
-            model_name,
-            mlp_model,
-            X_train,
-            y_train,
-            X_val,
-            y_val,
-            X_test,
-            y_test,
-        )
-        model_filename = (
-            model_dir
-            / f"{model_name.replace(' ', '_')}_{args.dataset}_{args.splitmode}_model_regression.pkl"
-        )
-        save_model(mlp_model, model_name, model_filename)
-
-        logger.info("XGBoost")
-        # XGBoost
-        xgb_model = XGBRegressor(random_state=SEED, eval_metric="rmse")
-        xgb_model.fit(X_train, y_train)
-        model_name = "XGBoost"
-        metrics_df = evaluate_model(
-            metrics_df,
-            model_name,
-            xgb_model,
-            X_train,
-            y_train,
-            X_val,
-            y_val,
-            X_test,
-            y_test,
-        )
-        model_filename = (
-            model_dir
-            / f"{model_name.replace(' ', '_')}_{args.dataset}_{args.splitmode}_model_regression.pkl"
-        )
-        save_model(xgb_model, model_name, model_filename)
-
-        logger.info("Done!")
-
-        output_dir = Path(args.output_dir)
-        datestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        result_csv = (
-            output_dir / f"{datestamp}_ML_metrics_{args.dataset}_{args.splitmode}.csv"
-        )
-
-        logger.info(f"Saving metrics to {result_csv}")
-        # Save metrics_df to CSV
-        metrics_df.to_csv(result_csv, index=False)
-        logger.info("Metrics saved!")
+        # logger.info(f"Saving metrics to {result_csv}")
+        # # Save metrics_df to CSV
+        # metrics_df.to_csv(result_csv, index=False)
+        # logger.info("Metrics saved!")
 
     except Exception as e:
         logger.exception("Script failed: %s", e)  # or this

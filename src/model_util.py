@@ -6,6 +6,7 @@ import os
 import logging
 import numpy as np
 import torch
+import torch.nn as nn
 from torch.serialization import add_safe_globals
 import torch.nn.functional as F
 import yaml
@@ -1638,3 +1639,16 @@ def _embed_single_sequence(
             )
             return np.full(H, np.nan, dtype=np.float32)
         raise
+
+
+def init_weights(m: nn.Module):
+    if isinstance(m, nn.Linear):
+        # He initialization (good for ReLU/SiLU activations)
+        nn.init.kaiming_uniform_(m.weight, nonlinearity="relu")
+        if m.bias is not None:
+            nn.init.zeros_(m.bias)
+    elif isinstance(m, nn.LayerNorm):
+        nn.init.ones_(m.weight)
+        nn.init.zeros_(m.bias)
+    elif isinstance(m, nn.Embedding):
+        nn.init.normal_(m.weight, mean=0.0, std=1.0)

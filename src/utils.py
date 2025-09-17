@@ -54,6 +54,10 @@ def get_logger(name: str | None = None) -> logging.Logger:
 logger = get_logger(__name__)
 
 
+def str_to_bool(s: str) -> bool:
+    return s.lower() in ["true", "1", "t", "y", "yes"]
+
+
 def save_csv_parquet_torch(df: pd.DataFrame, fn: Path) -> None:
     if fn.suffix == ".parquet":
         logger.info(f"Saving to parquet: {fn}")

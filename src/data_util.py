@@ -95,8 +95,8 @@ class DTIDataset(Dataset):
                     raise ValueError(f"NaN/Inf found in '{name}'")
 
         # Save shapes
-        self.N, self.Dd = self.drug.shape
-        self.Dp = self.prot.shape[1]
+        self.N, self.drug_input_dim = self.drug.shape
+        self.protein_input_dim = self.prot.shape[1]
 
         # Apply scaling if requested
         self.y_mu, self.y_sigma = None, None
