@@ -3,9 +3,6 @@ import sys
 from pathlib import Path
 import argparse
 import os
-import pandas as pd
-import numpy as np
-import pickle
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import (
     ModelCheckpoint,
@@ -17,11 +14,8 @@ from pytorch_lightning.loggers import CSVLogger
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 from src.utils import setup_logging, get_logger
-from src.data_util import load_data, create_DTI_FlowMatching_data_loader
-from src.flow_matching import (
-    FlowConfig,
-    DrugProteinFlowMatchingPL,
-)
+from src.data_util import load_data, create_DTI_GNNdata_loader
+from src.DTI_GNN import DrugProteinGNN, DrugProteinGNNPL
 from src.model_util import init_weights
 
 logger = get_logger(__name__)
@@ -50,9 +44,6 @@ def parse_args():
     p.add_argument("--lr", type=float, default=1e-3)
     p.add_argument("--weight_decay", type=float, default=1e-4)
     p.add_argument("--dropout", type=float, default=0.1)
-    p.add_argument("--pred_num_samples", type=int, default=50)
-    p.add_argument("--pred_steps", type=int, default=None)
-    p.add_argument("--pi_alpha", type=float, default=0.05)
     p.add_argument("--patience", type=int, default=10)
     p.add_argument("--accelerator", type=str, default="gpu")
     p.add_argument(
@@ -93,9 +84,6 @@ def main():
         logger.info(f"Learning rate: {args.lr}")
         logger.info(f"Weight decay: {args.weight_decay}")
         logger.info(f"Dropout: {args.dropout}")
-        logger.info(f"Prediction num samples: {args.pred_num_samples}")
-        logger.info(f"Prediction steps: {args.pred_steps}")
-        logger.info(f"PI alpha: {args.pi_alpha}")
         logger.info(f"Patience: {args.patience}")
         logger.info(f"Max epochs: {args.max_epochs}")
         logger.info(f"Device: {args.device}")
@@ -109,39 +97,38 @@ def main():
         logger.info(f"Dataset: {args.dataset}")
 
         train_data, val_data, test_data = load_data(data_dir)
+        # build loaders
         train_loader, val_loader, test_loader, train_dataset = (
-            create_DTI_FlowMatching_data_loader(
+            create_DTI_GNNdata_loader(
                 train_data,
                 val_data,
                 test_data,
                 batch_size=args.batch_size,
                 num_workers=args.num_workers,
                 pin_memory=args.pin_memory,
-                shuffle=args.shuffle,
-                check_nan=args.check_nan,
                 scale=args.scale,
             )
         )
 
+        # infer dims
+        node_in_dim = train_data.iloc[0]["drug_x"].shape[1]
+        prot_in_dim = train_data.iloc[0]["protein_feats"].shape[0]
+
+        # model + PL module
+        model = DrugProteinGNN(
+            node_in_dim=node_in_dim,
+            prot_in_dim=prot_in_dim,
+            hidden=256,
+            gnn_layers=3,
+            dropout=0.1,
+        )
+        pl_model = DrugProteinGNNPL(model, lr=args.lr, weight_decay=args.weight_decay)
+
         logger.info("Running models...")
-        cfg = FlowConfig(
-            hidden=args.hidden,
-            steps=args.steps,
-            lr=args.lr,
-            weight_decay=args.weight_decay,
-            dropout=args.dropout,
-        )
-        pl.seed_everything(42, workers=True)
-        pl_model = DrugProteinFlowMatchingPL(
-            drug_input_dim=train_dataset.drug_input_dim,
-            protein_input_dim=train_dataset.protein_input_dim,
-            cfg=cfg,
-            pred_num_samples=args.pred_num_samples,  # for predict_step
-            pred_steps=args.pred_steps,  # use cfg.steps
-            pi_alpha=args.pi_alpha,  # 95% PI
-        )
+
         pl_model.model.apply(init_weights)
-        model_name = "FlowMatching"
+
+        model_name = "DTIGNN"
         checkpoint_dir = Path(args.checkpoints_dir) / model_name
         checkpoint_dir.mkdir(parents=True, exist_ok=True)
         filename = f"{model_name}-epoch={{epoch:03d}}-valloss={{val_loss:.4f}}"

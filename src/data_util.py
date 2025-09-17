@@ -9,6 +9,9 @@ from torch.utils.data import Dataset, DataLoader
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
+from torch_geometric.data import Data as GNNData
+from torch_geometric.loader import DataLoader as GeoDataLoader
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
@@ -139,7 +142,62 @@ def dti_collate(batch: List[Dict[str, torch.Tensor]]) -> Dict[str, torch.Tensor]
     }
 
 
-def create_data_loader(
+class DTIGraphVecDataset(Dataset):
+    """
+    Each row must provide:
+      - 'drug_x'          : (N_atoms, F) float32
+      - 'drug_edge_index' : (2, E) int64
+      - 'protein_feats'   : (Dp,) float32
+      - 'Affinity'        : scalar
+    """
+
+    def __init__(self, df, check_nan: bool = True, scale: Optional[str] = None):
+        self.df = df
+        self.scale = scale
+
+        ys = np.asarray(df["Affinity"].to_numpy(), dtype=np.float32).reshape(-1, 1)
+        self.y_mu = ys.mean() if scale == "zscore" else None
+        self.y_sigma = (ys.std() + 1e-8) if scale == "zscore" else None
+        self.y_min = ys.min() if scale == "minmax" else None
+        self.y_max = ys.max() if scale == "minmax" else None
+
+        if scale == "zscore":
+            self.y = (ys - self.y_mu) / self.y_sigma
+        elif scale == "minmax":
+            self.y = (ys - self.y_min) / (self.y_max - self.y_min + 1e-8)
+        else:
+            self.y = ys
+
+        if check_nan and not np.isfinite(self.y).all():
+            raise ValueError("NaN/Inf in Affinity after scaling.")
+
+    def __len__(self):
+        return len(self.df)
+
+    def __getitem__(self, idx):
+        row = self.df.iloc[idx]
+
+        x = torch.from_numpy(np.asarray(row["drug_x"], dtype=np.float32))  # (N,F)
+        edge_index = torch.from_numpy(
+            np.asarray(row["drug_edge_index"], np.int64)
+        )  # (2,E)
+        protein = torch.from_numpy(
+            np.asarray(row["protein_feats"], dtype=np.float32)
+        )  # (Dp,)
+        y = torch.tensor(self.y[idx], dtype=torch.float32).view(1)  # (1,)
+
+        return GNNData(x=x, edge_index=edge_index, y=y, protein=protein)
+
+    # Inverse-transform predictions with the *train* dataset instance
+    def inverse_transform_y(self, y_scaled: np.ndarray) -> np.ndarray:
+        if self.scale == "zscore":
+            return y_scaled * self.y_sigma + self.y_mu
+        if self.scale == "minmax":
+            return y_scaled * (self.y_max - self.y_min) + self.y_min
+        return y_scaled
+
+
+def create_DTI_FlowMatching_data_loader(
     train_data: pd.DataFrame,
     val_data: pd.DataFrame,
     test_data: pd.DataFrame,
@@ -203,6 +261,76 @@ def create_data_loader(
         persistent_workers=persistent_workers,
         pin_memory=pin_memory,
         collate_fn=dti_collate,
+    )
+
+    return train_loader, val_loader, test_loader, train_dataset
+
+
+def create_DTI_GNNdata_loader(
+    train_df,
+    val_df,
+    test_df,
+    batch_size: int = 32,
+    num_workers: int = 0,
+    pin_memory: bool = True,
+    shuffle: bool = True,
+    check_nan: bool = True,
+    scale: Optional[str] = None,  # "zscore" | "minmax" | None (applies to y)
+) -> Tuple[GeoDataLoader, GeoDataLoader, GeoDataLoader, DTIGraphVecDataset]:
+    pin_memory = pin_memory and torch.cuda.is_available()
+    persistent_workers = num_workers > 0
+
+    # --- Train
+    train_dataset = DTIGraphVecDataset(train_df, check_nan=check_nan, scale=scale)
+    train_loader = GeoDataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        num_workers=num_workers,
+        persistent_workers=persistent_workers,
+        pin_memory=pin_memory,
+    )
+
+    # --- Val (use train stats)
+    val_dataset = DTIGraphVecDataset(val_df, check_nan=check_nan, scale=None)
+    val_dataset.y_mu, val_dataset.y_sigma = train_dataset.y_mu, train_dataset.y_sigma
+    val_dataset.y_min, val_dataset.y_max = train_dataset.y_min, train_dataset.y_max
+    ys = np.asarray(val_df["Affinity"].to_numpy(), dtype=np.float32).reshape(-1, 1)
+    if scale == "zscore":
+        val_dataset.y = (ys - val_dataset.y_mu) / (val_dataset.y_sigma + 1e-8)
+    elif scale == "minmax":
+        val_dataset.y = (ys - val_dataset.y_min) / (
+            val_dataset.y_max - val_dataset.y_min + 1e-8
+        )
+
+    val_loader = GeoDataLoader(
+        val_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        persistent_workers=persistent_workers,
+        pin_memory=pin_memory,
+    )
+
+    # --- Test (use train stats)
+    test_dataset = DTIGraphVecDataset(test_df, check_nan=check_nan, scale=None)
+    test_dataset.y_mu, test_dataset.y_sigma = train_dataset.y_mu, train_dataset.y_sigma
+    test_dataset.y_min, test_dataset.y_max = train_dataset.y_min, train_dataset.y_max
+    ys = np.asarray(test_df["Affinity"].to_numpy(), dtype=np.float32).reshape(-1, 1)
+    if scale == "zscore":
+        test_dataset.y = (ys - test_dataset.y_mu) / (test_dataset.y_sigma + 1e-8)
+    elif scale == "minmax":
+        test_dataset.y = (ys - test_dataset.y_min) / (
+            test_dataset.y_max - test_dataset.y_min + 1e-8
+        )
+
+    test_loader = GeoDataLoader(
+        test_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        persistent_workers=persistent_workers,
+        pin_memory=pin_memory,
     )
 
     return train_loader, val_loader, test_loader, train_dataset
