@@ -12,14 +12,16 @@ from torchmetrics.regression import (
 )
 
 
-# --- Core MLP + Embeddings (unchanged from before) ---
 def mlp(dims, act=nn.SiLU, last_act=False, dropout=0.0, layer_norm=True):
     layers = []
-    for i in range(len(dims) - 1):
-        layers.append(nn.Linear(dims[i], dims[i + 1]))
-        if i < len(dims) - 2 or last_act:
+    L = len(dims) - 1
+    for i in range(L):
+        in_d, out_d = dims[i], dims[i + 1]
+        layers.append(nn.Linear(in_d, out_d))
+        is_last = i == L - 1
+        if (not is_last) or last_act:
             if layer_norm:
-                layers.append(nn.LayerNorm(dims[i + 1]))
+                layers.append(nn.LayerNorm(out_d))
             layers.append(act())
             if dropout > 0:
                 layers.append(nn.Dropout(dropout))
@@ -27,16 +29,29 @@ def mlp(dims, act=nn.SiLU, last_act=False, dropout=0.0, layer_norm=True):
 
 
 class SinusoidalPosEmb(nn.Module):
-    def __init__(self, dim: int = 128):
+    """t can be int timesteps [0..T-1] or floats; we map to [0,1]."""
+
+    def __init__(self, dim: int = 128, max_freq: float = 1e4):
         super().__init__()
         self.dim = dim
+        self.max_freq = max_freq
 
     def forward(self, t: torch.Tensor) -> torch.Tensor:
-        device = t.device
+        # t: (B,) int or float
+        t = t.float()
+        # if t is integer steps, normalize to [0,1]
+        if t.ndim == 1 and t.max() > 1.0 + 1e-6:
+            t = t / (t.max() + 1e-8)
+
         half = self.dim // 2
-        freqs = torch.exp(torch.linspace(0, 10, half, device=device))
-        args = t[:, None] * freqs[None, :]
-        emb = torch.cat([torch.sin(args), torch.cos(args)], dim=-1)
+        # frequencies spaced geometrically in [1, max_freq]
+        # ω_i = max_freq^(i/half), i=0..half-1
+        device = t.device
+        i = torch.arange(half, device=device).float()
+        freqs = self.max_freq ** (i / max(half - 1, 1))
+
+        args = t[:, None] * freqs[None, :]  # (B, half)
+        emb = torch.cat([torch.sin(args), torch.cos(args)], dim=-1)  # (B, 2*half)
         if self.dim % 2 == 1:
             emb = F.pad(emb, (0, 1))
         return emb
@@ -52,28 +67,103 @@ class FlowConfig:
     weight_decay: float = 1e-4
 
 
-# --- Vector Field ---
+# --- Encoders & fusion blocks ---
+class DrugEncoder(nn.Module):
+    def __init__(self, in_dim: int, hidden: int, dropout: float = 0.1):
+        super().__init__()
+        self.net = mlp([in_dim, hidden, hidden], dropout=dropout)
+
+    def forward(self, x):  # (B, in_dim)
+        return self.net(x)  # (B, hidden)
+
+
+class ProteinEncoder(nn.Module):
+    def __init__(self, in_dim: int, hidden: int, dropout: float = 0.1):
+        super().__init__()
+        self.net = mlp([in_dim, hidden, hidden], dropout=dropout)
+
+    def forward(self, x):
+        return self.net(x)
+
+
+class ConditionFusion(nn.Module):
+    """
+    Concatenate [drug_emb, protein_emb] -> LayerNorm -> Dropout -> (optional) MLP.
+    Also accepts a time embedding and adds it (like your t Embedding add).
+    """
+
+    def __init__(self, hidden: int, use_mlp: bool = True, dropout: float = 0.3):
+        super().__init__()
+        concat_dim = hidden * 2
+        self.ln = nn.LayerNorm(concat_dim)
+        self.do = nn.Dropout(dropout)
+        self.use_mlp = use_mlp
+        if use_mlp:
+            self.post = mlp(
+                [concat_dim, hidden * 2, hidden], dropout=dropout
+            )  # like your denoise_model
+        else:
+            self.post = nn.Identity()
+
+    def forward(self, drug_emb, prot_emb, t_emb=None):
+        c = torch.cat([drug_emb, prot_emb], dim=-1)  # (B, 2H)
+        c = self.ln(c)
+        if t_emb is not None:
+            # ensure same dim as c
+            if t_emb.shape[-1] != c.shape[-1]:
+                raise ValueError(
+                    f"t_emb dim {t_emb.shape[-1]} must equal concat dim {c.shape[-1]}"
+                )
+            c = c + t_emb
+        c = self.do(c)
+        c = self.post(c)  # (B, H) if use_mlp else (B, 2H)
+        return c
+
+
+# --- Vector Field with explicit encoders + fusion like your DiffusionGenerativeModel ---
 class CondFlowVectorField(nn.Module):
     def __init__(self, drug_input_dim: int, protein_input_dim: int, cfg: FlowConfig):
         super().__init__()
         H = cfg.hidden
-        self.drug_enc = mlp([drug_input_dim, H, H])
-        self.prot_enc = mlp([protein_input_dim, H, H])
-        self.time_emb = nn.Sequential(SinusoidalPosEmb(cfg.t_dim), mlp([cfg.t_dim, H]))
+
+        # Encoders (analogous to your drug/protein linear + ReLU but deeper + LN/Dropout via mlp)
+        self.drug_enc = DrugEncoder(drug_input_dim, H, dropout=cfg.dropout)
+        self.prot_enc = ProteinEncoder(protein_input_dim, H, dropout=cfg.dropout)
+
+        # Time embedding (sinusoidal → MLP to H*2 so it can be added to [drug,protein] concat)
+        self.time_emb_raw = SinusoidalPosEmb(cfg.t_dim)
+        self.time_proj_for_concat = mlp([cfg.t_dim, H * 2])
+
+        # Fusion like your layer_norm + dropout + "denoise_model"
+        self.fusion = ConditionFusion(hidden=H, use_mlp=True, dropout=cfg.dropout)
+        # If fusion.use_mlp=True → fused cond dim == H, else 2H. We assume H here.
+
+        # Project x_t (scalar y_t) to hidden
         self.x_proj = mlp([1, H])
 
-        fused_dim = H * 4
-        self.fuse = mlp([fused_dim, H * 2, H], dropout=cfg.dropout)
+        # Final fuse [cond_fused(H), x_proj(H)] → H → 1
+        self.final_fuse = mlp([H * 2, H], dropout=cfg.dropout)
         self.out = nn.Linear(H, 1)
 
     def forward(self, x_t, t, cond):
-        d = self.drug_enc(cond["drug"])
-        p = self.prot_enc(cond["protein"])
-        tau = self.time_emb(t)
-        xv = self.x_proj(x_t)
-        h = torch.cat([d, p, tau, xv], dim=-1)
-        h = self.fuse(h)
-        return self.out(h)
+        # 1) encoders
+        d = self.drug_enc(cond["drug"])  # (B, H)
+        p = self.prot_enc(cond["protein"])  # (B, H)
+
+        # 2) time embedding in concat space (B, 2H) so it can be *added* like your example
+        tau = self.time_emb_raw(t)  # (B, t_dim)
+        tau = self.time_proj_for_concat(tau)  # (B, 2H)
+
+        # 3) fuse to a single conditioning vector (B, H)
+        c = self.fusion(d, p, t_emb=tau)  # (B, H)
+
+        # 4) project current state x_t and fuse with condition
+        xv = self.x_proj(x_t)  # (B, H)
+        h = torch.cat([c, xv], dim=-1)  # (B, 2H)
+        h = self.final_fuse(h)  # (B, H)
+
+        # 5) predict velocity
+        return self.out(h)  # (B, 1)
 
 
 # --- Core Flow model ---
@@ -179,10 +269,12 @@ class DrugProteinFlowMatchingPL(pl.LightningModule):
         )
 
         # update metrics (NO per-step logging)
-        self.train_mae.update(v_hat, v_star)
-        self.train_r2.update(v_hat, v_star)
-        self.train_pearson.update(v_hat, v_star)
-        self.train_ev.update(v_hat, v_star)
+        pred = v_hat.squeeze(-1)
+        targ = v_star.squeeze(-1)
+        self.train_mae.update(pred, targ)
+        self.train_r2.update(pred, targ)
+        self.train_pearson.update(pred, targ)
+        self.train_ev.update(pred, targ)
         return loss
 
     def on_train_epoch_end(self):
@@ -240,10 +332,12 @@ class DrugProteinFlowMatchingPL(pl.LightningModule):
         )
 
         # collect metrics (epoch-only)
-        self.val_mae.update(v_hat, v_star)
-        self.val_r2.update(v_hat, v_star)
-        self.val_pearson.update(v_hat, v_star)
-        self.val_ev.update(v_hat, v_star)
+        pred = v_hat.squeeze(-1)
+        targ = v_star.squeeze(-1)
+        self.val_mae.update(pred, targ)
+        self.val_r2.update(pred, targ)
+        self.val_pearson.update(pred, targ)
+        self.val_ev.update(pred, targ)
         if self.enable_sampled_eval:
             with torch.no_grad():
                 Y = self.sample_n(drug, prot)  # (B, K)
@@ -344,10 +438,12 @@ class DrugProteinFlowMatchingPL(pl.LightningModule):
             sync_dist=True,
         )
 
-        self.test_mae.update(v_hat, v_star)
-        self.test_r2.update(v_hat, v_star)
-        self.test_pearson.update(v_hat, v_star)
-        self.test_ev.update(v_hat, v_star)
+        pred = v_hat.squeeze(-1)
+        targ = v_star.squeeze(-1)
+        self.test_mae.update(pred, targ)
+        self.test_r2.update(pred, targ)
+        self.test_pearson.update(pred, targ)
+        self.test_ev.update(pred, targ)
         if self.enable_sampled_eval:
             with torch.no_grad():
                 Y = self.sample_n(drug, prot)  # (B, K)
@@ -412,6 +508,26 @@ class DrugProteinFlowMatchingPL(pl.LightningModule):
                 on_epoch=True,
                 sync_dist=True,
             )
+            self.log(
+                "test_pearson_y",
+                self.test_pearson_y.compute(),
+                prog_bar=True,
+                on_step=False,
+                on_epoch=True,
+                sync_dist=True,
+            )
+            self.log(
+                "test_ev_y",
+                self.test_ev_y.compute(),
+                prog_bar=True,
+                on_step=False,
+                on_epoch=True,
+                sync_dist=True,
+            )
+            self.test_mae_y.reset()
+            self.test_r2_y.reset()
+            self.test_pearson_y.reset()
+            self.test_ev_y.reset()
 
     def configure_optimizers(self):
         return torch.optim.AdamW(

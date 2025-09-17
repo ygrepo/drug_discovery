@@ -1,3 +1,4 @@
+from __future__ import annotations
 import sys
 from typing import Optional, Dict, List, Tuple
 from pathlib import Path
@@ -151,11 +152,13 @@ def create_data_loader(
 ) -> Tuple[DataLoader, DataLoader, DataLoader, DTIDataset]:
     # Train dataset
     train_dataset = DTIDataset(train_data, check_nan=check_nan, scale=scale)
+    persistent_workers = num_workers > 0
     train_loader = DataLoader(
         train_dataset,
         batch_size=batch_size,
         shuffle=shuffle,
         num_workers=num_workers,
+        persistent_workers=persistent_workers,
         pin_memory=pin_memory,
         collate_fn=dti_collate,
     )
@@ -176,6 +179,7 @@ def create_data_loader(
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers,
+        persistent_workers=persistent_workers,
         pin_memory=pin_memory,
         collate_fn=dti_collate,
     )
@@ -195,6 +199,7 @@ def create_data_loader(
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers,
+        persistent_workers=persistent_workers,
         pin_memory=pin_memory,
         collate_fn=dti_collate,
     )

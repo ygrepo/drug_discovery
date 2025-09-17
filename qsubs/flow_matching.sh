@@ -52,8 +52,8 @@ echo "Starting batch at $(date)"
 echo "Base data dir: $BASE_DATA_DIR"
 
 BATCH_SIZE=32
-NUM_WORKERS=20
-PIN_MEMORY=false
+NUM_WORKERS=10
+PIN_MEMORY=true
 SHUFFLE=true
 CHECK_NAN=true
 #SCALE="zscore"
