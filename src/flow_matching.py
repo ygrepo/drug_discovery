@@ -530,9 +530,16 @@ class DrugProteinFlowMatchingPL(pl.LightningModule):
             self.test_ev_y.reset()
 
     def configure_optimizers(self):
-        return torch.optim.AdamW(
+        opt = torch.optim.AdamW(
             self.parameters(), lr=self.cfg.lr, weight_decay=self.cfg.weight_decay
         )
+        sch = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+            opt, T_0=10, T_mult=2
+        )
+        return {
+            "optimizer": opt,
+            "lr_scheduler": {"scheduler": sch, "monitor": "val_loss"},
+        }
 
     # -------- Inference helpers (unchanged) --------
     @torch.no_grad()

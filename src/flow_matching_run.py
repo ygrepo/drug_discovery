@@ -55,7 +55,9 @@ def parse_args():
     p.add_argument("--pi_alpha", type=float, default=0.05)
     p.add_argument("--patience", type=int, default=10)
     p.add_argument("--accelerator", type=str, default="gpu")
-    p.add_argument("--devices", type=int, default=1)
+    p.add_argument(
+        "--devices", type=int, default=1, help="Number of devices (GPUs or CPUs) to use"
+    )
     p.add_argument("--checkpoints_dir", type=str, default="./checkpoints/flow_matching")
     p.add_argument("--model_log_dir", type=str, default="./logs/flow_matching")
     return p.parse_args()
@@ -75,9 +77,6 @@ def main():
         logger.info(f"Data dir: {args.data_dir}")
         data_dir = Path(args.data_dir)
         data_dir = data_dir / f"{args.embedding}_{args.dataset}_{args.splitmode}"
-        logger.info(f"Data dir: {data_dir}")
-
-        data_dir = data_dir / f"{args.dataset}_{args.splitmode}"
         logger.info(f"Data dir: {data_dir}")
         logger.info(f"Output dir: {args.output_dir}")
 
@@ -130,6 +129,7 @@ def main():
             weight_decay=args.weight_decay,
             dropout=args.dropout,
         )
+        pl.seed_everything(42, workers=True)
         pl_model = DrugProteinFlowMatchingPL(
             drug_input_dim=train_dataset.drug_input_dim,
             protein_input_dim=train_dataset.protein_input_dim,
@@ -142,6 +142,7 @@ def main():
         model_name = "FlowMatching"
         checkpoint_dir = Path(args.checkpoints_dir) / model_name
         checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        filename = f"{model_name}-epoch={{epoch:03d}}-valloss={{val_loss:.4f}}"
 
         callbacks = [
             ModelCheckpoint(
@@ -150,7 +151,7 @@ def main():
                 save_top_k=1,
                 dirpath=checkpoint_dir,
                 save_last=True,
-                filename=model_name,
+                filename=filename,
             ),
             EarlyStopping(monitor="val_loss", mode="min", patience=args.patience),
             LearningRateMonitor(logging_interval="epoch"),
@@ -164,6 +165,10 @@ def main():
             callbacks=callbacks,
             logger=csv_logger,
             log_every_n_steps=10,
+            deterministic=True,
+            enable_model_summary=True,
+            enable_progress_bar=True,
+            precision="16-mixed",
         )
         logger.info("Training...")
         trainer.fit(pl_model, train_loader, val_loader)

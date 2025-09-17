@@ -150,6 +150,7 @@ def create_data_loader(
     check_nan: bool = True,
     scale: Optional[str] = None,  # <-- "zscore", "minmax", or None
 ) -> Tuple[DataLoader, DataLoader, DataLoader, DTIDataset]:
+    pin_memory = pin_memory and torch.cuda.is_available()
     # Train dataset
     train_dataset = DTIDataset(train_data, check_nan=check_nan, scale=scale)
     persistent_workers = num_workers > 0
