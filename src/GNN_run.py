@@ -1,4 +1,4 @@
-# scripts/flow_matching_run.py
+# scripts/gnn_run.py
 import sys
 from pathlib import Path
 import argparse
@@ -49,8 +49,8 @@ def parse_args():
     p.add_argument(
         "--devices", type=int, default=1, help="Number of devices (GPUs or CPUs) to use"
     )
-    p.add_argument("--checkpoints_dir", type=str, default="./checkpoints/flow_matching")
-    p.add_argument("--model_log_dir", type=str, default="./logs/flow_matching")
+    p.add_argument("--checkpoints_dir", type=str, default="./checkpoints/gnn")
+    p.add_argument("--model_log_dir", type=str, default="./logs/gnn")
     return p.parse_args()
 
 
