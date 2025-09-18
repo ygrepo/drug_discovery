@@ -109,9 +109,8 @@ def main():
                 scale=args.scale,
             )
         )
-
         # infer dims
-        node_in_dim = train_data.iloc[0]["drug_x"].shape[1]
+        node_in_dim = train_data.iloc[0]["Drug_Features"].shape[1]
         prot_in_dim = train_data.iloc[0]["protein_feats"].shape[0]
 
         # model + PL module

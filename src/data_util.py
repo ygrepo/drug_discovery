@@ -142,34 +142,93 @@ def dti_collate(batch: List[Dict[str, torch.Tensor]]) -> Dict[str, torch.Tensor]
     }
 
 
+from typing import Optional
+import numpy as np
+import torch
+from torch.utils.data import Dataset
+from torch_geometric.data import Data as GNNData
+
+
 class DTIGraphVecDataset(Dataset):
     """
+    Row-wise graph + vector dataset.
+
     Each row must provide:
-      - 'drug_x'          : (N_atoms, F) float32
-      - 'drug_edge_index' : (2, E) int64
-      - 'protein_feats'   : (Dp,) float32
-      - 'Affinity'        : scalar
+      - Drug_Features          : (N_atoms, F) float32-like
+      - Drug_Edge_Index        : (2, E) int64-like
+      - Target_Features         : (Dp,) float32-like
+      - y_col               : scalar (float)
+
+    Scaling (if requested) is fit on this dataset (train), and val/test should
+    copy over y_mu/y_sigma or y_min/y_max from the train instance.
     """
 
-    def __init__(self, df, check_nan: bool = True, scale: Optional[str] = None):
-        self.df = df
+    def __init__(
+        self,
+        df,
+        *,
+        drug_x_col: str = "Drug_Features",
+        drug_edge_index_col: str = "Drug_Edge_Index",
+        protein_col: str = "Target_Features",  # align with your flow-matching default
+        y_col: str = "Affinity",
+        check_nan: bool = True,
+        scale: Optional[str] = None,  # None | "zscore" | "minmax"
+    ):
+        self.df = df.reset_index(drop=True)
+        self.drug_x_col = drug_x_col
+        self.drug_edge_index_col = drug_edge_index_col
+        self.protein_col = protein_col
+        self.y_col = y_col
         self.scale = scale
 
-        ys = np.asarray(df["Affinity"].to_numpy(), dtype=np.float32).reshape(-1, 1)
-        self.y_mu = ys.mean() if scale == "zscore" else None
-        self.y_sigma = (ys.std() + 1e-8) if scale == "zscore" else None
-        self.y_min = ys.min() if scale == "minmax" else None
-        self.y_max = ys.max() if scale == "minmax" else None
+        # --- validate columns
+        missing = [
+            c
+            for c in [drug_x_col, drug_edge_index_col, protein_col, y_col]
+            if c not in df.columns
+        ]
+        if missing:
+            raise KeyError(
+                f"Missing required columns in df: {missing}. "
+                f"Have: {list(df.columns)}"
+            )
 
+        # --- extract y as (N, 1) float32
+        ys = np.asarray(df[y_col].to_numpy(), dtype=np.float32).reshape(-1, 1)
+
+        # --- fit scaling on THIS dataset (typically train)
+        self.y_mu = self.y_sigma = self.y_min = self.y_max = None
         if scale == "zscore":
-            self.y = (ys - self.y_mu) / self.y_sigma
+            self.y_mu = float(ys.mean())
+            self.y_sigma = float(ys.std() + 1e-8)
+            y_scaled = (ys - self.y_mu) / self.y_sigma
         elif scale == "minmax":
-            self.y = (ys - self.y_min) / (self.y_max - self.y_min + 1e-8)
+            self.y_min = float(ys.min())
+            self.y_max = float(ys.max())
+            y_scaled = (ys - self.y_min) / (self.y_max - self.y_min + 1e-8)
         else:
-            self.y = ys
+            y_scaled = ys
+
+        self.y = y_scaled.astype(np.float32, copy=False)
 
         if check_nan and not np.isfinite(self.y).all():
-            raise ValueError("NaN/Inf in Affinity after scaling.")
+            raise ValueError("NaN/Inf in target after scaling.")
+
+        # --- cache dims (from first row)
+        # handle possible ragged drug_x — infer feature dim F, not N_atoms
+        first_x = np.asarray(self.df.iloc[0][self.drug_x_col], dtype=np.float32)
+        if first_x.ndim != 2:
+            raise ValueError(
+                f"{self.drug_x_col} must be (N_atoms, F), got shape {first_x.shape}"
+            )
+        self.drug_input_dim = int(first_x.shape[1])
+
+        first_p = np.asarray(self.df.iloc[0][self.protein_col], dtype=np.float32)
+        if first_p.ndim != 1:
+            raise ValueError(
+                f"{self.protein_col} must be (Dp,), got shape {first_p.shape}"
+            )
+        self.protein_input_dim = int(first_p.shape[0])
 
     def __len__(self):
         return len(self.df)
@@ -177,18 +236,16 @@ class DTIGraphVecDataset(Dataset):
     def __getitem__(self, idx):
         row = self.df.iloc[idx]
 
-        x = torch.from_numpy(np.asarray(row["drug_x"], dtype=np.float32))  # (N,F)
-        edge_index = torch.from_numpy(
-            np.asarray(row["drug_edge_index"], np.int64)
+        x = torch.as_tensor(row[self.drug_x_col], dtype=torch.float32)  # (N,F)
+        edge_index = torch.as_tensor(
+            row[self.drug_edge_index_col], dtype=torch.long
         )  # (2,E)
-        protein = torch.from_numpy(
-            np.asarray(row["protein_feats"], dtype=np.float32)
-        )  # (Dp,)
-        y = torch.tensor(self.y[idx], dtype=torch.float32).view(1)  # (1,)
+        protein = torch.as_tensor(row[self.protein_col], dtype=torch.float32)  # (Dp,)
+        y = torch.as_tensor(self.y[idx], dtype=torch.float32).view(1)  # (1,)
 
         return GNNData(x=x, edge_index=edge_index, y=y, protein=protein)
 
-    # Inverse-transform predictions with the *train* dataset instance
+    # Use the *train* dataset instance to inverse-transform predictions
     def inverse_transform_y(self, y_scaled: np.ndarray) -> np.ndarray:
         if self.scale == "zscore":
             return y_scaled * self.y_sigma + self.y_mu
