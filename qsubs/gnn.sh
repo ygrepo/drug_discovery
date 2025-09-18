@@ -18,7 +18,6 @@ set -euo pipefail
 # --- Clean environment to avoid ~/.local issues ---
 module purge
 module load cuda/12.4.0
-#module load cuda/11.8 cudnn
 module load anaconda3/latest
 source $(conda info --base)/etc/profile.d/conda.sh
 
@@ -30,6 +29,10 @@ ml proxies/1 || true
 
 export RAYON_NUM_THREADS=4
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+
+export PYTHONNOUSERSITE=1
+unset PYTHONPATH
+
 
 LOG_DIR="logs"
 LOG_LEVEL="INFO"

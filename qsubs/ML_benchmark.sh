@@ -13,28 +13,43 @@
 
 set -euo pipefail
 
-# --- Clean environment to avoid ~/.local issues ---
+# --- Modules / shell setup ---
 module purge
-module load cuda/12.4.0
-#module load cuda/11.8 cudnn
 module load anaconda3/latest
-source $(conda info --base)/etc/profile.d/conda.sh
+module load cuda/12.4.0     # keep if your nodes provide CUDA 12.4 runtime
 
-export PROJ=/sc/arion/projects/DiseaseGeneCell/Huang_lab_data
-export CONDARC="$PROJ/conda/condarc"
-conda activate /sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.conda/envs/drug_discovery_env
+source "$(conda info --base)/etc/profile.d/conda.sh"
+
+# --- Paths  ---
+ENV_PREFIX="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.conda/envs/dti"
+PIP_CACHE_DIR="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.pip_cache"
+CONDA_PKGS_DIRS="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.conda/pkgs"  # conda cache (optional but recommended)
+
+# --- Caches & hygiene ---
+mkdir -p "${PIP_CACHE_DIR}" "${CONDA_PKGS_DIRS}"
+export PIP_CACHE_DIR="${PIP_CACHE_DIR}"
+export CONDA_PKGS_DIRS="${CONDA_PKGS_DIRS}"
+export PYTHONNOUSERSITE=1
+unset PYTHONPATH || true
+
+# --- Activate env (must exist already) ---
+conda activate "${ENV_PREFIX}"
+
+# --- Use the env's Python and pip ---
+PYTHON="${ENV_PREFIX}/bin/python"
+
 
 ml proxies/1 || true
 
 export RAYON_NUM_THREADS=4
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
+
 LOG_DIR="logs"
 LOG_LEVEL="INFO"
 mkdir -p "$LOG_DIR"
 
 BASE_DATA_DIR="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/wangcDrugRepoProject/BindDBdata/Embedding_Benchmark_Data"
-PYTHON="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.conda/envs/drug_discovery_env/bin/python"
 MAIN="src/ML_Benchmark.py"
 
 MODEL_DIR="output/models"
@@ -42,9 +57,12 @@ mkdir -p "$MODEL_DIR"
 OUTPUT_DIR="output/data"
 mkdir -p "$OUTPUT_DIR"
 
-DATASETS=( "BindDB" "Davis" "Kiba" )     
-SPLITMODES=( "random" "cold_protein" "cold_drug" )  
-EMBEDDINGS=( "ESMv1" "ESM2" "MUTAPLM" "ProteinCLIP" )
+DATASETS=( "BindDB")     
+SPLITMODES=( "random" )  
+EMBEDDINGS=( "ESMv1" )
+# DATASETS=( "BindDB" "Davis" "Kiba" )     
+# SPLITMODES=( "random" "cold_protein" "cold_drug" )  
+# EMBEDDINGS=( "ESMv1" "ESM2" "MUTAPLM" "ProteinCLIP" )
 
 echo "Starting batch at $(date)"
 echo "Base data dir: $BASE_DATA_DIR"

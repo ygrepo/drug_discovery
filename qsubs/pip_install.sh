@@ -8,7 +8,7 @@ module load cuda/12.4.0     # keep if your nodes provide CUDA 12.4 runtime
 
 source "$(conda info --base)/etc/profile.d/conda.sh"
 
-# --- Paths (edit if needed) ---
+# --- Paths  ---
 ENV_PREFIX="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.conda/envs/dti"
 PIP_CACHE_DIR="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.pip_cache"
 CONDA_PKGS_DIRS="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.conda/pkgs"  # conda cache (optional but recommended)
