@@ -5,7 +5,7 @@ set -euo pipefail
 module purge
 module load anaconda3/latest
 # If your cluster has a CUDA 12 module, uncomment this line:
-# module load cuda/12.4.0
+module load cuda/12.4.0
 
 source "$(conda info --base)/etc/profile.d/conda.sh"
 
