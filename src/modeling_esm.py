@@ -19,7 +19,6 @@ import math
 from typing import List, Optional, Tuple, Union
 
 import torch
-import torch.utils.checkpoint
 from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 import torch.nn.functional as F
@@ -37,11 +36,38 @@ from transformers.modeling_outputs import (
     TokenClassifierOutput,
     ModelOutput,
 )
-from transformers.modeling_utils import (
-    PreTrainedModel,
-    find_pruneable_heads_and_indices,
-    prune_linear_layer,
-)
+
+# prune_linear_layer still exists but moved; the pruning helper changed visibility across versions
+try:
+    # Old location (works with transformers <= ~4.33)
+    from transformers.modeling_utils import (
+        find_pruneable_heads_and_indices,
+        prune_linear_layer,
+    )
+except Exception:
+    # Newer versions: prune_linear_layer moved; the helper isn’t exported here
+    try:
+        from transformers.pytorch_utils import prune_linear_layer  # modern location
+    except Exception:
+        # Very old fallback
+        from transformers.modeling_utils import prune_linear_layer  # type: ignore
+
+    # Provide a minimal local implementation of find_pruneable_heads_and_indices
+    # (sufficient for typical attention-head pruning logic used by older code)
+    def find_pruneable_heads_and_indices(
+        heads, n_heads, head_size, already_pruned_heads
+    ):
+        # heads to prune = requested minus already pruned
+        heads = set(heads) - set(already_pruned_heads)
+        # indices to keep: all positions except the pruned heads
+        mask = torch.ones(n_heads, head_size, dtype=torch.bool)
+        for h in heads:
+            if 0 <= h < n_heads:
+                mask[h, :] = False
+        index = torch.arange(n_heads * head_size)[mask.view(-1)]
+        return sorted(heads), index
+
+
 from transformers.utils import logging
 from transformers.models.esm.configuration_esm import EsmConfig
 
