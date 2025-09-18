@@ -46,6 +46,7 @@ def parse_args():
     p.add_argument("--device", type=str, default="cpu")
     p.add_argument("--max_epochs", type=int, default=100)
     p.add_argument("--hidden", type=int, default=256)
+    p.add_argument("--t_dim", type=int, default=128)
     p.add_argument("--steps", type=int, default=50)
     p.add_argument("--lr", type=float, default=1e-3)
     p.add_argument("--weight_decay", type=float, default=1e-4)
@@ -89,6 +90,7 @@ def main():
         logger.info(f"Check NaN: {args.check_nan}")
         logger.info(f"Scale: {args.scale}")
         logger.info(f"Hidden: {args.hidden}")
+        logger.info(f"T dim: {args.t_dim}")
         logger.info(f"Steps: {args.steps}")
         logger.info(f"Learning rate: {args.lr}")
         logger.info(f"Weight decay: {args.weight_decay}")
@@ -126,6 +128,7 @@ def main():
         logger.info("Running models...")
         cfg = FlowConfig(
             hidden=args.hidden,
+            t_dim=args.t_dim,
             steps=args.steps,
             lr=args.lr,
             weight_decay=args.weight_decay,
