@@ -37,6 +37,13 @@ from transformers.modeling_outputs import (
     ModelOutput,
 )
 
+try:
+    # Newer (and also works on many older) releases
+    from transformers import PreTrainedModel
+except Exception:
+    # Very old fallback
+    from transformers.modeling_utils import PreTrainedModel  # type: ignore
+
 # prune_linear_layer still exists but moved; the pruning helper changed visibility across versions
 try:
     # Old location (works with transformers <= ~4.33)
