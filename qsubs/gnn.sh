@@ -54,7 +54,7 @@ LOG_LEVEL="INFO"
 mkdir -p "$LOG_DIR"
 
 BASE_DATA_DIR="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/wangcDrugRepoProject/BindDBdata/Embedding_Benchmark_Data"
-MAIN="src/gnn_run.py"
+MAIN="src/GNN_run.py"
 
 MODEL_DIR="output/models/gnn"
 mkdir -p "$MODEL_DIR"
