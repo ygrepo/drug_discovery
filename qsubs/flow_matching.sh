@@ -59,13 +59,13 @@ OUTPUT_DIR="output/data"
 mkdir -p "$OUTPUT_DIR"
 
 
-DATASETS=( "BindDB")     
-SPLITMODES=( "random" )  
-EMBEDDINGS=( "ESMv1" )
+# DATASETS=( "BindDB")     
+# SPLITMODES=( "random" )  
+# EMBEDDINGS=( "ESMv1" )
 
-# DATASETS=( "BindDB" "Davis" "Kiba" )     
-# SPLITMODES=( "random" "cold_protein" "cold_drug" )  
-# EMBEDDINGS=( "ESMv1" "ESM2" "MUTAPLM" "ProteinCLIP" )
+DATASETS=( "BindDB" "Davis" "Kiba" )     
+SPLITMODES=( "random" "cold_protein" "cold_drug" )  
+EMBEDDINGS=( "ESMv1" "ESM2" "MUTAPLM" "ProteinCLIP" )
 
 echo "Starting batch at $(date)"
 echo "Base data dir: $BASE_DATA_DIR"
@@ -78,8 +78,10 @@ CHECK_NAN=true
 #SCALE="zscore"
 DEVICE="auto"
 MAX_EPOCHS=100
-CHECKPOINTS_DIR="output/checkpoints/flow_matching"
+CHECKPOINTS_DIR="./checkpoints/flow_matching"
 mkdir -p "$CHECKPOINTS_DIR"
+MODEL_LOG_DIR="./logs/flow_matching"
+mkdir -p "$MODEL_LOG_DIR"
 
 for dataset in "${DATASETS[@]}"; do
   for splitmode in "${SPLITMODES[@]}"; do

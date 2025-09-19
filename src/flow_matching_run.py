@@ -60,6 +60,7 @@ def parse_args():
         "--devices", type=int, default=1, help="Number of devices (GPUs or CPUs) to use"
     )
     p.add_argument("--checkpoints_dir", type=str, default="./checkpoints/flow_matching")
+    p.add_argument("--log_every_n_steps", type=int, default=100)
     p.add_argument("--model_log_dir", type=str, default="./logs/flow_matching")
     return p.parse_args()
 
@@ -106,6 +107,7 @@ def main():
         logger.info(f"Model dir: {args.model_dir}")
         logger.info(f"Output dir: {args.output_dir}")
         logger.info(f"Log level: {args.log_level}")
+        logger.info(f"Log every n steps: {args.log_every_n_steps}")
         logger.info(f"Log fn: {args.log_fn}")
         logger.info(f"Split mode: {args.splitmode}")
         logger.info(f"Dataset: {args.dataset}")
@@ -169,7 +171,7 @@ def main():
             max_epochs=args.max_epochs,
             callbacks=callbacks,
             logger=csv_logger,
-            log_every_n_steps=10,
+            log_every_n_steps=args.log_every_n_steps,
             deterministic=True,
             enable_model_summary=True,
             enable_progress_bar=True,

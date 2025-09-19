@@ -57,12 +57,12 @@ mkdir -p "$MODEL_DIR"
 OUTPUT_DIR="output/data"
 mkdir -p "$OUTPUT_DIR"
 
-DATASETS=( "BindDB")     
-SPLITMODES=( "random" )  
-EMBEDDINGS=( "ESMv1" )
-# DATASETS=( "BindDB" "Davis" "Kiba" )     
-# SPLITMODES=( "random" "cold_protein" "cold_drug" )  
-# EMBEDDINGS=( "ESMv1" "ESM2" "MUTAPLM" "ProteinCLIP" )
+# DATASETS=( "BindDB")     
+# SPLITMODES=( "random" )  
+# EMBEDDINGS=( "ESMv1" )
+DATASETS=( "BindDB" "Davis" "Kiba" )     
+SPLITMODES=( "random" "cold_protein" "cold_drug" )  
+EMBEDDINGS=( "ESMv1" "ESM2" "MUTAPLM" "ProteinCLIP" )
 
 echo "Starting batch at $(date)"
 echo "Base data dir: $BASE_DATA_DIR"
