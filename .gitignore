@@ -19,6 +19,7 @@ hf_models/
 bind_data/
 notebook/.ipynb_checkpoints/
 notebook/Load_Bind_Data.ipynb
+meetings
 
 # Virtual environments
 .venv
