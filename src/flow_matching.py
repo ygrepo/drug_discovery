@@ -89,7 +89,6 @@ class ProteinEncoder(nn.Module):
 class ConditionFusion(nn.Module):
     """
     Concatenate [drug_emb, protein_emb] -> LayerNorm -> Dropout -> (optional) MLP.
-    Also accepts a time embedding and adds it (like your t Embedding add).
     """
 
     def __init__(self, hidden: int, use_mlp: bool = True, dropout: float = 0.3):
@@ -255,12 +254,12 @@ class DrugProteinFlowMatchingPL(pl.LightningModule):
         drug, prot, y = batch["drug"], batch["protein"], batch["y"]
         B = y.size(0)
 
+        t = torch.rand(B, device=self.device)
         v_hat, v_star = self.model(y, t, drug, prot)
         loss = F.mse_loss(v_hat, v_star)
 
         # ---- Per-step diagnostic logs ----
         # Sample t and z as usual
-        t = torch.rand(B, device=self.device)
         z = torch.randn_like(y)
         with torch.no_grad():
             batch_size = y.size(0)
