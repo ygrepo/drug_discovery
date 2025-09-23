@@ -73,7 +73,7 @@ PIN_MEMORY=true
 SHUFFLE=true
 CHECK_NAN=true
 DEVICE="auto"
-MAX_EPOCHS=2
+MAX_EPOCHS=50
 
 combo="${EMBEDDING}_${DATASET}_${SPLITMODE}"
 ts=$(date +"%Y%m%d_%H%M%S")
