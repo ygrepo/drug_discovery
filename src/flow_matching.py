@@ -446,8 +446,8 @@ class DrugProteinFlowMatchingPL(pl.LightningModule):
             self.val_r2.reset()
             self.val_pearson.reset()
             self.val_ev.reset()
-        try:
-            if self.enable_sampled_eval:
+        if self.enable_sampled_eval:
+            try:
                 self.log(
                     "val_mae_y",
                     self.val_mae_y.compute(),
