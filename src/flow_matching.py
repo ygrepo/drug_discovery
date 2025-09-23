@@ -254,11 +254,39 @@ class DrugProteinFlowMatchingPL(pl.LightningModule):
     def training_step(self, batch: Dict[str, torch.Tensor], batch_idx: int):
         drug, prot, y = batch["drug"], batch["protein"], batch["y"]
         B = y.size(0)
-        t = torch.rand(B, device=self.device)
+
         v_hat, v_star = self.model(y, t, drug, prot)
         loss = F.mse_loss(v_hat, v_star)
 
-        # log loss as before (step + epoch)
+        # ---- Per-step diagnostic logs ----
+        # Sample t and z as usual
+        t = torch.rand(B, device=self.device)
+        z = torch.randn_like(y)
+        with torch.no_grad():
+            batch_size = y.size(0)
+            self.log(
+                "batch_mean_abs_y",
+                y.abs().mean(),
+                on_step=True,
+                on_epoch=False,
+                batch_size=batch_size,
+            )
+            self.log(
+                "batch_mean_abs_y_minus_z",
+                (y - z).abs().mean(),
+                on_step=True,
+                on_epoch=False,
+                batch_size=batch_size,
+            )
+            self.log(
+                "batch_mean_t",
+                t.mean(),
+                on_step=True,
+                on_epoch=False,
+                batch_size=batch_size,
+            )
+
+        # ---- Core loss log ----
         self.log(
             "train_loss",
             loss,
@@ -268,13 +296,14 @@ class DrugProteinFlowMatchingPL(pl.LightningModule):
             sync_dist=True,
         )
 
-        # update metrics (NO per-step logging)
+        # Update metrics (epoch-level only)
         pred = v_hat.squeeze(-1)
         targ = v_star.squeeze(-1)
         self.train_mae.update(pred, targ)
         self.train_r2.update(pred, targ)
         self.train_pearson.update(pred, targ)
         self.train_ev.update(pred, targ)
+
         return loss
 
     def on_train_epoch_end(self):
@@ -319,7 +348,11 @@ class DrugProteinFlowMatchingPL(pl.LightningModule):
     def validation_step(self, batch: Dict[str, torch.Tensor], batch_idx: int):
         drug, prot, y = batch["drug"], batch["protein"], batch["y"]
         B = y.size(0)
+
+        # Sample t (used for both forward and diagnostics)
         t = torch.rand(B, device=self.device)
+        z = torch.randn_like(y)
+
         v_hat, v_star = self.model(y, t, drug, prot)
         loss = F.mse_loss(v_hat, v_star)
         self.log(
@@ -331,13 +364,14 @@ class DrugProteinFlowMatchingPL(pl.LightningModule):
             sync_dist=True,
         )
 
-        # collect metrics (epoch-only)
+        # --- metrics (epoch only) ---
         pred = v_hat.squeeze(-1)
         targ = v_star.squeeze(-1)
         self.val_mae.update(pred, targ)
         self.val_r2.update(pred, targ)
         self.val_pearson.update(pred, targ)
         self.val_ev.update(pred, targ)
+
         if self.enable_sampled_eval:
             with torch.no_grad():
                 Y = self.sample_n(drug, prot)  # (B, K)
@@ -346,6 +380,32 @@ class DrugProteinFlowMatchingPL(pl.LightningModule):
             self.val_r2_y.update(y_mean, y)
             self.val_pearson_y.update(y_mean, y)
             self.val_ev_y.update(y_mean, y)
+
+        # --- diagnostics (always) ---
+        with torch.no_grad():
+            batch_size = y.size(0)
+            self.log(
+                "val_batch_mean_abs_y",
+                y.abs().mean(),
+                on_step=True,
+                on_epoch=False,
+                batch_size=batch_size,
+            )
+            self.log(
+                "val_batch_mean_abs_y_minus_z",
+                (y - z).abs().mean(),
+                on_step=True,
+                on_epoch=False,
+                batch_size=batch_size,
+            )
+            self.log(
+                "val_batch_mean_t",
+                t.mean(),
+                on_step=True,
+                on_epoch=False,
+                batch_size=batch_size,
+            )
+
         return loss
 
     def on_validation_epoch_end(self):

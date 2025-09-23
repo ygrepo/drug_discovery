@@ -49,6 +49,9 @@ ml proxies/1 || true
 export RAYON_NUM_THREADS=4
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
+export PYTHONUNBUFFERED=1
+export TERM=xterm
+
 # --- Project paths ---
 LOG_DIR="logs"
 LOG_LEVEL="INFO"
@@ -70,7 +73,7 @@ PIN_MEMORY=true
 SHUFFLE=true
 CHECK_NAN=true
 DEVICE="auto"
-MAX_EPOCHS=3
+MAX_EPOCHS=2
 
 combo="${EMBEDDING}_${DATASET}_${SPLITMODE}"
 ts=$(date +"%Y%m%d_%H%M%S")
