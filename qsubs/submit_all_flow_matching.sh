@@ -20,6 +20,12 @@ for dataset in "${DATASETS[@]}"; do
       # We set name, logs, and also pass resource flags here (they override #BSUB in the script if duplicated).
       bsub \
         -J "flow_${combo}" \
+        -P "acc_DiseaseGeneCell" \
+        -q "gpu" \
+        -gpu "num=1" \
+        -R "h100nvl" \
+        -n 1 \
+        -R "rusage[mem=512G]" \
         -W 100:00 \
         -oo "logs/flow_matching.${combo}.%J.out" \
         -eo "logs/flow_matching.${combo}.%J.err" \
