@@ -21,12 +21,6 @@ for dataset in "${DATASETS[@]}"; do
       bsub \
         -J "flow_${combo}" \
         -P "acc_DiseaseGeneCell" \
-        # -q "gpu" \
-        # -gpu "num=1" \
-        # -R "h100nvl" \
-        # -n 1 \
-        # -R "rusage[mem=128G]" \
-        # -W 100:00 \
         -oo "logs/flow_matching.${combo}.%J.out" \
         -eo "logs/flow_matching.${combo}.%J.err" \
         ./flow_matching_worker.sh "${dataset}" "${splitmode}" "${embedding}"
