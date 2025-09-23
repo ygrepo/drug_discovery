@@ -3,13 +3,14 @@
 
 # ------- LSF resources (kept here so every job uses the same resources) -------
 # You can still override these from the submitter with bsub CLI flags.
-#BSUB -P acc_DiseaseGeneCell
-#BSUB -q gpu
+#BSUB -J flow_matching             # Job name
+#BSUB -P acc_DiseaseGeneCell   # allocation account
+#BSUB -q gpu                  # queue
 #BSUB -gpu "num=1"
 #BSUB -R h100nvl
-#BSUB -n 1
-#BSUB -W 100:00
-#BSUB -R rusage[mem=512G]
+#BSUB -n 1                   # number of compute cores
+#BSUB -W 100:00                 # walltime in HH:MM
+#BSUB -R rusage[mem=512G]       #16 GB of memory (8 GB per core)
 # -----------------------------------------------------------------------------
 
 set -euo pipefail
