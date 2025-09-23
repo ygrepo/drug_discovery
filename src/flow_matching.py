@@ -258,32 +258,32 @@ class DrugProteinFlowMatchingPL(pl.LightningModule):
         v_hat, v_star = self.model(y, t, drug, prot)
         loss = F.mse_loss(v_hat, v_star)
 
-        # ---- Per-step diagnostic logs ----
-        # Sample t and z as usual
-        z = torch.randn_like(y)
-        with torch.no_grad():
-            batch_size = y.size(0)
-            self.log(
-                "batch_mean_abs_y",
-                y.abs().mean(),
-                on_step=True,
-                on_epoch=False,
-                batch_size=batch_size,
-            )
-            self.log(
-                "batch_mean_abs_y_minus_z",
-                (y - z).abs().mean(),
-                on_step=True,
-                on_epoch=False,
-                batch_size=batch_size,
-            )
-            self.log(
-                "batch_mean_t",
-                t.mean(),
-                on_step=True,
-                on_epoch=False,
-                batch_size=batch_size,
-            )
+        # # ---- Per-step diagnostic logs ----
+        # # Sample t and z as usual
+        # z = torch.randn_like(y)
+        # with torch.no_grad():
+        #     batch_size = y.size(0)
+        #     self.log(
+        #         "batch_mean_abs_y",
+        #         y.abs().mean(),
+        #         on_step=True,
+        #         on_epoch=False,
+        #         batch_size=batch_size,
+        #     )
+        #     self.log(
+        #         "batch_mean_abs_y_minus_z",
+        #         (y - z).abs().mean(),
+        #         on_step=True,
+        #         on_epoch=False,
+        #         batch_size=batch_size,
+        #     )
+        #     self.log(
+        #         "batch_mean_t",
+        #         t.mean(),
+        #         on_step=True,
+        #         on_epoch=False,
+        #         batch_size=batch_size,
+        #     )
 
         # ---- Core loss log ----
         self.log(
@@ -307,42 +307,44 @@ class DrugProteinFlowMatchingPL(pl.LightningModule):
 
     def on_train_epoch_end(self):
         # compute & log once per epoch; then reset
-        self.log(
-            "train_mae",
-            self.train_mae.compute(),
-            prog_bar=True,
-            on_step=False,
-            on_epoch=True,
-            sync_dist=True,
-        )
-        self.log(
-            "train_r2",
-            self.train_r2.compute(),
-            prog_bar=True,
-            on_step=False,
-            on_epoch=True,
-            sync_dist=True,
-        )
-        self.log(
-            "train_pearson",
-            self.train_pearson.compute(),
-            prog_bar=True,
-            on_step=False,
-            on_epoch=True,
-            sync_dist=True,
-        )
-        self.log(
-            "train_ev",
-            self.train_ev.compute(),
-            prog_bar=True,
-            on_step=False,
-            on_epoch=True,
-            sync_dist=True,
-        )
-        self.train_mae.reset()
-        self.train_r2.reset()
-        self.train_pearson.reset()
-        self.train_ev.reset()
+        try:
+            self.log(
+                "train_mae",
+                self.train_mae.compute(),
+                prog_bar=True,
+                on_step=False,
+                on_epoch=True,
+                sync_dist=True,
+            )
+            self.log(
+                "train_r2",
+                self.train_r2.compute(),
+                prog_bar=True,
+                on_step=False,
+                on_epoch=True,
+                sync_dist=True,
+            )
+            self.log(
+                "train_pearson",
+                self.train_pearson.compute(),
+                prog_bar=True,
+                on_step=False,
+                on_epoch=True,
+                sync_dist=True,
+            )
+            self.log(
+                "train_ev",
+                self.train_ev.compute(),
+                prog_bar=True,
+                on_step=False,
+                on_epoch=True,
+                sync_dist=True,
+            )
+        finally:
+            self.train_mae.reset()
+            self.train_r2.reset()
+            self.train_pearson.reset()
+            self.train_ev.reset()
 
     def validation_step(self, batch: Dict[str, torch.Tensor], batch_idx: int):
         drug, prot, y = batch["drug"], batch["protein"], batch["y"]
@@ -350,8 +352,6 @@ class DrugProteinFlowMatchingPL(pl.LightningModule):
 
         # Sample t (used for both forward and diagnostics)
         t = torch.rand(B, device=self.device)
-        z = torch.randn_like(y)
-
         v_hat, v_star = self.model(y, t, drug, prot)
         loss = F.mse_loss(v_hat, v_star)
         self.log(
@@ -381,106 +381,110 @@ class DrugProteinFlowMatchingPL(pl.LightningModule):
             self.val_ev_y.update(y_mean, y)
 
         # --- diagnostics (always) ---
-        with torch.no_grad():
-            batch_size = y.size(0)
-            self.log(
-                "val_batch_mean_abs_y",
-                y.abs().mean(),
-                on_step=True,
-                on_epoch=False,
-                batch_size=batch_size,
-            )
-            self.log(
-                "val_batch_mean_abs_y_minus_z",
-                (y - z).abs().mean(),
-                on_step=True,
-                on_epoch=False,
-                batch_size=batch_size,
-            )
-            self.log(
-                "val_batch_mean_t",
-                t.mean(),
-                on_step=True,
-                on_epoch=False,
-                batch_size=batch_size,
-            )
+        # with torch.no_grad():
+        #     batch_size = y.size(0)
+        #     self.log(
+        #         "val_batch_mean_abs_y",
+        #         y.abs().mean(),
+        #         on_step=True,
+        #         on_epoch=False,
+        #         batch_size=batch_size,
+        #     )
+        #     self.log(
+        #         "val_batch_mean_abs_y_minus_z",
+        #         (y - z).abs().mean(),
+        #         on_step=True,
+        #         on_epoch=False,
+        #         batch_size=batch_size,
+        #     )
+        #     self.log(
+        #         "val_batch_mean_t",
+        #         t.mean(),
+        #         on_step=True,
+        #         on_epoch=False,
+        #         batch_size=batch_size,
+        #     )
 
         return loss
 
     def on_validation_epoch_end(self):
-        self.log(
-            "val_mae",
-            self.val_mae.compute(),
-            prog_bar=True,
-            on_step=False,
-            on_epoch=True,
-            sync_dist=True,
-        )
-        self.log(
-            "val_r2",
-            self.val_r2.compute(),
-            prog_bar=True,
-            on_step=False,
-            on_epoch=True,
-            sync_dist=True,
-        )
-        self.log(
-            "val_pearson",
-            self.val_pearson.compute(),
-            prog_bar=True,
-            on_step=False,
-            on_epoch=True,
-            sync_dist=True,
-        )
-        self.log(
-            "val_ev",
-            self.val_ev.compute(),
-            prog_bar=True,
-            on_step=False,
-            on_epoch=True,
-            sync_dist=True,
-        )
-        self.val_mae.reset()
-        self.val_r2.reset()
-        self.val_pearson.reset()
-        self.val_ev.reset()
-        if self.enable_sampled_eval:
+        try:
             self.log(
-                "val_mae_y",
-                self.val_mae_y.compute(),
+                "val_mae",
+                self.val_mae.compute(),
                 prog_bar=True,
                 on_step=False,
                 on_epoch=True,
                 sync_dist=True,
             )
             self.log(
-                "val_r2_y",
-                self.val_r2_y.compute(),
+                "val_r2",
+                self.val_r2.compute(),
                 prog_bar=True,
                 on_step=False,
                 on_epoch=True,
                 sync_dist=True,
             )
             self.log(
-                "val_pearson_y",
-                self.val_pearson_y.compute(),
+                "val_pearson",
+                self.val_pearson.compute(),
                 prog_bar=True,
                 on_step=False,
                 on_epoch=True,
                 sync_dist=True,
             )
             self.log(
-                "val_ev_y",
-                self.val_ev_y.compute(),
+                "val_ev",
+                self.val_ev.compute(),
                 prog_bar=True,
                 on_step=False,
                 on_epoch=True,
                 sync_dist=True,
             )
-            self.val_mae_y.reset()
-            self.val_r2_y.reset()
-            self.val_pearson_y.reset()
-            self.val_ev_y.reset()
+        finally:
+            self.val_mae.reset()
+            self.val_r2.reset()
+            self.val_pearson.reset()
+            self.val_ev.reset()
+        try:
+            if self.enable_sampled_eval:
+                self.log(
+                    "val_mae_y",
+                    self.val_mae_y.compute(),
+                    prog_bar=True,
+                    on_step=False,
+                    on_epoch=True,
+                    sync_dist=True,
+                )
+                self.log(
+                    "val_r2_y",
+                    self.val_r2_y.compute(),
+                    prog_bar=True,
+                    on_step=False,
+                    on_epoch=True,
+                    sync_dist=True,
+                )
+                self.log(
+                    "val_pearson_y",
+                    self.val_pearson_y.compute(),
+                    prog_bar=True,
+                    on_step=False,
+                    on_epoch=True,
+                    sync_dist=True,
+                )
+                self.log(
+                    "val_ev_y",
+                    self.val_ev_y.compute(),
+                    prog_bar=True,
+                    on_step=False,
+                    on_epoch=True,
+                    sync_dist=True,
+                )
+            finally:
+                self.val_mae_y.reset()
+                self.val_r2_y.reset()
+                self.val_pearson_y.reset()
+                self.val_ev_y.reset()
 
     def test_step(self, batch: Dict[str, torch.Tensor], batch_idx: int):
         drug, prot, y = batch["drug"], batch["protein"], batch["y"]
