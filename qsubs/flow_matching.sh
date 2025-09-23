@@ -10,7 +10,7 @@
 #BSUB -R h100nvl
 #BSUB -n 1                   # number of compute cores
 #BSUB -W 100:00                 # walltime in HH:MM
-#BSUB -R rusage[mem=512G]       #16 GB of memory (8 GB per core)
+#BSUB -R rusage[mem=128G]       #16 GB of memory (8 GB per core)
 # -----------------------------------------------------------------------------
 
 set -euo pipefail
