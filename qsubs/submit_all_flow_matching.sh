@@ -20,6 +20,7 @@ for dataset in "${DATASETS[@]}"; do
       # We set name, logs, and also pass resource flags here (they override #BSUB in the script if duplicated).
       bsub \
         -J "flow_${combo}" \
+        -W 100:00 \
         -oo "logs/flow_matching.${combo}.%J.out" \
         -eo "logs/flow_matching.${combo}.%J.err" \
         ./flow_matching_worker.sh "${dataset}" "${splitmode}" "${embedding}"
