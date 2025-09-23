@@ -56,11 +56,10 @@ mkdir -p "$LOG_DIR"
 BASE_DATA_DIR="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/wangcDrugRepoProject/BindDBdata/Mutant_BindingDB"
 MAIN="src/flow_matching_run.py"
 
-MODEL_DIR="output/models";  mkdir -p "$MODEL_DIR"
 OUTPUT_DIR="output/data";   mkdir -p "$OUTPUT_DIR"
 CHECKPOINTS_DIR="./checkpoints/flow_matching_${DATASET}_${SPLITMODE}_${EMBEDDING}"; 
 mkdir -p "$CHECKPOINTS_DIR"
-MODEL_LOG_DIR="./logs/flow_matching_${DATASET}_${SPLITMODE}_${EMBEDDING}";          
+MODEL_LOG_DIR="./output/logs/flow_matching_${DATASET}_${SPLITMODE}_${EMBEDDING}";          
 mkdir -p "$MODEL_LOG_DIR"
 
 # --- Training knobs (same as your original) ---
@@ -88,7 +87,6 @@ set +e
   --dataset "${DATASET}" \
   --splitmode "${SPLITMODE}" \
   --embedding "${EMBEDDING}" \
-  --model_dir "${MODEL_DIR}" \
   --output_dir "${OUTPUT_DIR}" \
   --max_epochs "${MAX_EPOCHS}" \
   --batch_size "${BATCH_SIZE}" \
