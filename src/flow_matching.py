@@ -290,7 +290,7 @@ class DrugProteinFlowMatchingPL(pl.LightningModule):
             "train_loss",
             loss,
             prog_bar=True,
-            on_step=True,
+            on_step=False,
             on_epoch=True,
             sync_dist=True,
         )
