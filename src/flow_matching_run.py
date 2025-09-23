@@ -147,7 +147,7 @@ def main():
         model_name = "FlowMatching"
         checkpoint_dir = Path(args.checkpoints_dir) / model_name
         checkpoint_dir.mkdir(parents=True, exist_ok=True)
-        filename = f"{model_name}-epoch={{epoch:03d}}-valloss={{val_loss:.4f}}"
+        filename = f"{model_name}_epoch:{{epoch:03d}}_valloss:{{val_loss:.4f}}"
 
         callbacks = [
             ModelCheckpoint(

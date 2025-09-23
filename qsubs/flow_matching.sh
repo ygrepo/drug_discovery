@@ -89,6 +89,7 @@ set +e
   --splitmode "${SPLITMODE}" \
   --embedding "${EMBEDDING}" \
   --output_dir "${OUTPUT_DIR}" \
+  --model_log_dir "${MODEL_LOG_DIR}" \
   --max_epochs "${MAX_EPOCHS}" \
   --batch_size "${BATCH_SIZE}" \
   --num_workers "${NUM_WORKERS}" \
