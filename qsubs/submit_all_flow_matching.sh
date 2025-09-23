@@ -31,7 +31,7 @@ for dataset in "${DATASETS[@]}"; do
         -W 100:00 \
         -oo "logs/flow_matching.${combo}.%J.out" \
         -eo "logs/flow_matching.${combo}.%J.err" \
-        ./qsubs/flow_matching_worker.sh "${dataset}" "${splitmode}" "${embedding}"
+        ./flow_matching.sh "${dataset}" "${splitmode}" "${embedding}"
     done
   done
 done
