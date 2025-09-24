@@ -151,14 +151,16 @@ def main():
 
         callbacks = [
             ModelCheckpoint(
-                monitor="val_loss",
-                mode="min",
+                monitor="val_r2_y",
+                mode="max",
                 save_top_k=1,
                 dirpath=checkpoint_dir,
                 save_last=True,
                 filename=filename,
             ),
-            EarlyStopping(monitor="val_loss", mode="min", patience=args.patience),
+            EarlyStopping(
+                monitor="val_r2_y", mode="max", patience=args.patience, min_delta=1e-3
+            ),
             LearningRateMonitor(logging_interval="epoch"),
         ]
         csv_logger = CSVLogger(save_dir=Path(args.model_log_dir), name=model_name)
@@ -173,6 +175,7 @@ def main():
             deterministic=True,
             enable_model_summary=True,
             enable_progress_bar=True,
+            gradient_clip_val=1.0,
             precision="16-mixed",
         )
         logger.info("Training...")
