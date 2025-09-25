@@ -142,13 +142,6 @@ def dti_collate(batch: List[Dict[str, torch.Tensor]]) -> Dict[str, torch.Tensor]
     }
 
 
-from typing import Optional
-import numpy as np
-import torch
-from torch.utils.data import Dataset
-from torch_geometric.data import Data as GNNData
-
-
 class DTIGraphVecDataset(Dataset):
     """
     Row-wise graph + vector dataset.

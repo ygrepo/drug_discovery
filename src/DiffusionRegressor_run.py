@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 import argparse
 import os
+import torch
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import (
     ModelCheckpoint,
@@ -15,9 +16,9 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 from src.utils import setup_logging, get_logger
 from src.data_util import load_data, create_DTI_FlowMatching_data_loader
-from src.flow_matching import (
-    FlowConfig,
-    DrugProteinFlowMatchingPL,
+from src.DiffusionRegressor import (
+    RegressorCfg,
+    DiffusionRegressorPL,
 )
 from src.model_util import init_weights
 
@@ -35,29 +36,28 @@ def parse_args():
     p.add_argument("--num_workers", type=int, default=20)
     p.add_argument("--pin_memory", type=bool, default=True)
     p.add_argument("--shuffle", type=bool, default=True)
-    p.add_argument("--check_nan", type=bool, default=True)
-    p.add_argument("--scale", type=str, default=None)
-    p.add_argument("--output_dir", type=str, default="")
-    p.add_argument("--data_dir", type=str, default="")
-    p.add_argument("--device", type=str, default="cpu")
-    p.add_argument("--max_epochs", type=int, default=100)
-    p.add_argument("--hidden", type=int, default=256)
-    p.add_argument("--t_dim", type=int, default=128)
-    p.add_argument("--steps", type=int, default=50)
-    p.add_argument("--lr", type=float, default=1e-3)
-    p.add_argument("--weight_decay", type=float, default=1e-4)
-    p.add_argument("--dropout", type=float, default=0.1)
-    p.add_argument("--pred_num_samples", type=int, default=50)
-    p.add_argument("--pred_steps", type=int, default=None)
-    p.add_argument("--pi_alpha", type=float, default=0.05)
-    p.add_argument("--patience", type=int, default=10)
-    p.add_argument("--accelerator", type=str, default="gpu")
+    p.add_argument("--weight_decay", type=float, default=1e-4, help="Weight decay")
+    p.add_argument("--huber_delta", type=float, default=1.0, help="Huber delta")
+    p.add_argument("--ema_decay", type=float, default=0.999, help="EMA decay")
+    p.add_argument("--dropout", type=float, default=0.3, help="Dropout")
+    p.add_argument("--hidden", type=int, default=512, help="Hidden dimension")
+    p.add_argument("--bilinear_rank", type=int, default=8, help="Bilinear rank")
+    p.add_argument("--use_time", type=bool, default=False, help="Use time embedding")
+    p.add_argument("--num_timesteps", type=int, default=10, help="Number of timesteps")
+    p.add_argument("--lr", type=float, default=1e-3, help="Learning rate")
     p.add_argument(
-        "--devices", type=int, default=1, help="Number of devices (GPUs or CPUs) to use"
+        "--max_epochs", type=int, default=100, help="Maximum number of epochs"
     )
-    p.add_argument("--checkpoints_dir", type=str, default="./checkpoints/flow_matching")
+    p.add_argument(
+        "--patience", type=int, default=10, help="Patience for early stopping"
+    )
+    p.add_argument(
+        "--checkpoints_dir", type=str, default="output/checkpoints/diffusion_regressor"
+    )
     p.add_argument("--log_every_n_steps", type=int, default=100)
-    p.add_argument("--model_log_dir", type=str, default="./logs/flow_matching")
+    p.add_argument(
+        "--model_log_dir", type=str, default="output/logs/diffusion_regressor"
+    )
     return p.parse_args()
 
 
@@ -78,35 +78,6 @@ def main():
         logger.info(f"Data dir: {data_dir}")
         logger.info(f"Output dir: {args.output_dir}")
 
-        logger.info(f"Checkpoints dir: {args.checkpoints_dir}")
-        logger.info(f"Model log dir: {args.model_log_dir}")
-        logger.info(f"Batch size: {args.batch_size}")
-        logger.info(f"Number of workers: {args.num_workers}")
-        logger.info(f"Pin memory: {args.pin_memory}")
-        logger.info(f"Shuffle: {args.shuffle}")
-        logger.info(f"Check NaN: {args.check_nan}")
-        logger.info(f"Scale: {args.scale}")
-        logger.info(f"Hidden: {args.hidden}")
-        logger.info(f"T dim: {args.t_dim}")
-        logger.info(f"Steps: {args.steps}")
-        logger.info(f"Learning rate: {args.lr}")
-        logger.info(f"Weight decay: {args.weight_decay}")
-        logger.info(f"Dropout: {args.dropout}")
-        logger.info(f"Prediction num samples: {args.pred_num_samples}")
-        logger.info(f"Prediction steps: {args.pred_steps}")
-        logger.info(f"PI alpha: {args.pi_alpha}")
-        logger.info(f"Patience: {args.patience}")
-        logger.info(f"Max epochs: {args.max_epochs}")
-        logger.info(f"Device: {args.device}")
-        logger.info(f"Accelerator: {args.accelerator}")
-        logger.info(f"Devices: {args.devices}")
-        logger.info(f"Output dir: {args.output_dir}")
-        logger.info(f"Log level: {args.log_level}")
-        logger.info(f"Log every n steps: {args.log_every_n_steps}")
-        logger.info(f"Log fn: {args.log_fn}")
-        logger.info(f"Split mode: {args.splitmode}")
-        logger.info(f"Dataset: {args.dataset}")
-
         train_data, val_data, test_data = load_data(data_dir)
         train_loader, val_loader, test_loader, train_dataset = (
             create_DTI_FlowMatching_data_loader(
@@ -122,26 +93,28 @@ def main():
             )
         )
 
-        logger.info("Running models...")
-        cfg = FlowConfig(
-            hidden=args.hidden,
-            t_dim=args.t_dim,
-            steps=args.steps,
+        logger.info("Running model...")
+        # datamodule/batch must yield keys: "drug" (B,Dd), "protein" (B,Dp), "y" (B,)
+        cfg = RegressorCfg(
             lr=args.lr,
             weight_decay=args.weight_decay,
             dropout=args.dropout,
+            hidden=args.hidden,
+            bilinear_rank=args.bilinear_rank,
+            use_time=args.use_time,
+            num_timesteps=args.num_timesteps,
+            standardize_y=True,
+            ema_decay=args.ema_decay,
         )
-        pl.seed_everything(42, workers=True)
-        pl_model = DrugProteinFlowMatchingPL(
+
+        pl_model = DiffusionRegressorPL(
             drug_input_dim=train_dataset.drug_input_dim,
             protein_input_dim=train_dataset.protein_input_dim,
             cfg=cfg,
-            pred_num_samples=args.pred_num_samples,  # for predict_step
-            pred_steps=args.pred_steps,  # use cfg.steps
-            pi_alpha=args.pi_alpha,  # 95% PI
+            loss="mse",
         )
         pl_model.model.apply(init_weights)
-        model_name = "FlowMatching"
+        model_name = "DiffusionRegressor"
         checkpoint_dir = Path(args.checkpoints_dir) / model_name
         checkpoint_dir.mkdir(parents=True, exist_ok=True)
         filename = f"{model_name}_epoch:{{epoch:03d}}_valloss:{{val_loss:.4f}}"
