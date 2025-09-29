@@ -22,7 +22,7 @@ for dataset in "${DATASETS[@]}"; do
       # Submit one job for this combo.
       # We set name, logs, and also pass resource flags here (they override #BSUB in the script if duplicated).
       bsub \
-        -J "flow_${combo}" \
+        -J "diff_${combo}" \
         -P "acc_DiseaseGeneCell" \
         -q "gpu" \
         -gpu "num=1" \
