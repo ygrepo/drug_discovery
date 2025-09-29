@@ -29,7 +29,9 @@ class FiLM(nn.Module):
         self.beta = nn.Linear(hidden, hidden)
 
     def forward(self, d, p):  # (B,H),(B,H)
-        return p * (1 + self.gamma(d)) + self.beta(d)
+        scale = torch.tanh(self.gamma(d))  # or clamp(-s,s)
+        shift = self.beta(d)
+        return p * (1 + scale) + shift
 
 
 class LowRankBilinear(nn.Module):
@@ -75,8 +77,8 @@ class DiffusionRegressorV2(nn.Module):
         self.film = FiLM(H)
         self.bilin = LowRankBilinear(H, rank=bilinear_rank)
 
-        fuse_in = H + H + 2 * bilinear_rank + (1 if self.cosine_feat else 0)
-        if use_time:
+        fuse_in = H + H + 2 * bilinear_rank + 1 + (1 if self.cosine_feat else 0)
+        if self.use_time and num_timesteps > 1:
             self.t_embed = nn.Embedding(num_timesteps, fuse_in)
 
         self.pre_norm = nn.LayerNorm(fuse_in)
@@ -90,8 +92,8 @@ class DiffusionRegressorV2(nn.Module):
         p = self.prot_enc(protein)
         p_mod = self.film(d, p)
 
-        _, s_vec = self.bilin(d, p_mod)
-        feats = [d, p_mod, s_vec]
+        scalar, s_vec = self.bilin(d, p_mod)
+        feats = [d, p_mod, s_vec, scalar]  # scalar is (B,1)
 
         if self.cosine_feat:
             dn = F.normalize(d, dim=-1)
@@ -118,7 +120,7 @@ class RegressorCfg:
     use_time: bool = False
     num_timesteps: int = 10
     huber_delta: float = 1.0
-    standardize_y: bool = True
+    standardize_y: bool = False
     ema_decay: float = 0.999  # set 0 to disable
 
 
@@ -154,6 +156,7 @@ class DiffusionRegressorPL(pl.LightningModule):
         # --- running target stats (buffers) ---
         self.register_buffer("y_mu", torch.tensor(0.0), persistent=False)
         self.register_buffer("y_sigma", torch.tensor(1.0), persistent=False)
+        self.register_buffer("y_M2", torch.tensor(0.0), persistent=False)
         self._seen_for_stats = 0  # simple running-estimate counter
 
         # --- EMA shadow ---
@@ -177,37 +180,29 @@ class DiffusionRegressorPL(pl.LightningModule):
         self.test_ev = ExplainedVariance(multioutput="uniform_average")
 
     # -------- helpers --------
-    def _standardize_y(self, y):
+    def _scale_y(self, y):
         if not self.cfg.standardize_y:
             return y
         return (y - self.y_mu) / (self.y_sigma.clamp_min(1e-8))
 
-    def _unstadardize_y(self, y_std):
+    def _unscale_y(self, y_std):
         if not self.cfg.standardize_y:
             return y_std
         return y_std * self.y_sigma + self.y_mu
 
     @torch.no_grad()
     def _update_running_stats(self, y):
-        # online mean / var (Welford) – simple variant good enough for training
         if not self.cfg.standardize_y:
             return
-        y = y.detach()
-        n0 = self._seen_for_stats
-        n1 = n0 + y.numel()
-        old_mu = self.y_mu
-        new_mu = (old_mu * n0 + y.sum()) / max(n1, 1)
-        # Update variance via two-pass-ish stable update
-        if n0 == 0:
-            new_sigma = y.std(unbiased=False)
-        else:
-            # approximate by mixing sigmas (good enough here)
-            new_sigma = torch.sqrt(
-                (self.y_sigma**2 * n0 + ((y - new_mu) ** 2).sum()) / max(n1, 1)
-            )
-        self.y_mu.copy_(new_mu)
-        self.y_sigma.copy_(new_sigma.clamp_min(1e-8))
-        self._seen_for_stats = int(n1)
+        y = y.detach().to(self.y_mu.device).flatten()
+        # vectorized Welford
+        for val in y:
+            self._seen_for_stats += 1
+            delta = val - self.y_mu
+            self.y_mu += delta / self._seen_for_stats
+            self.y_M2 += delta * (val - self.y_mu)
+        var = self.y_M2 / max(self._seen_for_stats, 1)
+        self.y_sigma.copy_(torch.sqrt(var.clamp_min(1e-12)))
 
     def _maybe_init_ema(self):
         if self.ema_decay and (self._ema_shadow is None):
@@ -226,13 +221,6 @@ class DiffusionRegressorPL(pl.LightningModule):
             if k in self._ema_shadow and v.dtype.is_floating_point:
                 self._ema_shadow[k].mul_(d).add_(v.detach(), alpha=1 - d)
 
-    @torch.no_grad()
-    def _ema_copy_to_model(self, backup: dict):
-        # Copy EMA weights into model; returns nothing, mutates in place
-        for k, v in self.model.state_dict().items():
-            if (self._ema_shadow is not None) and (k in self._ema_shadow):
-                v.copy_(self._ema_shadow[k])
-
     # -------- Lightning hooks --------
     def on_train_start(self):
         self._maybe_init_ema()
@@ -250,7 +238,7 @@ class DiffusionRegressorPL(pl.LightningModule):
         if self.global_step < 100:  # warmup estimates
             self._update_running_stats(y)
 
-        y_std = self._standardize_y(y)
+        y_std = self._scale_y(y)
         y_hat_std = self.model(drug, prot)  # (B,)
 
         loss = self._loss_fn(y_hat_std, y_std)
@@ -264,7 +252,7 @@ class DiffusionRegressorPL(pl.LightningModule):
         )
 
         # epoch metrics in original scale
-        y_hat = self._unstadardize_y(y_hat_std).detach()
+        y_hat = self._unscale_y(y_hat_std).detach()
         self.train_mae.update(y_hat, y)
         self.train_r2.update(y_hat, y)
         self.train_pearson.update(y_hat, y)
@@ -312,7 +300,7 @@ class DiffusionRegressorPL(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         drug, prot, y = batch["drug"], batch["protein"], batch["y"]
-        y_std = self._standardize_y(y)
+        y_std = self._scale_y(y)
         y_hat_std = self.model(drug, prot)
         loss = self._loss_fn(y_hat_std, y_std)
         self.log(
@@ -326,7 +314,7 @@ class DiffusionRegressorPL(pl.LightningModule):
 
         # metrics on EMA weights at epoch end (see on_validation_epoch_end)
         # here we log with current weights too:
-        y_hat = self._unstadardize_y(y_hat_std).detach()
+        y_hat = self._unscale_y(y_hat_std).detach()
         self.val_mae.update(y_hat, y)
         self.val_r2.update(y_hat, y)
         self.val_pearson.update(y_hat, y)
@@ -334,55 +322,57 @@ class DiffusionRegressorPL(pl.LightningModule):
         return loss
 
     def on_validation_epoch_end(self):
-        # Optionally evaluate with EMA weights and log (overwrites the same metric names)
-        if self._ema_shadow is not None:
-            # backup current weights
-            backup = {k: v.detach().clone() for k, v in self.model.state_dict().items()}
-            # copy EMA, run one pass of val loader, then restore
-            self._ema_copy_to_model(backup)
-            self.model.eval()
-            # (Lightning already accumulated metrics over steps; we’ll just log & reset)
+        # --- regular metrics ---
         try:
-            self.log(
-                "val_mae",
-                self.val_mae.compute(),
-                prog_bar=True,
-                on_epoch=True,
-                sync_dist=True,
-            )
-            self.log(
-                "val_r2",
-                self.val_r2.compute(),
-                prog_bar=True,
-                on_epoch=True,
-                sync_dist=True,
-            )
+            self.log("val_mae", self.val_mae.compute(), prog_bar=True, sync_dist=True)
+            self.log("val_r2", self.val_r2.compute(), prog_bar=True, sync_dist=True)
             self.log(
                 "val_pearson",
                 self.val_pearson.compute(),
-                prog_bar=True,
-                on_epoch=True,
+                prog_bar=False,
                 sync_dist=True,
             )
-            self.log(
-                "val_ev",
-                self.val_ev.compute(),
-                prog_bar=True,
-                on_epoch=True,
-                sync_dist=True,
-            )
+            self.log("val_ev", self.val_ev.compute(), prog_bar=False, sync_dist=True)
         finally:
             self.val_mae.reset()
             self.val_r2.reset()
             self.val_pearson.reset()
             self.val_ev.reset()
-        # restore weights if we swapped to EMA
+
+        # --- EMA metrics (safe + no_grad + restore mode) ---
         if self._ema_shadow is not None:
-            self.model.load_state_dict(backup)
+            current = {
+                k: v.detach().clone() for k, v in self.model.state_dict().items()
+            }
+            was_training = self.model.training
+            with torch.no_grad():
+                for k, v in self.model.state_dict().items():
+                    if k in self._ema_shadow:
+                        v.copy_(self._ema_shadow[k])
+                self.model.eval()
+                mae_ema = MeanAbsoluteError().to(self.device)
+                r2_ema = R2Score().to(self.device)
+                pcc_ema = PearsonCorrCoef().to(self.device)
+                ev_ema = ExplainedVariance().to(self.device)
+                for b in self.trainer.datamodule.val_dataloader():
+                    b = {k: v.to(self.device) for k, v in b.items()}
+                    y = b["y"]
+                    y_hat = self._unscale_y(self.model(b["drug"], b["protein"]))
+                    mae_ema.update(y_hat, y)
+                    r2_ema.update(y_hat, y)
+                    pcc_ema.update(y_hat, y)
+                    ev_ema.update(y_hat, y)
+            self.log("val_mae_ema", mae_ema.compute(), prog_bar=True)
+            self.log("val_r2_ema", r2_ema.compute())
+            self.log("val_pearson_ema", pcc_ema.compute())
+            self.log("val_ev_ema", ev_ema.compute())
+            self.model.load_state_dict(current)
+            if was_training:
+                self.model.train()
 
     def test_step(self, batch, batch_idx):
         drug, prot, y = batch["drug"], batch["protein"], batch["y"]
-        y_std = self._standardize_y(y)
+        y_std = self._scale_y(y)
         y_hat_std = self.model(drug, prot)
         loss = self._loss_fn(y_hat_std, y_std)
         self.log(
@@ -394,7 +384,7 @@ class DiffusionRegressorPL(pl.LightningModule):
             sync_dist=True,
         )
 
-        y_hat = self._unstadardize_y(y_hat_std).detach()
+        y_hat = self._unscale_y(y_hat_std).detach()
         self.test_mae.update(y_hat, y)
         self.test_r2.update(y_hat, y)
         self.test_pearson.update(y_hat, y)
@@ -445,5 +435,5 @@ class DiffusionRegressorPL(pl.LightningModule):
         )
         return {
             "optimizer": opt,
-            "lr_scheduler": {"scheduler": sch, "monitor": "val_loss"},
+            "lr_scheduler": {"scheduler": sch, "interval": "epoch"},
         }
