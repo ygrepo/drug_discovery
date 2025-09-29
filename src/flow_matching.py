@@ -13,6 +13,19 @@ from torchmetrics.regression import (
 
 
 def mlp(dims, act=nn.SiLU, last_act=False, dropout=0.0, layer_norm=True):
+    """
+    MLP with LayerNorm, SILU activation, and dropout.
+
+    Args:
+        dims (_type_): _description_
+        act (_type_, optional): _description_. Defaults to nn.SiLU.
+        last_act (bool, optional): _description_. Defaults to False.
+        dropout (float, optional): _description_. Defaults to 0.0.
+        layer_norm (bool, optional): _description_. Defaults to True.
+
+    Returns:
+        _type_: _description_
+    """
     layers = []
     L = len(dims) - 1
     for i in range(L):
@@ -29,7 +42,9 @@ def mlp(dims, act=nn.SiLU, last_act=False, dropout=0.0, layer_norm=True):
 
 
 class SinusoidalPosEmb(nn.Module):
-    """t can be int timesteps [0..T-1] or floats; we map to [0,1]."""
+    """
+    Sinusoidal positional embedding.
+    """
 
     def __init__(self, dim: int = 128, max_freq: float = 1e4):
         super().__init__()
@@ -37,11 +52,9 @@ class SinusoidalPosEmb(nn.Module):
         self.max_freq = max_freq
 
     def forward(self, t: torch.Tensor) -> torch.Tensor:
-        # t: (B,) int or float
         t = t.float()
-        # if t is integer steps, normalize to [0,1]
-        if t.ndim == 1 and t.max() > 1.0 + 1e-6:
-            t = t / (t.max() + 1e-8)
+        if t.ndim != 1:
+            t = t.view(-1)
 
         half = self.dim // 2
         # frequencies spaced geometrically in [1, max_freq]
@@ -59,6 +72,10 @@ class SinusoidalPosEmb(nn.Module):
 
 @dataclass
 class FlowConfig:
+    """
+    Flow model configuration.
+    """
+
     hidden: int = 256
     t_dim: int = 128
     dropout: float = 0.1
@@ -69,6 +86,10 @@ class FlowConfig:
 
 # --- Encoders & fusion blocks ---
 class DrugEncoder(nn.Module):
+    """
+    Encode drug features.
+    """
+
     def __init__(self, in_dim: int, hidden: int, dropout: float = 0.1):
         super().__init__()
         self.net = mlp([in_dim, hidden, hidden], dropout=dropout)
@@ -78,6 +99,10 @@ class DrugEncoder(nn.Module):
 
 
 class ProteinEncoder(nn.Module):
+    """
+    Encode protein features.
+    """
+
     def __init__(self, in_dim: int, hidden: int, dropout: float = 0.1):
         super().__init__()
         self.net = mlp([in_dim, hidden, hidden], dropout=dropout)
@@ -100,7 +125,7 @@ class ConditionFusion(nn.Module):
         if use_mlp:
             self.post = mlp(
                 [concat_dim, hidden * 2, hidden], dropout=dropout
-            )  # like your denoise_model
+            )  # For denoising signal
         else:
             self.post = nn.Identity()
 
@@ -119,13 +144,13 @@ class ConditionFusion(nn.Module):
         return c
 
 
-# --- Vector Field with explicit encoders + fusion like your DiffusionGenerativeModel ---
+# --- Vector Field with explicit encoders + fusion ---
 class CondFlowVectorField(nn.Module):
     def __init__(self, drug_input_dim: int, protein_input_dim: int, cfg: FlowConfig):
         super().__init__()
         H = cfg.hidden
 
-        # Encoders (analogous to your drug/protein linear + ReLU but deeper + LN/Dropout via mlp)
+        # Encoders
         self.drug_enc = DrugEncoder(drug_input_dim, H, dropout=cfg.dropout)
         self.prot_enc = ProteinEncoder(protein_input_dim, H, dropout=cfg.dropout)
 
@@ -133,7 +158,7 @@ class CondFlowVectorField(nn.Module):
         self.time_emb_raw = SinusoidalPosEmb(cfg.t_dim)
         self.time_proj_for_concat = mlp([cfg.t_dim, H * 2])
 
-        # Fusion like your layer_norm + dropout + "denoise_model"
+        # Fusion
         self.fusion = ConditionFusion(hidden=H, use_mlp=True, dropout=cfg.dropout)
         # If fusion.use_mlp=True → fused cond dim == H, else 2H. We assume H here.
 
@@ -145,23 +170,23 @@ class CondFlowVectorField(nn.Module):
         self.out = nn.Linear(H, 1)
 
     def forward(self, x_t, t, cond):
-        # 1) encoders
+        # encoders
         d = self.drug_enc(cond["drug"])  # (B, H)
         p = self.prot_enc(cond["protein"])  # (B, H)
 
-        # 2) time embedding in concat space (B, 2H) so it can be *added* like your example
+        # time embedding in concat space (B, 2H) so it can be *added* to [drug,protein]
         tau = self.time_emb_raw(t)  # (B, t_dim)
         tau = self.time_proj_for_concat(tau)  # (B, 2H)
 
-        # 3) fuse to a single conditioning vector (B, H)
+        # fuse to a single conditioning vector (B, H)
         c = self.fusion(d, p, t_emb=tau)  # (B, H)
 
-        # 4) project current state x_t and fuse with condition
+        # project current state x_t and fuse with condition
         xv = self.x_proj(x_t)  # (B, H)
         h = torch.cat([c, xv], dim=-1)  # (B, 2H)
         h = self.final_fuse(h)  # (B, H)
 
-        # 5) predict velocity
+        # predict velocity
         return self.out(h)  # (B, 1)
 
 

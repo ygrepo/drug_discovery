@@ -1,16 +1,15 @@
 # --- model.py ---
-import math, torch
+import math
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from dataclasses import dataclass
-
-
-# --- lightning_module.py ---
-import torch
-import torch.nn.functional as F
 import pytorch_lightning as pl
 from torchmetrics.regression import MeanAbsoluteError, R2Score, ExplainedVariance
 from torchmetrics import PearsonCorrCoef
+
+
+# --- lightning_module.py ---
 
 
 def mlp(dims, dropout=0.3, act=nn.SiLU):

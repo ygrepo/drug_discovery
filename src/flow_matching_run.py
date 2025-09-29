@@ -181,7 +181,7 @@ def main():
         trainer.test(pl_model, test_loader, ckpt_path="best")
 
     except Exception as e:
-        logger.exception("Script failed: %s", e)  # or this
+        logger.exception("Script failed: %s", e)
         sys.exit(1)
 
 

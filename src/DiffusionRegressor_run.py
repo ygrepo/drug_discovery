@@ -115,7 +115,7 @@ def build_parser() -> argparse.Namespace:
     p.add_argument(
         "--precision",
         type=str,
-        default="32-true",
+        default="bf16-mixed",
         choices=["32-true", "16-mixed", "bf16-mixed"],
     )
     p.add_argument("--seed", type=int, default=42)
@@ -127,7 +127,6 @@ def build_parser() -> argparse.Namespace:
     # Logging
     p.add_argument("--log_every_n_steps", type=int, default=100)
     p.add_argument("--log_level", type=str, default="INFO")
-    p.add_argument("--log_fn", type=str, default=None)
 
     return p.parse_args()
 
