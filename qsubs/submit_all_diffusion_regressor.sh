@@ -4,13 +4,13 @@
 set -euo pipefail
 
 # Define your grids:
-DATASETS=( "BindingDB" )
-#DATASETS=( "BindingDB" "BindDB" "Davis" "Kiba" )
+#DATASETS=( "BindingDB" )
+DATASETS=( "BindingDB" "BindDB" "Davis" "Kiba" )
 SPLITMODES=( "random" "cold_protein" "cold_drug" )
 #SPLITMODES=( "random" "cold_protein" "cold_drug" )
 #SPLITMODES=( "random" "cold_protein" "cold_drug" )
-EMBEDDINGS=( "ESMv1" )
-#EMBEDDINGS=( "ESMv1" "ESM2" "MUTAPLM" "ProteinCLIP" )
+#EMBEDDINGS=( "ESMv1" )
+EMBEDDINGS=( "ESMv1" "ESM2" "MUTAPLM" "ProteinCLIP" )
 
 mkdir -p logs
 

@@ -67,7 +67,7 @@ mkdir -p "$MODEL_LOG_DIR"
 # --- Training knobs ---
 BATCH_SIZE=32
 NUM_WORKERS=10
-MAX_EPOCHS=2
+MAX_EPOCHS=50
 
 combo="${EMBEDDING}_${DATASET}_${SPLITMODE}"
 ts=$(date +"%Y%m%d_%H%M%S")
