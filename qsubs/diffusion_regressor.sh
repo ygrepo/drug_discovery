@@ -2,7 +2,6 @@
 # diffusion_regressor.sh — run one (embedding, dataset, splitmode) combo on LSF
 
 # ------- LSF resources (kept here so every job uses the same resources) -------
-# You can still override these from the submitter with bsub CLI flags.
 #BSUB -J diffusion_regressor             # Job name
 #BSUB -P acc_DiseaseGeneCell   # allocation account
 #BSUB -q gpu                  # queue
@@ -20,9 +19,9 @@ if [[ $# -ne 3 ]]; then
   exit 2
 fi
 
-DATASET="$1"       # e.g., BindingDB | BindDB | Davis | Kiba
-SPLITMODE="$2"     # e.g., random | cold_protein | cold_drug
-EMBEDDING="$3"     # e.g., ESMv1 | ESM2 | MUTAPLM | ProteinCLIP
+DATASET="$1"       
+SPLITMODE="$2"     
+EMBEDDING="$3"     
 
 # --- Modules / shell setup ---
 module purge
@@ -48,7 +47,6 @@ ml proxies/1 || true
 
 export RAYON_NUM_THREADS=4
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-
 export PYTHONUNBUFFERED=1
 export TERM=xterm
 
@@ -66,15 +64,10 @@ mkdir -p "$CHECKPOINTS_DIR"
 MODEL_LOG_DIR="./output/logs/diffusion_regressor_${DATASET}_${SPLITMODE}_${EMBEDDING}";          
 mkdir -p "$MODEL_LOG_DIR"
 
-# --- Training knobs (same as your original) ---
+# --- Training knobs ---
 BATCH_SIZE=32
 NUM_WORKERS=10
-PIN_MEMORY=true
-SHUFFLE=true
-CHECK_NAN=true
-DEVICE="auto"
 MAX_EPOCHS=2
-STANDARDIZE_Y=false
 
 combo="${EMBEDDING}_${DATASET}_${SPLITMODE}"
 ts=$(date +"%Y%m%d_%H%M%S")
@@ -97,12 +90,11 @@ set +e
   --max_epochs "${MAX_EPOCHS}" \
   --batch_size "${BATCH_SIZE}" \
   --num_workers "${NUM_WORKERS}" \
-  --pin_memory "${PIN_MEMORY}" \
-  --shuffle "${SHUFFLE}" \
-  --check_nan "${CHECK_NAN}" \
+  --pin_memory \
+  --shuffle \
+  --check_nan \
   --checkpoints_dir "${CHECKPOINTS_DIR}" \
-  --device "${DEVICE}" \
-  --standardize_y "${STANDARDIZE_Y}"
+  --no-standardize_y
 exit_code=$?
 set -e
 
