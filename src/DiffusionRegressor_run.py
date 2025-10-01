@@ -126,7 +126,6 @@ def build_parser() -> argparse.Namespace:
 
     # Logging
     p.add_argument("--log_every_n_steps", type=int, default=100)
-    p.add_argument("--log_level", type=str, default="INFO")
 
     return p.parse_args()
 
