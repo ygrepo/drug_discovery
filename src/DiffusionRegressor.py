@@ -342,35 +342,45 @@ class DiffusionRegressorPL(pl.LightningModule):
 
         # --- EMA metrics (safe + no_grad + restore mode) ---
         if self._ema_shadow is not None:
-            current = {
-                k: v.detach().clone() for k, v in self.model.state_dict().items()
-            }
-            was_training = self.model.training
-            with torch.no_grad():
-                for k, v in self.model.state_dict().items():
-                    if k in self._ema_shadow:
-                        v.copy_(self._ema_shadow[k])
-                self.model.eval()
-                mae_ema = MeanAbsoluteError().to(self.device)
-                r2_ema = R2Score().to(self.device)
-                pcc_ema = PearsonCorrCoef().to(self.device)
-                ev_ema = ExplainedVariance().to(self.device)
-                for b in self.trainer.datamodule.val_dataloader():
-                    b = {k: v.to(self.device) for k, v in b.items()}
-                    y = b["y"]
-                    y = y.squeeze(-1) if y.dim() > 1 else y  # Ensure y is 1D
-                    y_hat = self._unscale_y(self.model(b["drug"], b["protein"]))
-                    mae_ema.update(y_hat, y)
-                    r2_ema.update(y_hat, y)
-                    pcc_ema.update(y_hat, y)
-                    ev_ema.update(y_hat, y)
-            self.log("val_mae_ema", mae_ema.compute(), prog_bar=True)
-            self.log("val_r2_ema", r2_ema.compute())
-            self.log("val_pearson_ema", pcc_ema.compute())
-            self.log("val_ev_ema", ev_ema.compute())
-            self.model.load_state_dict(current)
-            if was_training:
-                self.model.train()
+            # Get validation dataloader
+            val_dataloader = None
+            if hasattr(self.trainer, "datamodule") and self.trainer.datamodule:
+                val_dataloader = self.trainer.datamodule.val_dataloader()
+            elif hasattr(self.trainer, "val_dataloaders"):
+                val_dataloader = self.trainer.val_dataloaders
+                if isinstance(val_dataloader, list) and len(val_dataloader) > 0:
+                    val_dataloader = val_dataloader[0]
+
+            if val_dataloader is not None:
+                current = {
+                    k: v.detach().clone() for k, v in self.model.state_dict().items()
+                }
+                was_training = self.model.training
+                with torch.no_grad():
+                    for k, v in self.model.state_dict().items():
+                        if k in self._ema_shadow:
+                            v.copy_(self._ema_shadow[k])
+                    self.model.eval()
+                    mae_ema = MeanAbsoluteError().to(self.device)
+                    r2_ema = R2Score().to(self.device)
+                    pcc_ema = PearsonCorrCoef().to(self.device)
+                    ev_ema = ExplainedVariance().to(self.device)
+                    for b in val_dataloader:
+                        b = {k: v.to(self.device) for k, v in b.items()}
+                        y = b["y"]
+                        y = y.squeeze(-1) if y.dim() > 1 else y  # Ensure y is 1D
+                        y_hat = self._unscale_y(self.model(b["drug"], b["protein"]))
+                        mae_ema.update(y_hat, y)
+                        r2_ema.update(y_hat, y)
+                        pcc_ema.update(y_hat, y)
+                        ev_ema.update(y_hat, y)
+                self.log("val_mae_ema", mae_ema.compute(), prog_bar=True)
+                self.log("val_r2_ema", r2_ema.compute())
+                self.log("val_pearson_ema", pcc_ema.compute())
+                self.log("val_ev_ema", ev_ema.compute())
+                self.model.load_state_dict(current)
+                if was_training:
+                    self.model.train()
 
     def test_step(self, batch, batch_idx):
         drug, prot, y = batch["drug"], batch["protein"], batch["y"]
