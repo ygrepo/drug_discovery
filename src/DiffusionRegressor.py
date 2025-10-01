@@ -233,6 +233,7 @@ class DiffusionRegressorPL(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         drug, prot, y = batch["drug"], batch["protein"], batch["y"]
+        y = y.squeeze(-1) if y.dim() > 1 else y  # Ensure y is 1D
         # Update running stats early in training
         if self.global_step < 100:  # warmup estimates
             self._update_running_stats(y)
@@ -299,6 +300,7 @@ class DiffusionRegressorPL(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         drug, prot, y = batch["drug"], batch["protein"], batch["y"]
+        y = y.squeeze(-1) if y.dim() > 1 else y  # Ensure y is 1D
         y_std = self._scale_y(y)
         y_hat_std = self.model(drug, prot)
         loss = self._loss_fn(y_hat_std, y_std)
@@ -356,6 +358,7 @@ class DiffusionRegressorPL(pl.LightningModule):
                 for b in self.trainer.datamodule.val_dataloader():
                     b = {k: v.to(self.device) for k, v in b.items()}
                     y = b["y"]
+                    y = y.squeeze(-1) if y.dim() > 1 else y  # Ensure y is 1D
                     y_hat = self._unscale_y(self.model(b["drug"], b["protein"]))
                     mae_ema.update(y_hat, y)
                     r2_ema.update(y_hat, y)
@@ -371,6 +374,7 @@ class DiffusionRegressorPL(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         drug, prot, y = batch["drug"], batch["protein"], batch["y"]
+        y = y.squeeze(-1) if y.dim() > 1 else y  # Ensure y is 1D
         y_std = self._scale_y(y)
         y_hat_std = self.model(drug, prot)
         loss = self._loss_fn(y_hat_std, y_std)
