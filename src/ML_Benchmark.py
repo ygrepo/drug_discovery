@@ -39,6 +39,9 @@ def parse_args():
     p.add_argument("--embedding", type=str, default="")
     p.add_argument("--model_dir", type=str, default="")
     p.add_argument("--output_dir", type=str, default="")
+    p.add_argument("--batch_size", type=int, default=1024)
+    p.add_argument("--num_workers", type=int, default=20)
+    p.add_argument("shuffle", action=argparse.BooleanOptionalAction, default=True)
     p.add_argument("--data_dir", type=str, default="")
     return p.parse_args()
 
@@ -54,11 +57,17 @@ def main():
         logger.info(f"Dataset: {args.dataset}")
         logger.info(f"Split mode: {args.splitmode}")
         logger.info(f"Embedding: {args.embedding}")
+        logger.info(f"Model dir: {args.model_dir}")
+        logger.info(f"Output dir: {args.output_dir}")
+        logger.info(f"Batch size: {args.batch_size}")
+        logger.info(f"Shuffle: {args.shuffle}")
+        logger.info(f"Num workers: {args.num_workers}")
         logger.info(f"Data dir: {args.data_dir}")
         data_dir = Path(args.data_dir)
         data_dir = data_dir / f"{args.embedding}_{args.dataset}_{args.splitmode}"
         logger.info(f"Data dir: {data_dir}")
 
+        # --- Load data ---
         train_df, val_df, test_df = load_data(data_dir)
 
         # --- Build datasets/loaders ---
@@ -70,11 +79,18 @@ def main():
         )  # keep same scaling choice
         test_ds = DTIDataset(test_df, y_col="Affinity", scale=train_ds.scale)
 
+        shuffle = args.shuffle
+        batch_size = args.batch_size
+        num_workers = args.num_workers
         train_loader = DataLoader(
-            train_ds, batch_size=1024, shuffle=True, num_workers=0
+            train_ds, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers
         )
-        val_loader = DataLoader(val_ds, batch_size=2048, shuffle=False, num_workers=0)
-        test_loader = DataLoader(test_ds, batch_size=2048, shuffle=False, num_workers=0)
+        val_loader = DataLoader(
+            val_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers
+        )
+        test_loader = DataLoader(
+            test_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers
+        )
 
         logger.info("Running models...")
 
