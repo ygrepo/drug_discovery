@@ -72,66 +72,164 @@ class DTIDataset(Dataset):
     def __init__(
         self,
         df,
+        drug_smiles_col: str = "Drug",
         drug_col: str = "Drug_Features",
         protein_col: str = "Target_Features",
-        y_col: str = "Affinity",
+        y_col: Optional[str] = "Affinity",  # <-- allow None
         scale: Optional[str] = None,  # None | "zscore" | "minmax"
         check_nan: bool = True,
     ):
         self.scale = scale
+        self.drug_smiles = df[drug_smiles_col].astype(str).tolist()
 
-        # Convert to stacked NumPy arrays
         self.drug = np.stack(
             [np.asarray(x, dtype=np.float32) for x in df[drug_col]], axis=0
         )
         self.prot = np.stack(
             [np.asarray(x, dtype=np.float32) for x in df[protein_col]], axis=0
         )
-        self.y = np.asarray(df[y_col].to_numpy(), dtype=np.float32).reshape(-1, 1)
+
+        if y_col is not None and y_col in df.columns:
+            self.y = np.asarray(df[y_col].to_numpy(), dtype=np.float32).reshape(-1, 1)
+        else:
+            self.y = None
 
         if check_nan:
-            for name, arr in [
-                ("drug", self.drug),
-                ("protein", self.prot),
-                ("y", self.y),
-            ]:
+            for name, arr in [("drug", self.drug), ("protein", self.prot)]:
                 if not np.isfinite(arr).all():
                     raise ValueError(f"NaN/Inf found in '{name}'")
+            if self.y is not None and not np.isfinite(self.y).all():
+                raise ValueError("NaN/Inf found in 'y'")
 
-        # Save shapes
         self.N, self.drug_input_dim = self.drug.shape
         self.protein_input_dim = self.prot.shape[1]
 
-        # Apply scaling if requested
-        self.y_mu, self.y_sigma = None, None
-        self.y_min, self.y_max = None, None
-
-        if self.scale == "zscore":
-            self.y_mu = self.y.mean()
-            self.y_sigma = self.y.std() + 1e-8
-            self.y = (self.y - self.y_mu) / self.y_sigma
-        elif self.scale == "minmax":
-            self.y_min = self.y.min()
-            self.y_max = self.y.max()
-            self.y = (self.y - self.y_min) / (self.y_max - self.y_min + 1e-8)
+        # Scale y if present
+        self.y_mu = self.y_sigma = self.y_min = self.y_max = None
+        if self.y is not None and self.scale is not None:
+            if self.scale == "zscore":
+                self.y_mu = self.y.mean()
+                self.y_sigma = self.y.std() + 1e-8
+                self.y = (self.y - self.y_mu) / self.y_sigma
+            elif self.scale == "minmax":
+                self.y_min = self.y.min()
+                self.y_max = self.y.max()
+                self.y = (self.y - self.y_min) / (self.y_max - self.y_min + 1e-8)
 
     def __len__(self):
         return self.N
 
-    def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
-        return {
+    def __getitem__(self, idx: int):
+        out = {
+            "smiles": self.drug_smiles[idx],
             "drug": torch.from_numpy(self.drug[idx]),
             "protein": torch.from_numpy(self.prot[idx]),
-            "y": torch.from_numpy(self.y[idx]),
         }
+        if self.y is not None:
+            out["y"] = torch.from_numpy(self.y[idx])
+        return out
 
-    # Inverse transform utility
     def inverse_transform_y(self, y_scaled: np.ndarray) -> np.ndarray:
-        if self.scale == "zscore":
+        if self.scale == "zscore" and self.y_sigma is not None:
             return y_scaled * self.y_sigma + self.y_mu
-        elif self.scale == "minmax":
+        if self.scale == "minmax" and self.y_min is not None:
             return y_scaled * (self.y_max - self.y_min) + self.y_min
         return y_scaled
+
+
+class DTIDataset(Dataset):
+    def __init__(
+        self,
+        df,
+        drug_smiles_col: str = "Drug",
+        drug_col: str = "Drug_Features",
+        protein_col: str = "Target_Features",
+        y_col: Optional[str] = "Affinity",  # <-- allow None
+        scale: Optional[str] = None,  # None | "zscore" | "minmax"
+        check_nan: bool = True,
+    ):
+        self.scale = scale
+        self.drug_smiles = df[drug_smiles_col].astype(str).tolist()
+
+        self.drug = np.stack(
+            [np.asarray(x, dtype=np.float32) for x in df[drug_col]], axis=0
+        )
+        self.prot = np.stack(
+            [np.asarray(x, dtype=np.float32) for x in df[protein_col]], axis=0
+        )
+
+        if y_col is not None and y_col in df.columns:
+            self.y = np.asarray(df[y_col].to_numpy(), dtype=np.float32).reshape(-1, 1)
+        else:
+            self.y = None
+
+        if check_nan:
+            for name, arr in [("drug", self.drug), ("protein", self.prot)]:
+                if not np.isfinite(arr).all():
+                    raise ValueError(f"NaN/Inf found in '{name}'")
+            if self.y is not None and not np.isfinite(self.y).all():
+                raise ValueError("NaN/Inf found in 'y'")
+
+        self.N, self.drug_input_dim = self.drug.shape
+        self.protein_input_dim = self.prot.shape[1]
+
+        # Scale y if present
+        self.y_mu = self.y_sigma = self.y_min = self.y_max = None
+        if self.y is not None and self.scale is not None:
+            if self.scale == "zscore":
+                self.y_mu = self.y.mean()
+                self.y_sigma = self.y.std() + 1e-8
+                self.y = (self.y - self.y_mu) / self.y_sigma
+            elif self.scale == "minmax":
+                self.y_min = self.y.min()
+                self.y_max = self.y.max()
+                self.y = (self.y - self.y_min) / (self.y_max - self.y_min + 1e-8)
+
+    def __len__(self):
+        return self.N
+
+    def __getitem__(self, idx: int):
+        out = {
+            "smiles": self.drug_smiles[idx],
+            "drug": torch.from_numpy(self.drug[idx]),
+            "protein": torch.from_numpy(self.prot[idx]),
+        }
+        if self.y is not None:
+            out["y"] = torch.from_numpy(self.y[idx])
+        return out
+
+    def inverse_transform_y(self, y_scaled: np.ndarray) -> np.ndarray:
+        if self.scale == "zscore" and self.y_sigma is not None:
+            return y_scaled * self.y_sigma + self.y_mu
+        if self.scale == "minmax" and self.y_min is not None:
+            return y_scaled * (self.y_max - self.y_min) + self.y_min
+        return y_scaled
+
+
+def loader_to_numpy(dl: DataLoader):
+    Xs, Ys, SMILES = [], [], []
+    for batch in dl:
+        drug = batch["drug"]
+        prot = batch["protein"]
+        Xb = torch.cat([drug, prot], dim=-1)  # (B, D_d + D_p)
+        Xs.append(Xb.cpu().numpy())
+
+        if "y" in batch:
+            Ys.append(batch["y"].view(-1).cpu().numpy())
+        SMILES.extend(list(batch["smiles"]))
+
+    X = np.concatenate(Xs, axis=0) if Xs else np.empty((0, 0), dtype=np.float32)
+    y = np.concatenate(Ys, axis=0) if Ys else None
+    return X, y, SMILES
+
+
+def append_predictions_csv(csv_path: Path, smiles: list[str], preds: np.ndarray):
+    df = pd.DataFrame({"drug_smile": smiles, "affinity": preds.reshape(-1)})
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    header = not csv_path.exists()
+    logger.info(f"Saving predictions to {csv_path}")
+    df.to_csv(csv_path, mode="a", header=header, index=False)
+    return df
 
 
 def dti_collate(batch: List[Dict[str, torch.Tensor]]) -> Dict[str, torch.Tensor]:

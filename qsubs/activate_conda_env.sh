@@ -14,7 +14,6 @@ PIP_CACHE_DIR="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.pip_cache"
 CONDA_PKGS_DIRS="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.conda/pkgs"  # conda cache (optional but recommended)
 
 # --- Caches & hygiene ---
-mkdir -p "${PIP_CACHE_DIR}" "${CONDA_PKGS_DIRS}"
 export PIP_CACHE_DIR="${PIP_CACHE_DIR}"
 export CONDA_PKGS_DIRS="${CONDA_PKGS_DIRS}"
 export PYTHONNOUSERSITE=1

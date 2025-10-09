@@ -26,7 +26,7 @@ PIP_CACHE_DIR="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.pip_cache"
 CONDA_PKGS_DIRS="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.conda/pkgs"  # conda cache (optional but recommended)
 
 # --- Caches & hygiene ---
-mkdir -p "${PIP_CACHE_DIR}" "${CONDA_PKGS_DIRS}"
+#mkdir -p "${PIP_CACHE_DIR}" "${CONDA_PKGS_DIRS}"
 export PIP_CACHE_DIR="${PIP_CACHE_DIR}"
 export CONDA_PKGS_DIRS="${CONDA_PKGS_DIRS}"
 export PYTHONNOUSERSITE=1
@@ -49,20 +49,23 @@ LOG_DIR="logs"
 LOG_LEVEL="INFO"
 mkdir -p "$LOG_DIR"
 
-BASE_DATA_DIR="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/wangcDrugRepoProject/BindDBdata/Embedding_Benchmark_Data"
+BASE_DATA_DIR="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/wangcDrugRepoProject/BindDBdata"
 MAIN="src/ML_Benchmark.py"
 
 MODEL_DIR="output/models"
 mkdir -p "$MODEL_DIR"
-OUTPUT_DIR="output/data"
+OUTPUT_DIR="output/metrics"
 mkdir -p "$OUTPUT_DIR"
 
 # DATASETS=( "BindDB")     
+# DATASETS=( "BindDB" "Davis" "Kiba" )     
 # SPLITMODES=( "random" )  
 # EMBEDDINGS=( "ESMv1" )
-DATASETS=( "BindDB" "Davis" "Kiba" )     
-SPLITMODES=( "random" "cold_protein" "cold_drug" )  
-EMBEDDINGS=( "ESMv1" "ESM2" "MUTAPLM" "ProteinCLIP" )
+DATASETS=( "All_BindingDB" )     
+SPLITMODES=( "random" )  
+EMBEDDINGS=( "ESMv1" )
+# SPLITMODES=( "random" "cold_protein" "cold_drug" )  
+# EMBEDDINGS=( "ESMv1" "ESM2" "MUTAPLM" "ProteinCLIP" )
 
 echo "Starting batch at $(date)"
 echo "Base data dir: $BASE_DATA_DIR"
