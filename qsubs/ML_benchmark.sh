@@ -49,7 +49,7 @@ LOG_DIR="logs"
 LOG_LEVEL="INFO"
 mkdir -p "$LOG_DIR"
 
-BASE_DATA_DIR="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/wangcDrugRepoProject/BindDBdata"
+BASE_DATA_DIR="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/wangcDrugRepoProject/BindDBdata/All_BindingDB"
 MAIN="src/ML_Benchmark.py"
 
 MODEL_DIR="output/models"
@@ -61,7 +61,7 @@ mkdir -p "$OUTPUT_DIR"
 # DATASETS=( "BindDB" "Davis" "Kiba" )     
 # SPLITMODES=( "random" )  
 # EMBEDDINGS=( "ESMv1" )
-DATASETS=( "All_BindingDB" )     
+DATASETS=( "BindingDB" )     
 SPLITMODES=( "random" )  
 EMBEDDINGS=( "ESMv1" )
 # SPLITMODES=( "random" "cold_protein" "cold_drug" )  
