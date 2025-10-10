@@ -71,9 +71,9 @@ def main():
         embedding = ["ESMv1", "ESM2", "MUTAPLM", "ProteinCLIP"]
         for splitmode in splitmode:
             for embedding in embedding:
-                data_dir = data_dir / f"{embedding}_{dataset}_{splitmode}"
-                logger.info(f"Data dir: {data_dir}")
-                file_path = data_dir / "test.parquet"
+                cur_dir = data_dir / f"{embedding}_{dataset}_{splitmode}"
+                logger.info(f"Data dir: {cur_dir}")
+                file_path = cur_dir / "test.parquet"
                 if file_path.exists():
                     df = pd.read_parquet(file_path)
                     logger.info(f"Loaded dataset: {len(df)} test")

@@ -44,16 +44,16 @@ MAIN="src/add_ML_benchmark_predictions.py"
 DATASET="BindingDB"
 
 ts=$(date +"%Y%m%d_%H%M%S")
-log_file="${LOG_DIR}/${ts}_add_ML_benchmark_${DATASET}.log"
+LOG_FILE="${LOG_DIR}/${ts}_add_ML_benchmark_${DATASET}.log"
 
 echo "JOBID=${LSB_JOBID:-local}  IDX=${LSB_JOBINDEX:-}  HOST=$(hostname)"
 echo "=== Running ${DATASET} ==="
 echo "  data_dir : ${BASE_DATA_DIR}"
-echo "  log_file : ${log_file}"
+echo "  log_file : ${LOG_FILE}"
 
 set +e
 "${PYTHON}" "${MAIN}" \
-  --log_fn "${log_file}" \
+  --log_fn "${LOG_FILE}" \
   --log_level "${LOG_LEVEL}" \
   --data_dir "${BASE_DATA_DIR}" \
   --dataset "${DATASET}" \
