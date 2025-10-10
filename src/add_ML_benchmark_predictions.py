@@ -93,7 +93,7 @@ def main():
                 frames: List[pd.DataFrame] = []
                 for p in files:
                     fn = str(p.resolve())
-                    model_name = fn.split("_")[0]
+                    model_name = p.stem.split("_")[0]
                     # model_name = infer_model_name(p)
                     logger.info(f"Processing: {fn}  |  model_name='{model_name}'")
 
