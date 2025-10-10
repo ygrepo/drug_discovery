@@ -31,7 +31,7 @@ SEED = 42
 
 
 def parse_args():
-    p = argparse.ArgumentParser(description="Create and load PLM model")
+    p = argparse.ArgumentParser(description="Run ML benchmark")
     p.add_argument("--log_fn", type=str, default="")
     p.add_argument("--log_level", type=str, default="INFO")
     p.add_argument("--dataset", type=str, default="")
