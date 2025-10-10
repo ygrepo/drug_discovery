@@ -67,10 +67,10 @@ def main():
 
         dataset = args.dataset
         logger.info(f"Dataset: {dataset}")
-        splitmode = ["random", "cold_protein", "cold_drug"]
-        embedding = ["ESMv1", "ESM2", "MUTAPLM", "ProteinCLIP"]
-        for splitmode in splitmode:
-            for embedding in embedding:
+        splitmodes = ["random", "cold_protein", "cold_drug"]
+        embeddings = ["ESMv1", "ESM2", "MUTAPLM", "ProteinCLIP"]
+        for splitmode in splitmodes:
+            for embedding in embeddings:
                 cur_dir = data_dir / f"{embedding}_{dataset}_{splitmode}"
                 logger.info(f"Data dir: {cur_dir}")
                 file_path = cur_dir / "test.parquet"
