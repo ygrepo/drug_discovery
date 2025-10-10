@@ -1,17 +1,16 @@
 #!/bin/bash
-#   extract_embedding.sh    — submit extract_embedding jobs to LSF GPU queue
+#   extract_all_model_embeddings.sh    — submit extract_all_model_embeddings jobs to LSF GPU queue
 
 
-#BSUB -J embeddings
+#BSUB -J extract_all_model_embeddings
 #BSUB -P acc_DiseaseGeneCell
 #BSUB -q gpu
-#BSUB -gpu "num=1"
 #BSUB -R h100nvl
 #BSUB -n 1
 #BSUB -R "rusage[mem=512G]"
 #BSUB -W 6:00
-#BSUB -o logs/embeddings.%J.out
-#BSUB -e logs/embeddings.%J.err
+#BSUB -o logs/extract_all_model_embeddings.%J.out
+#BSUB -e logs/extract_all_model_embeddings.%J.err
 
 set -euo pipefail
 
