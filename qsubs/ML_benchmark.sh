@@ -62,10 +62,10 @@ mkdir -p "$OUTPUT_DIR"
 # SPLITMODES=( "random" )  
 # EMBEDDINGS=( "ESMv1" )
 DATASETS=( "BindingDB" )     
-SPLITMODES=( "random" )  
-EMBEDDINGS=( "ESMv1" )
-# SPLITMODES=( "random" "cold_protein" "cold_drug" )  
-# EMBEDDINGS=( "ESMv1" "ESM2" "MUTAPLM" "ProteinCLIP" )
+#SPLITMODES=( "random" )  
+#EMBEDDINGS=( "ESMv1" )
+SPLITMODES=( "random" "cold_protein" "cold_drug" )  
+EMBEDDINGS=( "ESMv1" "ESM2" "MUTAPLM" "ProteinCLIP" )
 
 echo "Starting batch at $(date)"
 echo "Base data dir: $BASE_DATA_DIR"
