@@ -120,9 +120,9 @@ def evaluate_model_with_loaders(
     y_inverse_fn=None,  # pass dataset.inverse_transform_y if scaled
 ):
     # Materialize arrays for sklearn
-    X_train, y_train, _ = loader_to_numpy(train_loader)
-    X_val, y_val, _ = loader_to_numpy(val_loader)
-    X_test, y_test, test_smiles = loader_to_numpy(test_loader)
+    X_train, y_train, _, _ = loader_to_numpy(train_loader)
+    X_val, y_val, _, _ = loader_to_numpy(val_loader)
+    X_test, y_test, test_smiles, test_target_ids = loader_to_numpy(test_loader)
 
     # Fit and predict
     model.fit(X_train, y_train)
@@ -167,7 +167,7 @@ def evaluate_model_with_loaders(
         )
     metrics_df = pd.concat([metrics_df, pd.DataFrame(rows)], ignore_index=True)
 
-    return metrics_df, (test_smiles, test_pred)
+    return metrics_df, (test_smiles, test_target_ids, test_pred)
 
 
 def save_model(model, model_name, model_filename: Path):

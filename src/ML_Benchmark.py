@@ -72,8 +72,9 @@ def main():
 
         # --- Build datasets/loaders ---
         train_ds = DTIDataset(
-            train_df, y_col="Affinity", scale="zscore"
-        )  # or "minmax"/None
+            train_df,
+            y_col="Affinity",
+        )
         val_ds = DTIDataset(
             val_df, y_col="Affinity", scale=train_ds.scale
         )  # keep same scaling choice
@@ -113,14 +114,16 @@ def main():
                 "Explained_Variance",
             ]
         )
-        metrics_df, (test_smiles, test_pred) = evaluate_model_with_loaders(
-            metrics_df,
-            model_name,
-            model,
-            train_loader,
-            val_loader,
-            test_loader,
-            y_inverse_fn=train_ds.inverse_transform_y if train_ds.scale else None,
+        metrics_df, (test_smiles, test_target_ids, test_pred) = (
+            evaluate_model_with_loaders(
+                metrics_df,
+                model_name,
+                model,
+                train_loader,
+                val_loader,
+                test_loader,
+                y_inverse_fn=train_ds.inverse_transform_y if train_ds.scale else None,
+            )
         )
 
         # --- Save model ---
@@ -138,7 +141,9 @@ def main():
             model_dir
             / f"{model_name.replace(' ', '_')}_{args.embedding}_{args.dataset}_{args.splitmode}_predictions.csv"
         )
-        append_predictions_csv(predictions_filename, test_smiles, test_pred)
+        append_predictions_csv(
+            predictions_filename, test_smiles, test_target_ids, test_pred
+        )
         logger.info(
             f"Appended {len(test_smiles)} test predictions to {predictions_filename}"
         )
@@ -147,14 +152,16 @@ def main():
         # SVR
         model_name = "SVR"
         model = SVR(kernel="rbf")
-        metrics_df, (test_smiles, test_pred) = evaluate_model_with_loaders(
-            metrics_df,
-            model_name,
-            model,
-            train_loader,
-            val_loader,
-            test_loader,
-            y_inverse_fn=train_ds.inverse_transform_y if train_ds.scale else None,
+        metrics_df, (test_smiles, test_target_ids, test_pred) = (
+            evaluate_model_with_loaders(
+                metrics_df,
+                model_name,
+                model,
+                train_loader,
+                val_loader,
+                test_loader,
+                y_inverse_fn=train_ds.inverse_transform_y if train_ds.scale else None,
+            )
         )
         model_filename = (
             model_dir
@@ -165,7 +172,9 @@ def main():
             model_dir
             / f"{model_name.replace(' ', '_')}_{args.embedding}_{args.dataset}_{args.splitmode}_predictions.csv"
         )
-        append_predictions_csv(predictions_filename, test_smiles, test_pred)
+        append_predictions_csv(
+            predictions_filename, test_smiles, test_target_ids, test_pred
+        )
         logger.info(
             f"Appended {len(test_smiles)} test predictions to {predictions_filename}"
         )
@@ -176,14 +185,16 @@ def main():
         model = GradientBoostingRegressor(
             n_estimators=100, learning_rate=0.1, random_state=SEED
         )
-        metrics_df, (test_smiles, test_pred) = evaluate_model_with_loaders(
-            metrics_df,
-            model_name,
-            model,
-            train_loader,
-            val_loader,
-            test_loader,
-            y_inverse_fn=train_ds.inverse_transform_y if train_ds.scale else None,
+        metrics_df, (test_smiles, test_target_ids, test_pred) = (
+            evaluate_model_with_loaders(
+                metrics_df,
+                model_name,
+                model,
+                train_loader,
+                val_loader,
+                test_loader,
+                y_inverse_fn=train_ds.inverse_transform_y if train_ds.scale else None,
+            )
         )
         model_filename = (
             model_dir
@@ -194,7 +205,9 @@ def main():
             model_dir
             / f"{model_name.replace(' ', '_')}_{args.embedding}_{args.dataset}_{args.splitmode}_predictions.csv"
         )
-        append_predictions_csv(predictions_filename, test_smiles, test_pred)
+        append_predictions_csv(
+            predictions_filename, test_smiles, test_target_ids, test_pred
+        )
         logger.info(
             f"Appended {len(test_smiles)} test predictions to {predictions_filename}"
         )
@@ -203,14 +216,16 @@ def main():
         # Linear Regression
         model = LinearRegression()
         model_name = "Linear Regression"
-        metrics_df, (test_smiles, test_pred) = evaluate_model_with_loaders(
-            metrics_df,
-            model_name,
-            model,
-            train_loader,
-            val_loader,
-            test_loader,
-            y_inverse_fn=train_ds.inverse_transform_y if train_ds.scale else None,
+        metrics_df, (test_smiles, test_target_ids, test_pred) = (
+            evaluate_model_with_loaders(
+                metrics_df,
+                model_name,
+                model,
+                train_loader,
+                val_loader,
+                test_loader,
+                y_inverse_fn=train_ds.inverse_transform_y if train_ds.scale else None,
+            )
         )
         model_filename = (
             model_dir
@@ -221,7 +236,9 @@ def main():
             model_dir
             / f"{model_name.replace(' ', '_')}_{args.embedding}_{args.dataset}_{args.splitmode}_predictions.csv"
         )
-        append_predictions_csv(predictions_filename, test_smiles, test_pred)
+        append_predictions_csv(
+            predictions_filename, test_smiles, test_target_ids, test_pred
+        )
         logger.info(
             f"Appended {len(test_smiles)} test predictions to {predictions_filename}"
         )
@@ -235,14 +252,16 @@ def main():
             random_state=SEED,
         )
         model_name = "MLP"
-        metrics_df, (test_smiles, test_pred) = evaluate_model_with_loaders(
-            metrics_df,
-            model_name,
-            model,
-            train_loader,
-            val_loader,
-            test_loader,
-            y_inverse_fn=train_ds.inverse_transform_y if train_ds.scale else None,
+        metrics_df, (test_smiles, test_target_ids, test_pred) = (
+            evaluate_model_with_loaders(
+                metrics_df,
+                model_name,
+                model,
+                train_loader,
+                val_loader,
+                test_loader,
+                y_inverse_fn=train_ds.inverse_transform_y if train_ds.scale else None,
+            )
         )
         model_filename = (
             model_dir
@@ -253,7 +272,9 @@ def main():
             model_dir
             / f"{model_name.replace(' ', '_')}_{args.embedding}_{args.dataset}_{args.splitmode}_predictions.csv"
         )
-        append_predictions_csv(predictions_filename, test_smiles, test_pred)
+        append_predictions_csv(
+            predictions_filename, test_smiles, test_target_ids, test_pred
+        )
         logger.info(
             f"Appended {len(test_smiles)} test predictions to {predictions_filename}"
         )
@@ -262,14 +283,16 @@ def main():
         # XGBoost
         model = XGBRegressor(random_state=SEED, eval_metric="rmse")
         model_name = "XGBoost"
-        metrics_df, (test_smiles, test_pred) = evaluate_model_with_loaders(
-            metrics_df,
-            model_name,
-            model,
-            train_loader,
-            val_loader,
-            test_loader,
-            y_inverse_fn=train_ds.inverse_transform_y if train_ds.scale else None,
+        metrics_df, (test_smiles, test_target_ids, test_pred) = (
+            evaluate_model_with_loaders(
+                metrics_df,
+                model_name,
+                model,
+                train_loader,
+                val_loader,
+                test_loader,
+                y_inverse_fn=train_ds.inverse_transform_y if train_ds.scale else None,
+            )
         )
         model_filename = (
             model_dir
@@ -280,7 +303,9 @@ def main():
             model_dir
             / f"{model_name.replace(' ', '_')}_{args.embedding}_{args.dataset}_{args.splitmode}_predictions.csv"
         )
-        append_predictions_csv(predictions_filename, test_smiles, test_pred)
+        append_predictions_csv(
+            predictions_filename, test_smiles, test_target_ids, test_pred
+        )
         logger.info(
             f"Appended {len(test_smiles)} test predictions to {predictions_filename}"
         )

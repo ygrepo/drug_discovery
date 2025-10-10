@@ -144,12 +144,91 @@ class DTIDataset(Dataset):
         drug_smiles_col: str = "Drug",
         drug_col: str = "Drug_Features",
         protein_col: str = "Target_Features",
-        y_col: Optional[str] = "Affinity",  # <-- allow None
+        y_col: Optional[str] = "Affinity",
+        protein_category_col: Optional[str] = None,  # <-- NEW
+        scale: Optional[str] = None,
+        check_nan: bool = True,
+    ):
+        self.scale = scale
+        self.drug_smiles = df[drug_smiles_col].astype(str).tolist()
+
+        self.drug = np.stack([np.asarray(x, np.float32) for x in df[drug_col]], axis=0)
+        self.prot = np.stack(
+            [np.asarray(x, np.float32) for x in df[protein_col]], axis=0
+        )
+
+        self.y = (
+            np.asarray(df[y_col].to_numpy(), np.float32).reshape(-1, 1)
+            if (y_col is not None and y_col in df.columns)
+            else None
+        )
+
+        # Category label (string) per sample; can be any of your levels
+        self.prot_cat = (
+            df[protein_category_col].astype(str).fillna("None").tolist()
+            if protein_category_col is not None and protein_category_col in df.columns
+            else ["None"] * len(df)
+        )
+
+        if check_nan:
+            for name, arr in [("drug", self.drug), ("protein", self.prot)]:
+                if not np.isfinite(arr).all():
+                    raise ValueError(f"NaN/Inf in '{name}'")
+            if self.y is not None and not np.isfinite(self.y).all():
+                raise ValueError("NaN/Inf in 'y'")
+
+        self.N, self.drug_input_dim = self.drug.shape
+        self.protein_input_dim = self.prot.shape[1]
+
+        # optional y-scaling
+        self.y_mu = self.y_sigma = self.y_min = self.y_max = None
+        if self.y is not None and self.scale is not None:
+            if self.scale == "zscore":
+                self.y_mu = self.y.mean()
+                self.y_sigma = self.y.std() + 1e-8
+                self.y = (self.y - self.y_mu) / self.y_sigma
+            elif self.scale == "minmax":
+                self.y_min = self.y.min()
+                self.y_max = self.y.max()
+                self.y = (self.y - self.y_min) / (self.y_max - self.y_min + 1e-8)
+
+    def __len__(self):
+        return self.N
+
+    def __getitem__(self, idx: int):
+        out = {
+            "smiles": self.drug_smiles[idx],
+            "drug": torch.from_numpy(self.drug[idx]),
+            "protein": torch.from_numpy(self.prot[idx]),
+            "prot_cat": self.prot_cat[idx],  # <-- NEW
+        }
+        if self.y is not None:
+            out["y"] = torch.from_numpy(self.y[idx])
+        return out
+
+    def inverse_transform_y(self, y_scaled: np.ndarray) -> np.ndarray:
+        if self.scale == "zscore" and self.y_sigma is not None:
+            return y_scaled * self.y_sigma + self.y_mu
+        if self.scale == "minmax" and self.y_min is not None:
+            return y_scaled * (self.y_max - self.y_min) + self.y_min
+        return y_scaled
+
+
+class DTIDataset(Dataset):
+    def __init__(
+        self,
+        df,
+        drug_smiles_col: str = "Drug",
+        target_id_col: str = "Target Name",
+        drug_col: str = "Drug_Features",
+        protein_col: str = "Target_Features",
+        y_col: Optional[str] = "Affinity",
         scale: Optional[str] = None,  # None | "zscore" | "minmax"
         check_nan: bool = True,
     ):
         self.scale = scale
         self.drug_smiles = df[drug_smiles_col].astype(str).tolist()
+        self.target_ids = df[target_id_col].astype(str).tolist()
 
         self.drug = np.stack(
             [np.asarray(x, dtype=np.float32) for x in df[drug_col]], axis=0
@@ -193,6 +272,7 @@ class DTIDataset(Dataset):
             "smiles": self.drug_smiles[idx],
             "drug": torch.from_numpy(self.drug[idx]),
             "protein": torch.from_numpy(self.prot[idx]),
+            "target_id": self.target_ids[idx],
         }
         if self.y is not None:
             out["y"] = torch.from_numpy(self.y[idx])
@@ -206,25 +286,34 @@ class DTIDataset(Dataset):
         return y_scaled
 
 
-def loader_to_numpy(dl: DataLoader):
-    Xs, Ys, SMILES = [], [], []
+def loader_to_numpy(
+    dl: DataLoader,
+) -> tuple[np.ndarray, np.ndarray, list[str], list[str]]:
+    Xs, Ys, SMILES, target_ids = [], [], [], []
     for batch in dl:
+        # --- Concatenate drug and protein features ---
         drug = batch["drug"]
+        target_id = batch["target_id"]
         prot = batch["protein"]
         Xb = torch.cat([drug, prot], dim=-1)  # (B, D_d + D_p)
         Xs.append(Xb.cpu().numpy())
 
         if "y" in batch:
             Ys.append(batch["y"].view(-1).cpu().numpy())
+        target_ids.extend(list(target_id))
         SMILES.extend(list(batch["smiles"]))
 
     X = np.concatenate(Xs, axis=0) if Xs else np.empty((0, 0), dtype=np.float32)
     y = np.concatenate(Ys, axis=0) if Ys else None
-    return X, y, SMILES
+    return X, y, SMILES, target_ids
 
 
-def append_predictions_csv(csv_path: Path, smiles: list[str], preds: np.ndarray):
-    df = pd.DataFrame({"drug_smile": smiles, "affinity": preds.reshape(-1)})
+def append_predictions_csv(
+    csv_path: Path, smiles: list[str], target_ids: list[str], preds: np.ndarray
+):
+    df = pd.DataFrame(
+        {"Drug": smiles, "Target Name": target_ids, "affinity_pred": preds.reshape(-1)}
+    )
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     header = not csv_path.exists()
     logger.info(f"Saving predictions to {csv_path}")
