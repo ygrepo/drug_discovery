@@ -41,6 +41,7 @@ LOG_LEVEL="INFO"
 
 BASE_DATA_DIR="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/wangcDrugRepoProject/BindDBdata/All_BindingDB"
 MAIN="src/add_ML_benchmark_predictions.py"
+DATASET="BindingDB"
 
 ts=$(date +"%Y%m%d_%H%M%S")
 log_file="${LOG_DIR}/${ts}_add_ML_benchmark_${DATASET}.log"
