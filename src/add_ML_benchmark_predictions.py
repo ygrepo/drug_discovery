@@ -97,7 +97,7 @@ def main():
                     # model_name = infer_model_name(p)
                     logger.info(f"Processing: {fn}  |  model_name='{model_name}'")
 
-                    pred_df = read_csv_parquet_torch(fn)
+                    pred_df = read_csv_parquet_torch(p)
                     logger.info(f"  raw predictions rows: {len(pred_df):,}")
 
                     # Merge to keep a consistent row set, keyed by Drug + Target Name
