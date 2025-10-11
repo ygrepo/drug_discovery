@@ -82,19 +82,20 @@ def main():
                     continue
 
                 model_dir = Path(args.model_dir)
-                files = sorted(iter_files_glob(model_dir, args.pattern))
+                pattern = f"{embedding}_{dataset}_{splitmode}_{args.pattern}"
+                files = sorted(iter_files_glob(model_dir, pattern))
                 if not files:
                     logger.error(
-                        f"No files matched pattern '{args.pattern}' under {model_dir}"
+                        f"No files matched pattern '{pattern}' under {model_dir}"
                     )
                     return 1
+                logger.info(f"Pattern: {pattern}")
                 logger.info(f"Found {len(files)} prediction file(s).")
 
                 frames: List[pd.DataFrame] = []
                 for p in files:
                     fn = str(p.resolve())
                     model_name = p.stem.split("_")[0]
-                    # model_name = infer_model_name(p)
                     logger.info(f"Processing: {fn}  |  model_name='{model_name}'")
 
                     pred_df = read_csv_parquet_torch(p)
