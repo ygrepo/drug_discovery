@@ -1,15 +1,15 @@
 #!/bin/bash
-#   combined_ML_benchmark_predictions.sh    — submit combined_ML_benchmark_predictions jobs to LSF GPU queue
+#   combine_ML_benchmark_predictions.sh    — submit combine_ML_benchmark_predictions jobs to LSF GPU queue
 
 
-#BSUB -J combined_ML_benchmark_predictions
+#BSUB -J combine_ML_benchmark_predictions
 #BSUB -P acc_DiseaseGeneCell
 #BSUB -q premium
 #BSUB -n 8
 #BSUB -R "rusage[mem=512G]"
 #BSUB -W 6:00
-#BSUB -o logs/combined_ML_benchmark_predictions.%J.out
-#BSUB -e logs/combined_ML_benchmark_predictions.%J.err
+#BSUB -o logs/combine_ML_benchmark_predictions.%J.out
+#BSUB -e logs/combine_ML_benchmark_predictions.%J.err
 
 set -euo pipefail
 
@@ -40,11 +40,11 @@ OUTPUT_DIR="output/data"; mkdir -p "${OUTPUT_DIR}"
 LOG_LEVEL="INFO"
 
 BASE_DATA_DIR="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/wangcDrugRepoProject/BindDBdata/All_BindingDB"
-MAIN="src/add_ML_benchmark_predictions.py"
+MAIN="src/combine_ML_benchmark_predictions.py"
 DATASET="BindingDB"
 
 ts=$(date +"%Y%m%d_%H%M%S")
-LOG_FILE="${LOG_DIR}/${ts}_add_ML_benchmark_${DATASET}.log"
+LOG_FILE="${LOG_DIR}/${ts}_combine_ML_benchmark_${DATASET}.log"
 
 echo "JOBID=${LSB_JOBID:-local}  IDX=${LSB_JOBINDEX:-}  HOST=$(hostname)"
 echo "=== Running ${DATASET} ==="

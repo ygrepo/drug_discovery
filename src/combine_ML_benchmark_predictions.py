@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-add_ML_benchmark_predictions.py - Process predictions from ML benchmark."""
+combine_ML_benchmark_predictions.py - Process predictions from ML benchmark."""
 from __future__ import annotations
 import sys
 import argparse
