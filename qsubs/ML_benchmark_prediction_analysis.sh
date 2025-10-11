@@ -8,15 +8,10 @@
 #BSUB -q premium                  # queue
 #BSUB -n 1                  # number of compute cores
 #BSUB -W 100:00                 # walltime in HH:MM
-#BSUB -R rusage[mem=128G]      
+#BSUB -R rusage[mem=40G]      
 # -----------------------------------------------------------------------------
 
 set -euo pipefail
-
-if [[ $# -ne 0 ]]; then
-  echo "Usage: $0"
-  exit 2
-fi
 
 # --- Modules / shell setup ---
 module purge
