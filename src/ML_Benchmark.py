@@ -17,7 +17,13 @@ from torch.utils.data import DataLoader
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
-from src.utils import setup_logging, get_logger
+from src.utils import (
+    setup_logging,
+    get_logger,
+    norm_smiles,
+    norm_text_insensitive,
+    dedupe_with_norm,
+)
 from src.data_util import (
     load_data,
     DTIDataset,
@@ -69,6 +75,12 @@ def main():
 
         # --- Load data ---
         train_df, val_df, test_df = load_data(data_dir)
+        subset = ["Drug", "Target_ID"]
+        normalizers = {"Drug": norm_smiles, "Target_ID": norm_text_insensitive}
+
+        train_df = dedupe_with_norm(train_df, subset, normalizers)
+        val_df = dedupe_with_norm(val_df, subset, normalizers)
+        test_df = dedupe_with_norm(test_df, subset, normalizers)
 
         # --- Build datasets/loaders ---
         train_ds = DTIDataset(

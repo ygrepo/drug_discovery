@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 import numpy as np
-from typing import Union, Dict, Tuple, Optional
+from typing import Union, Dict, Tuple, Optional, Callable
 import pandas as pd
 from sklearn.manifold import TSNE
 from umap import UMAP
@@ -62,6 +62,45 @@ logger = get_logger(__name__)
 
 def str_to_bool(s: str) -> bool:
     return s.lower() in ["true", "1", "t", "y", "yes"]
+
+
+def norm_text_insensitive(s: pd.Series) -> pd.Series:
+    # For human-readable text / IDs where case shouldn't matter
+    return (
+        s.astype("string")
+        .str.normalize("NFKC")
+        .str.strip()
+        .str.replace(r"\s+", " ", regex=True)
+        .str.casefold()
+    )  # unicode-aware lower
+
+
+def norm_smiles(s: pd.Series) -> pd.Series:
+    # SMILES are case-sensitive; just standardize trivial whitespace
+    return (
+        s.astype("string").str.normalize("NFKC").str.strip()
+    )  # DON'T casefold; DON'T collapse internal spaces
+
+
+def dedupe_with_norm(
+    df: pd.DataFrame,
+    subset_cols: list[str],
+    normalizers: dict[
+        str, Callable
+    ],  # e.g., {"Drug": norm_smiles, "Target_ID": norm_text_insensitive}
+    keep: str = "first",
+) -> pd.DataFrame:
+    g = df.copy()
+    # create normalized shadow columns to avoid mutating originals
+    norm_subset = []
+    for c in subset_cols:
+        nc = f"__norm__{c}"
+        func = normalizers.get(c, lambda x: x.astype("string"))
+        g[nc] = func(g[c]).fillna("")  # coalesce missing for consistent comparison
+        norm_subset.append(nc)
+
+    out = g.drop_duplicates(subset=norm_subset, keep=keep)
+    return out.drop(columns=norm_subset)
 
 
 def save_csv_parquet_torch(df: pd.DataFrame, fn: Path) -> None:
