@@ -118,6 +118,7 @@ def main():
         # Write output
         out_base = f"combined_predictions_{dataset}.parquet"
         out_path = Path(args.output_dir) / out_base
+        logger.info(all_df["splitmode"].unique())
 
         save_csv_parquet_torch(all_df, out_path)
 
