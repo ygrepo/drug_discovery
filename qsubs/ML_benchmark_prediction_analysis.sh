@@ -26,12 +26,6 @@ mkdir -p ./logs
 SUBMIT_DIR="$(pwd)"     # because -cwd is set by LSF to the submission dir (or %J_workdir)
 echo "Submit dir: ${SUBMIT_DIR}"
 
-# If your repo root is the parent of qsubs/, set:
-REPO_ROOT="${SUBMIT_DIR}"
-# If you keep the script in qsubs/, and submit from repo root, REPO_ROOT should remain ${SUBMIT_DIR}.
-
-cd "${REPO_ROOT}"
-
 # ---- Logging (mirror to ./logs) ----
 ts="$(date +"%Y%m%d_%H%M%S")"
 log_file="./logs/${ts}_ML_benchmark_prediction_analysis.log"
@@ -71,7 +65,7 @@ conda activate "${ENV_PREFIX}" || { echo "[ERROR] conda activate failed"; exit 1
 PYTHON="${ENV_PREFIX}/bin/python"
 [[ -x "${PYTHON}" ]] || PYTHON="python"
 
-# ---- Project paths (relative to REPO_ROOT) ----
+# ---- Project paths ----
 LOG_LEVEL="INFO"
 DATA_FN="output/data/combined_predictions_BindingDB.parquet"
 OUTPUT_DIR="output/metrics"; mkdir -p "${OUTPUT_DIR}"
