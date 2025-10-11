@@ -46,8 +46,14 @@ def setup_logging(log_path: str | Path | None, level: str = "INFO") -> logging.L
 
 
 def get_logger(name: str | None = None) -> logging.Logger:
-    """Get a child logger that inherits the base handlers."""
-    return logging.getLogger(BASE_LOGGER if not name else f"{BASE_LOGGER}.{name}")
+    """Get a child logger that inherits the base handlers (no child handlers)."""
+    full_name = BASE_LOGGER if not name else f"{BASE_LOGGER}.{name}"
+    logger = logging.getLogger(full_name)
+    # Ensure children don't keep their own handlers (which would double-log)
+    if logger is not _BASE and logger.handlers:
+        logger.handlers.clear()
+    logger.propagate = True  # bubble to BASE only
+    return logger
 
 
 # Convenience logger for this module

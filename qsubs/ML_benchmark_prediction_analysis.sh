@@ -27,7 +27,6 @@ echo "Submit dir: ${SUBMIT_DIR}"
 # ---- Logging (mirror to ./logs) ----
 ts="$(date +"%Y%m%d_%H%M%S")"
 log_file="./logs/${ts}_ML_benchmark_prediction_analysis.log"
-exec > >(tee -a "${log_file}") 2>&1
 
 echo "------------------------------------------------------------"
 echo "JOB START: $(date)"

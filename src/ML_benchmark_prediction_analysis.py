@@ -213,6 +213,7 @@ def main():
         # Load data
         df = read_csv_parquet_torch(data_fn)
         logger.info(f"Loaded {len(df)} samples")
+        logger.info(df["Split mode"].unique())
 
         # Target class
         res = metrics_per_category(
