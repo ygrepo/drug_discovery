@@ -46,7 +46,7 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument(
         "--pattern",
         type=str,
-        default="*predictions.csv",
+        default="predictions.csv",
         help="Pattern (glob by default). Use --regex to treat as regex.",
     )
     return ap.parse_args()
@@ -82,7 +82,7 @@ def main():
                     continue
 
                 model_dir = Path(args.model_dir)
-                pattern = f"{embedding}_{dataset}_{splitmode}_{args.pattern}"
+                pattern = f"*_{embedding}_{dataset}_{splitmode}_{args.pattern}"
                 files = sorted(iter_files_glob(model_dir, pattern))
                 if not files:
                     logger.error(
