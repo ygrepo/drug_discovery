@@ -184,7 +184,6 @@ def parse_args():
         default=None,
         help="Show only top K results per category (None = all results)",
     )
-    parser.add_argument("--log_level", type=str, default="INFO", help="Logging level")
     parser.add_argument(
         "--prefix", type=str, default="", help="Prefix for output filenames"
     )

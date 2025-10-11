@@ -6,7 +6,7 @@
 #BSUB -P acc_DiseaseGeneCell
 #BSUB -q premium
 #BSUB -n 1
-#BSUB -R "rusage[mem=32G]"
+#BSUB -R "rusage[mem=128G]"
 #BSUB -W 6:00
 #BSUB -o logs/combined_ML_benchmark_predictions.%J.out
 #BSUB -e logs/combined_ML_benchmark_predictions.%J.err
