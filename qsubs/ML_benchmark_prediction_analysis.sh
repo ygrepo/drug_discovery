@@ -68,7 +68,7 @@ LOG_LEVEL="INFO"
 DATA_FN="output/data/combined_predictions_BindingDB.parquet"
 OUTPUT_DIR="output/metrics"; mkdir -p "${OUTPUT_DIR}"
 PREFIX="All_BindingDB_prediction_analysis"
-MAIN="src/ML_Benchmark_Prediction_Analysis.py"
+MAIN="src/ML_benchmark_prediction_analysis.py"
 
 [[ -f "${MAIN}" ]] || { echo "[ERROR] MAIN not found: ${MAIN} (PWD=$(pwd))"; exit 2; }
 
