@@ -72,7 +72,7 @@ def main():
         for splitmode in splitmodes:
             for embedding in embeddings:
                 cur_dir = data_dir / f"{embedding}_{dataset}_{splitmode}"
-                logger.info(f"Data dir: {cur_dir}")
+                logger.info(f"Cur. Data dir: {cur_dir}")
                 file_path = cur_dir / "test.parquet"
                 if file_path.exists():
                     df = pd.read_parquet(file_path)
