@@ -221,7 +221,7 @@ def main():
         )
         output_dir = Path(args.output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
-        save_csv_parquet_torch(res, output_dir / f"{args.prefix}_metrics_by_class.csv")
+        save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_class.csv")
 
         # Finer taxonomies
         res = metrics_per_category(
@@ -231,9 +231,7 @@ def main():
             top_k=args.top_k,
             min_n=args.min_n,
         )
-        save_csv_parquet_torch(
-            res, output_dir / f"{args.prefix}_metrics_by_class_level_1.csv"
-        )
+        save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_class_level_1.csv")
 
         # Target class level 2
         res = metrics_per_category(
@@ -243,9 +241,7 @@ def main():
             top_k=args.top_k,
             min_n=args.min_n,
         )
-        save_csv_parquet_torch(
-            res, output_dir / f"{args.prefix}_metrics_by_class_level_2.csv"
-        )
+        save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_class_level_2.csv")
 
         # Target class level 3
         res = metrics_per_category(
@@ -255,9 +251,7 @@ def main():
             top_k=args.top_k,
             min_n=args.min_n,
         )
-        save_csv_parquet_torch(
-            res, output_dir / f"{args.prefix}_metrics_by_class_level_3.csv"
-        )
+        save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_class_level_3.csv")
 
         # Target class level 4
         res = metrics_per_category(
@@ -267,9 +261,7 @@ def main():
             top_k=args.top_k,
             min_n=args.min_n,
         )
-        save_csv_parquet_torch(
-            res, output_dir / f"{args.prefix}_metrics_by_class_level_4.csv"
-        )
+        save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_class_level_4.csv")
 
         # Target class level 5
         res = metrics_per_category(
@@ -279,9 +271,7 @@ def main():
             top_k=args.top_k,
             min_n=args.min_n,
         )
-        save_csv_parquet_torch(
-            res, output_dir / f"{args.prefix}_metrics_by_class_level_5.csv"
-        )
+        save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_class_level_5.csv")
 
         # Target class level 6
         res = metrics_per_category(
@@ -291,9 +281,7 @@ def main():
             top_k=args.top_k,
             min_n=args.min_n,
         )
-        save_csv_parquet_torch(
-            res, output_dir / f"{args.prefix}_metrics_by_class_level_6.csv"
-        )
+        save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_class_level_6.csv")
 
         # EC hierarchy (full)
         df = normalize_ec(df, ec_col="EC number")
@@ -305,7 +293,7 @@ def main():
             top_k=args.top_k,
             min_n=args.min_n,
         )
-        save_csv_parquet_torch(res, output_dir / f"{args.prefix}_metrics_by_ec.csv")
+        save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_ec.csv")
 
         # FDA approved vs not
         res = metrics_per_category(
@@ -314,9 +302,7 @@ def main():
             by=["Dataset", "Split mode", "Embedding", "model_name"],
             min_n=30,
         )
-        save_csv_parquet_torch(
-            res, output_dir / f"{args.prefix}_metrics_by_fda_approved.csv"
-        )
+        save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_fda_approved.csv")
 
     except Exception as e:
         logger.exception("Analysis failed: %s", e)
