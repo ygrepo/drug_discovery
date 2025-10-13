@@ -91,6 +91,9 @@ def main():
                     logger.warning(f"File not found: {file_path}")
                     continue
 
+                if "row_index" not in df.columns:
+                    df = df.reset_index().rename(columns={"index": "row_index"})
+
                 prediction_dir = Path(args.prediction_dir)
 
                 pattern = f"{args.date_pattern}_ML_predictions_{embedding}_{dataset}_{splitmode}.csv"
@@ -109,18 +112,19 @@ def main():
 
                 for p in files:
                     fn = str(p.resolve())
-                    model_name = p.stem.split("_")[0]
-                    logger.info(f"Processing: {fn}  |  model_name='{model_name}'")
+                    logger.info(f"Processing: {fn}")
 
                     pred_df = read_csv_parquet_torch(p)
                     logger.info(f"  raw predictions rows: {len(pred_df):,}")
 
-                    # Merge to keep a consistent row set, keyed by Drug + Target Name
-                    merged = df.merge(pred_df, on=["Drug", "Target Name"], how="inner")
+                    # Merge to keep a consistent row set,
+                    # keyed by row_index + Drug + Target Name
+                    merged = df.merge(
+                        pred_df, on=["row_index", "Drug", "Target"], how="inner"
+                    )
                     merged["Dataset"] = dataset
                     merged["Split mode"] = splitmode
                     merged["Embedding"] = embedding
-                    merged["model_name"] = model_name
                     logger.info(f"  merged rows: {len(merged):,}")
                     all_frames.append(merged)  # Add to the main collection
 
@@ -130,7 +134,6 @@ def main():
             logger.info(f"Combined rows total: {len(all_df):,}")
             logger.info(f"Split modes: {all_df['Split mode'].unique()}")
             logger.info(f"Embeddings: {all_df['Embedding'].unique()}")
-            logger.info(f"Models: {all_df['model_name'].unique()}")
 
             # Write output
             out_base = f"combined_predictions_{dataset}.parquet"
