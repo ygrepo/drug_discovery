@@ -27,7 +27,7 @@ from src.utils import (
 from src.data_util import (
     load_data,
     DTIDataset,
-    append_predictions_csv,
+    append_predictions,
 )
 from src.ML_benchmark_util import evaluate_model_with_loaders, save_model
 
@@ -106,13 +106,6 @@ def main():
         )
 
         logger.info("Running models...")
-
-        logger.info("Random Forest")
-        # Random Forest
-        model_name = "Random Forest"
-        model = RandomForestRegressor(n_estimators=100, random_state=SEED, n_jobs=-1)
-
-        # --- Evaluate ---
         metrics_df = pd.DataFrame(
             columns=[
                 "Model",
@@ -126,78 +119,77 @@ def main():
                 "Explained_Variance",
             ]
         )
-        metrics_df, (test_row_idx, test_smiles, test_target_ids, test_pred) = (
-            evaluate_model_with_loaders(
-                metrics_df,
-                model_name,
-                model,
-                train_loader,
-                val_loader,
-                test_loader,
-                y_inverse_fn=train_ds.inverse_transform_y if train_ds.scale else None,
-            )
+        prediction_df = pd.DataFrame(
+            columns=["Model" "row_index" "Drug" "Target" "pred_affinity"]
         )
+        model_dir = Path(args.model_dir).mkdir(parents=True, exist_ok=True)
 
-        # --- Save model ---
-        model_dir = Path(args.model_dir)
-        model_dir.mkdir(parents=True, exist_ok=True)
-        model_filename = (
-            model_dir
-            / f"{model_name.replace(' ', '_')}_{args.embedding}_{args.dataset}_{args.splitmode}_model_regression.pkl"
-        )
-        save_model(model, model_name, model_filename)
+        # logger.info("Random Forest")
+        # # Random Forest
+        # model_name = "Random Forest"
+        # model = RandomForestRegressor(n_estimators=100, random_state=SEED, n_jobs=-1)
 
-        # --- Append test predictions to CSV ---
-        output_dir = Path(args.output_dir).mkdir(parents=True, exist_ok=True)
-        predictions_filename = (
-            model_dir
-            / f"{model_name.replace(' ', '_')}_{args.embedding}_{args.dataset}_{args.splitmode}_predictions.csv"
-        )
-        append_predictions_csv(
-            predictions_filename,
-            test_row_idx,
-            test_smiles,
-            test_target_ids,
-            test_pred,
-        )
-        logger.info(
-            f"Appended {len(test_smiles)} test predictions to {predictions_filename}"
-        )
+        # # --- Evaluate ---
 
-        logger.info("SVR")
-        # SVR
-        model_name = "SVR"
-        model = SVR(kernel="rbf")
-        metrics_df, (test_row_idx, test_smiles, test_target_ids, test_pred) = (
-            evaluate_model_with_loaders(
-                metrics_df,
-                model_name,
-                model,
-                train_loader,
-                val_loader,
-                test_loader,
-                y_inverse_fn=train_ds.inverse_transform_y if train_ds.scale else None,
-            )
-        )
-        model_filename = (
-            model_dir
-            / f"{model_name.replace(' ', '_')}_{args.embedding}_{args.dataset}_{args.splitmode}_model_regression.pkl"
-        )
-        save_model(model, model_name, model_filename)
-        predictions_filename = (
-            model_dir
-            / f"{model_name.replace(' ', '_')}_{args.embedding}_{args.dataset}_{args.splitmode}_predictions.csv"
-        )
-        append_predictions_csv(
-            predictions_filename,
-            test_row_idx,
-            test_smiles,
-            test_target_ids,
-            test_pred,
-        )
-        logger.info(
-            f"Appended {len(test_smiles)} test predictions to {predictions_filename}"
-        )
+        # metrics_df, (test_row_idx, test_smiles, test_target_ids, test_pred) = (
+        #     evaluate_model_with_loaders(
+        #         metrics_df,
+        #         model_name,
+        #         model,
+        #         train_loader,
+        #         val_loader,
+        #         test_loader,
+        #         y_inverse_fn=train_ds.inverse_transform_y if train_ds.scale else None,
+        #     )
+        # )
+
+        # # --- Save model ---
+
+        # model_filename = (
+        #     model_dir
+        #     / f"{model_name.replace(' ', '_')}_{args.embedding}_{args.dataset}_{args.splitmode}_model_regression.pkl"
+        # )
+        # save_model(model, model_name, model_filename)
+
+        # prediction_df = append_predictions(
+        #     model_name,
+        #     prediction_df,
+        #     test_row_idx,
+        #     test_smiles,
+        #     test_target_ids,
+        #     test_pred,
+        # )
+        # logger.info(f"Appended {len(test_smiles)} test predictions")
+
+        # logger.info("SVR")
+        # # SVR
+        # model_name = "SVR"
+        # model = SVR(kernel="rbf")
+        # metrics_df, (test_row_idx, test_smiles, test_target_ids, test_pred) = (
+        #     evaluate_model_with_loaders(
+        #         metrics_df,
+        #         model_name,
+        #         model,
+        #         train_loader,
+        #         val_loader,
+        #         test_loader,
+        #         y_inverse_fn=train_ds.inverse_transform_y if train_ds.scale else None,
+        #     )
+        # )
+        # model_filename = (
+        #     model_dir
+        #     / f"{model_name.replace(' ', '_')}_{args.embedding}_{args.dataset}_{args.splitmode}_model_regression.pkl"
+        # )
+        # save_model(model, model_name, model_filename)
+        # prediction_df = append_predictions(
+        #     model_name,
+        #     prediction_df,
+        #     test_row_idx,
+        #     test_smiles,
+        #     test_target_ids,
+        #     test_pred,
+        # )
+        # logger.info(f"Appended {len(test_smiles)} test predictions")
 
         logger.info("GBM")
         # GBM
@@ -221,95 +213,81 @@ def main():
             / f"{model_name.replace(' ', '_')}_{args.embedding}_{args.dataset}_{args.splitmode}_model_regression.pkl"
         )
         save_model(model, model_name, model_filename)
-        predictions_filename = (
-            model_dir
-            / f"{model_name.replace(' ', '_')}_{args.embedding}_{args.dataset}_{args.splitmode}_predictions.csv"
-        )
-        append_predictions_csv(
-            predictions_filename,
+        prediction_df = append_predictions(
+            model_name,
+            prediction_df,
             test_row_idx,
             test_smiles,
             test_target_ids,
             test_pred,
         )
-        logger.info(
-            f"Appended {len(test_smiles)} test predictions to {predictions_filename}"
-        )
+        logger.info(f"Appended {len(test_smiles)} test predictions")
 
-        logger.info("Linear Regression")
-        # Linear Regression
-        model = LinearRegression()
-        model_name = "Linear Regression"
-        metrics_df, (test_row_idx, test_smiles, test_target_ids, test_pred) = (
-            evaluate_model_with_loaders(
-                metrics_df,
-                model_name,
-                model,
-                train_loader,
-                val_loader,
-                test_loader,
-                y_inverse_fn=train_ds.inverse_transform_y if train_ds.scale else None,
-            )
-        )
-        model_filename = (
-            model_dir
-            / f"{model_name.replace(' ', '_')}_{args.embedding}_{args.dataset}_{args.splitmode}_model_regression.pkl"
-        )
-        save_model(model, model_name, model_filename)
-        predictions_filename = (
-            model_dir
-            / f"{model_name.replace(' ', '_')}_{args.embedding}_{args.dataset}_{args.splitmode}_predictions.csv"
-        )
-        append_predictions_csv(
-            predictions_filename,
-            test_row_idx,
-            test_smiles,
-            test_target_ids,
-            test_pred,
-        )
-        logger.info(
-            f"Appended {len(test_smiles)} test predictions to {predictions_filename}"
-        )
+        # logger.info("Linear Regression")
+        # # Linear Regression
+        # model = LinearRegression()
+        # model_name = "Linear Regression"
+        # metrics_df, (test_row_idx, test_smiles, test_target_ids, test_pred) = (
+        #     evaluate_model_with_loaders(
+        #         metrics_df,
+        #         model_name,
+        #         model,
+        #         train_loader,
+        #         val_loader,
+        #         test_loader,
+        #         y_inverse_fn=train_ds.inverse_transform_y if train_ds.scale else None,
+        #     )
+        # )
+        # model_filename = (
+        #     model_dir
+        #     / f"{model_name.replace(' ', '_')}_{args.embedding}_{args.dataset}_{args.splitmode}_model_regression.pkl"
+        # )
+        # save_model(model, model_name, model_filename)
+        # prediction_df = append_predictions(
+        #     model_name,
+        #     prediction_df,
+        #     test_row_idx,
+        #     test_smiles,
+        #     test_target_ids,
+        #     test_pred,
+        # )
+        # logger.info(f"Appended {len(test_smiles)} test predictions")
 
-        logger.info("MLP")
-        # MLP
-        model = MLPRegressor(
-            hidden_layer_sizes=(512, 256),
-            activation="relu",
-            max_iter=200,
-            random_state=SEED,
-        )
-        model_name = "MLP"
-        metrics_df, (test_row_idx, test_smiles, test_target_ids, test_pred) = (
-            evaluate_model_with_loaders(
-                metrics_df,
-                model_name,
-                model,
-                train_loader,
-                val_loader,
-                test_loader,
-                y_inverse_fn=train_ds.inverse_transform_y if train_ds.scale else None,
-            )
-        )
-        model_filename = (
-            model_dir
-            / f"{model_name.replace(' ', '_')}_{args.embedding}_{args.dataset}_{args.splitmode}_model_regression.pkl"
-        )
-        save_model(model, model_name, model_filename)
-        predictions_filename = (
-            model_dir
-            / f"{model_name.replace(' ', '_')}_{args.embedding}_{args.dataset}_{args.splitmode}_predictions.csv"
-        )
-        append_predictions_csv(
-            predictions_filename,
-            test_row_idx,
-            test_smiles,
-            test_target_ids,
-            test_pred,
-        )
-        logger.info(
-            f"Appended {len(test_smiles)} test predictions to {predictions_filename}"
-        )
+        # logger.info("MLP")
+        # # MLP
+        # model = MLPRegressor(
+        #     hidden_layer_sizes=(512, 256),
+        #     activation="relu",
+        #     max_iter=200,
+        #     random_state=SEED,
+        # )
+        # model_name = "MLP"
+        # metrics_df, (test_row_idx, test_smiles, test_target_ids, test_pred) = (
+        #     evaluate_model_with_loaders(
+        #         metrics_df,
+        #         model_name,
+        #         model,
+        #         train_loader,
+        #         val_loader,
+        #         test_loader,
+        #         y_inverse_fn=train_ds.inverse_transform_y if train_ds.scale else None,
+        #     )
+        # )
+        # model_filename = (
+        #     model_dir
+        #     / f"{model_name.replace(' ', '_')}_{args.embedding}_{args.dataset}_{args.splitmode}_model_regression.pkl"
+        # )
+        # save_model(model, model_name, model_filename)
+
+        # prediction_df = append_predictions(
+        #     model_name,
+        #     prediction_df,
+        #     test_row_idx,
+        #     test_smiles,
+        #     test_target_ids,
+        #     test_pred,
+        # )
+        # logger.info(f"Appended {len(test_smiles)} test predictions")
 
         logger.info("XGBoost")
         # XGBoost
@@ -331,34 +309,39 @@ def main():
             / f"{model_name.replace(' ', '_')}_{args.embedding}_{args.dataset}_{args.splitmode}_model_regression.pkl"
         )
         save_model(model, model_name, model_filename)
-        predictions_filename = (
-            model_dir
-            / f"{model_name.replace(' ', '_')}_{args.embedding}_{args.dataset}_{args.splitmode}_predictions.csv"
-        )
-        append_predictions_csv(
-            predictions_filename,
+        prediction_df = append_predictions(
+            model_name,
+            prediction_df,
             test_row_idx,
             test_smiles,
             test_target_ids,
             test_pred,
         )
-        logger.info(
-            f"Appended {len(test_smiles)} test predictions to {predictions_filename}"
-        )
+        logger.info(f"Appended {len(test_smiles)} test predictions")
 
         logger.info("Done!")
 
-        output_dir = Path(args.output_dir)
+        output_dir = Path(args.output_dir).mkdir(parents=True, exist_ok=True)
         datestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        result_csv = (
+
+        fn = (
             output_dir
             / f"{datestamp}_ML_metrics_{args.embedding}_{args.dataset}_{args.splitmode}.csv"
         )
 
-        logger.info(f"Saving metrics to {result_csv}")
+        logger.info(f"Saving metrics to {fn}")
         # Save metrics_df to CSV
-        metrics_df.to_csv(result_csv, index=False)
+        metrics_df.to_csv(fn, index=False)
         logger.info("Metrics saved!")
+
+        fn = (
+            output_dir
+            / f"{datestamp}_ML_predictions_{args.embedding}_{args.dataset}_{args.splitmode}.csv"
+        )
+        logger.info(f"Saving predictions to {fn}")
+        # Save prediction_df to CSV
+        prediction_df.to_csv(fn, index=False)
+        logger.info("Predictions saved!")
 
     except Exception as e:
         logger.exception("Script failed: %s", e)  # or this

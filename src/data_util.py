@@ -168,25 +168,28 @@ def loader_to_numpy(
     return X, y, SMILES, TARGETS, ROW_IDX
 
 
-def append_predictions_csv(
-    csv_path: Path,
+def append_predictions(
+    model_name: str,
+    df: pd.DataFrame,
     row_idx: list[int],
     smiles: list[str],
     target_ids: list[str],
     preds: np.ndarray,
 ):
-    df = pd.DataFrame(
+    pred_df = pd.DataFrame(
         {
+            "Model": [model_name] * len(row_idx),
             "row_index": row_idx,
             "Drug": smiles,
             "Target": target_ids,  # use the ID column name consistently
             "pred_affinity": np.asarray(preds).reshape(-1),
         }
     )
-    csv_path.parent.mkdir(parents=True, exist_ok=True)
-    header = not csv_path.exists()
-    logger.info(f"Saving predictions to {csv_path}")
-    df.to_csv(csv_path, mode="a", header=header, index=False)
+    logger.info(f"Appending {len(pred_df)} predictions to dataframe")
+    df = pd.concat(
+        [df, pred_df], ignore_index=True, sort=False
+    )  # sort=False is more efficient
+    df = df.sort_values("row_index").reset_index(drop=True)  # Sort by row_index
     return df
 
 
