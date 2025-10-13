@@ -38,10 +38,10 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--data_dir", type=str, default="")
     ap.add_argument("--output_dir", type=str, default="")
     ap.add_argument(
-        "--model_dir",
+        "--prediction_dir",
         type=Path,
-        default=Path("output/models"),
-        help="Model dir (default: current directory)",
+        default=Path("output/predictions"),
+        help="Prediction dir (default: current directory)",
     )
     ap.add_argument(
         "--prefix",
@@ -66,7 +66,7 @@ def main():
         # Log configuration
         logger.info(f"Current working directory: {os.getcwd()}")
         logger.info(f"Logging to: {args.log_fn}")
-        logger.info(f"Model dir: {args.model_dir}")
+        logger.info(f"Prediction dir: {args.prediction_dir}")
         logger.info(f"Data dir: {args.data_dir}")
         logger.info(f"Output dir: {args.output_dir}")
         data_dir = Path(args.data_dir)
@@ -91,15 +91,15 @@ def main():
                     logger.warning(f"File not found: {file_path}")
                     continue
 
-                model_dir = Path(args.model_dir)
+                prediction_dir = Path(args.prediction_dir)
                 pattern = (
                     f"{args.prefix}*{embedding}_{dataset}_{splitmode}_{args.pattern}"
                 )
-                files = sorted(iter_files_glob(model_dir, pattern))
+                files = sorted(iter_files_glob(prediction_dir, pattern))
 
                 if not files:
                     logger.error(
-                        f"No files matched pattern '{pattern}' under {model_dir}"
+                        f"No files matched pattern '{pattern}' under {prediction_dir}"
                     )
                     continue  # Continue to next combination instead of returning
 
