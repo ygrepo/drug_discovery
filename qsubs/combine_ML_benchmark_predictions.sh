@@ -35,7 +35,7 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 # --- Project paths ---
 LOG_DIR="logs"; mkdir -p "${LOG_DIR}"
-PREDICTION_DIR="output/predictions"; mkdir -p "${PREDICTION_DIR}"
+PREDICTION_DIR="output/metrics"; mkdir -p "${PREDICTION_DIR}"
 OUTPUT_DIR="output/data"; mkdir -p "${OUTPUT_DIR}"
 LOG_LEVEL="INFO"
 
