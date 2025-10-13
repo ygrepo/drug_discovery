@@ -329,7 +329,7 @@ def main():
 
         output_dir = Path(args.output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
-        datestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        datestamp = datetime.now().strftime("%Y%m%d")
 
         fn = (
             output_dir

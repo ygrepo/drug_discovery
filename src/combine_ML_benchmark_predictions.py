@@ -44,6 +44,12 @@ def parse_args() -> argparse.Namespace:
         help="Model dir (default: current directory)",
     )
     ap.add_argument(
+        "--prefix",
+        type=str,
+        default=None,
+        help="Split modes to process",
+    )
+    ap.add_argument(
         "--pattern",
         type=str,
         default="predictions.csv",
@@ -69,11 +75,15 @@ def main():
         logger.info(f"Dataset: {dataset}")
         splitmodes = ["random", "cold_protein", "cold_drug"]
         embeddings = ["ESMv1", "ESM2", "MUTAPLM", "ProteinCLIP"]
+
+        all_frames = []  # Move this outside the loops to collect everything
+
         for splitmode in splitmodes:
             for embedding in embeddings:
                 cur_dir = data_dir / f"{embedding}_{dataset}_{splitmode}"
                 logger.info(f"Cur. Data dir: {cur_dir}")
                 file_path = cur_dir / "test.parquet"
+
                 if file_path.exists():
                     df = pd.read_parquet(file_path)
                     logger.info(f"Loaded dataset: {len(df)} test")
@@ -82,17 +92,21 @@ def main():
                     continue
 
                 model_dir = Path(args.model_dir)
-                pattern = f"*_{embedding}_{dataset}_{splitmode}_{args.pattern}"
+                pattern = (
+                    f"{args.prefix}*{embedding}_{dataset}_{splitmode}_{args.pattern}"
+                )
                 files = sorted(iter_files_glob(model_dir, pattern))
+
                 if not files:
                     logger.error(
                         f"No files matched pattern '{pattern}' under {model_dir}"
                     )
-                    return 1
+                    continue  # Continue to next combination instead of returning
+
+                logger.info(f"Prefix: {args.prefix}")
                 logger.info(f"Pattern: {pattern}")
                 logger.info(f"Found {len(files)} prediction file(s).")
 
-                frames: List[pd.DataFrame] = []
                 for p in files:
                     fn = str(p.resolve())
                     model_name = p.stem.split("_")[0]
@@ -102,31 +116,37 @@ def main():
                     logger.info(f"  raw predictions rows: {len(pred_df):,}")
 
                     # Merge to keep a consistent row set, keyed by Drug + Target Name
-                    # (adjust keys if your data uses different columns)
                     merged = df.merge(pred_df, on=["Drug", "Target Name"], how="inner")
                     merged["Dataset"] = dataset
                     merged["Split mode"] = splitmode
                     merged["Embedding"] = embedding
                     merged["model_name"] = model_name
                     logger.info(f"  merged rows: {len(merged):,}")
-                    frames.append(merged)
+                    all_frames.append(merged)  # Add to the main collection
 
-                # Concatenate all models into one DataFrame
-                all_df = pd.concat(frames, ignore_index=True)
-                logger.info(f"Combined rows total: {len(all_df):,}")
+        # Combine all predictions after processing all combinations
+        if all_frames:  # Check if we have any data
+            all_df = pd.concat(all_frames, ignore_index=True)
+            logger.info(f"Combined rows total: {len(all_df):,}")
+            logger.info(f"Split modes: {all_df['Split mode'].unique()}")
+            logger.info(f"Embeddings: {all_df['Embedding'].unique()}")
+            logger.info(f"Models: {all_df['model_name'].unique()}")
 
-        # Write output
-        out_base = f"combined_predictions_{dataset}.parquet"
-        out_path = Path(args.output_dir) / out_base
-        logger.info(all_df["Split mode"].unique())
+            # Write output
+            out_base = f"combined_predictions_{dataset}.parquet"
+            out_path = Path(args.output_dir) / out_base
 
-        save_csv_parquet_torch(all_df, out_path)
+            # Ensure output directory exists
+            out_path.parent.mkdir(parents=True, exist_ok=True)
 
-        return 0
+            save_csv_parquet_torch(all_df, out_path)
+            logger.info(f"Saved combined predictions to: {out_path}")
+        else:
+            logger.error("No prediction files were successfully processed!")
 
     except Exception as e:
         logger.exception("Script failed: %s", e)  # or this
-        sys.exit(1)
+        raise e
 
 
 if __name__ == "__main__":
