@@ -103,7 +103,7 @@ def main():
                     )
                     continue  # Continue to next combination instead of returning
 
-                logger.info(f"Prefix: {args.prefix}")
+                logger.info(f"Date pattern: {args.date_pattern}")
                 logger.info(f"Pattern: {pattern}")
                 logger.info(f"Found {len(files)} prediction file(s).")
 
