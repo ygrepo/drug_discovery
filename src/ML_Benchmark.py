@@ -122,7 +122,8 @@ def main():
         prediction_df = pd.DataFrame(
             columns=["Model" "row_index" "Drug" "Target" "pred_affinity"]
         )
-        model_dir = Path(args.model_dir).mkdir(parents=True, exist_ok=True)
+        model_dir = Path(args.model_dir)
+        model_dir.mkdir(parents=True, exist_ok=True)
 
         # logger.info("Random Forest")
         # # Random Forest
@@ -321,7 +322,8 @@ def main():
 
         logger.info("Done!")
 
-        output_dir = Path(args.output_dir).mkdir(parents=True, exist_ok=True)
+        output_dir = Path(args.output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
         datestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         fn = (
