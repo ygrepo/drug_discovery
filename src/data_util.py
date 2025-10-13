@@ -23,13 +23,23 @@ logger = get_logger(__name__)
 def load_data(
     data_dir: Path,
     scale_features: bool = False,
+    N: Optional[int] = None,  # Add N parameter
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     train_data = pd.read_parquet(data_dir / "train.parquet")
     val_data = pd.read_parquet(data_dir / "val.parquet")
     test_data = pd.read_parquet(data_dir / "test.parquet")
+
+    # Limit rows if N is specified
+    if N is not None:
+        train_data = train_data.head(N)
+        val_data = val_data.head(N)
+        test_data = test_data.head(N)
+        logger.info(f"Limited datasets to {N} rows each")
+
     logger.info(
         f"Loaded dataset: {len(train_data)} train, {len(val_data)} val, {len(test_data)} test"
     )
+
     if scale_features:
         logger.info("Scaling features...")
         scaler = StandardScaler()

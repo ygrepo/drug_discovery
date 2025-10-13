@@ -74,7 +74,7 @@ def main():
         logger.info(f"Data dir: {data_dir}")
 
         # --- Load data ---
-        train_df, val_df, test_df = load_data(data_dir)
+        train_df, val_df, test_df = load_data(data_dir, N=1000)
         subset = ["Drug", "Target"]
         normalizers = {"Drug": norm_smiles, "Target": norm_text_insensitive}
 
