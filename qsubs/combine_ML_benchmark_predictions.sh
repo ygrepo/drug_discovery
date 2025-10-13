@@ -42,7 +42,7 @@ LOG_LEVEL="INFO"
 BASE_DATA_DIR="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/wangcDrugRepoProject/BindDBdata/All_BindingDB"
 MAIN="src/combine_ML_benchmark_predictions.py"
 DATASET="BindingDB"
-PREFIX="20251013"
+DATE_PATTERN="20251013"
 ts=$(date +"%Y%m%d_%H%M%S")
 LOG_FILE="${LOG_DIR}/${ts}_combine_ML_benchmark_${DATASET}.log"
 
@@ -59,7 +59,7 @@ set +e
   --dataset "${DATASET}" \
   --prediction_dir "${PREDICTION_DIR}" \
   --output_dir "${OUTPUT_DIR}" \
-  --prefix "${PREFIX}"
+  --date_pattern "${DATE_PATTERN}"
 exit_code=$?
 set -e
 
