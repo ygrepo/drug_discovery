@@ -6,6 +6,7 @@ import pandas as pd
 from sklearn.manifold import TSNE
 from umap import UMAP
 from sklearn.preprocessing import StandardScaler
+import hashlib
 import torch
 
 import logging
@@ -382,3 +383,30 @@ def prepare_shared_umap(
     if return_objects:
         return coords_2d, (scaler, reducer)
     return coords_2d
+
+
+def create_hash(sequence):
+    return hashlib.md5(sequence.encode()).hexdigest()[:hash_length]
+
+
+def add_sequence_hashes(
+    df: pd.DataFrame, target_col: str = "Target", hash_length: int = 8
+) -> pd.DataFrame:
+    """Add hash column without modifying original sequence column"""
+    #df = df.copy()
+
+    # Add new column with hashes, keep original intact
+    df[f"{target_col}_hash"] = df[target_col].apply(create_hash)
+
+    # Check for collisions
+    n_sequences = df[target_col].nunique()
+    n_hashes = df[f"{target_col}_hash"].nunique()
+    if n_sequences != n_hashes:
+        logger.warning(
+            f"Hash collision detected! {n_sequences} sequences -> {n_hashes} hashes"
+        )
+        # Increase hash length and retry
+        return add_sequence_hashes(df, target_col, hash_length + 2)
+
+    logger.info(f"Added {hash_length}-char hashes for {n_sequences} unique sequences")
+    return df

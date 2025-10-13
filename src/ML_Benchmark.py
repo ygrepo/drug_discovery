@@ -23,6 +23,7 @@ from src.utils import (
     norm_smiles,
     norm_text_insensitive,
     dedupe_with_norm,
+    add_sequence_hashes,
 )
 from src.data_util import (
     load_data,
@@ -82,6 +83,10 @@ def main():
         val_df = dedupe_with_norm(val_df, subset, normalizers)
         test_df = dedupe_with_norm(test_df, subset, normalizers)
 
+        # train_df = add_sequence_hashes(train_df)
+        # val_df = add_sequence_hashes(val_df)
+        # test_df = add_sequence_hashes(test_df)
+
         # --- Build datasets/loaders ---
         train_ds = DTIDataset(
             train_df,
@@ -120,7 +125,7 @@ def main():
             ]
         )
         prediction_df = pd.DataFrame(
-            columns=["Model" "row_index" "Drug" "Target" "pred_affinity"]
+            columns=["Model", "row_index", "Drug", "Target", "pred_affinity"]
         )
         model_dir = Path(args.model_dir)
         model_dir.mkdir(parents=True, exist_ok=True)
