@@ -30,7 +30,7 @@ def load_data(
     test_data = pd.read_parquet(data_dir / "test.parquet")
 
     # Limit rows if N is specified
-    if N is not None:
+    if N > 0:
         train_data = train_data.head(N)
         val_data = val_data.head(N)
         test_data = test_data.head(N)

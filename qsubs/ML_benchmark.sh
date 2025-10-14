@@ -39,6 +39,7 @@ LOG_LEVEL="INFO"
 
 BASE_DATA_DIR="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/wangcDrugRepoProject/BindDBdata/All_BindingDB"
 MAIN="src/ML_Benchmark.py"
+N=1000
 
 combo="${EMBEDDING}_${DATASET}_${SPLITMODE}"
 ts=$(date +"%Y%m%d_%H%M%S")
@@ -57,6 +58,7 @@ set +e
   --dataset "${DATASET}" \
   --splitmode "${SPLITMODE}" \
   --embedding "${EMBEDDING}" \
+  --N "${N}" \
   --model_dir "${MODEL_DIR}" \
   --output_dir "${OUTPUT_DIR}"
 exit_code=$?
