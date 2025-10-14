@@ -60,7 +60,7 @@ set +e
   --dataset "${DATASET}" \
   --prediction_dir "${PREDICTION_DIR}" \
   --output_dir "${OUTPUT_DIR}" \
-  --date_pattern "${DATE_PATTERN}" \
+  --date_pattern "${DATE_PATTERN}"
 exit_code=$?
 set -e
 
