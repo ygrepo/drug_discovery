@@ -112,7 +112,7 @@ def metrics_per_category(
     df: pd.DataFrame,
     category_col: str,
     y_col: str = "Affinity",
-    yhat_col: str = "affinity_pred",
+    yhat_col: str = "pred_affinity",
     by: (
         list[str] | None
     ) = None,  # e.g., ["Dataset","Split mode","Embedding","model_name"]

@@ -39,7 +39,7 @@ LOG_LEVEL="INFO"
 
 BASE_DATA_DIR="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/wangcDrugRepoProject/BindDBdata/All_BindingDB"
 MAIN="src/ML_Benchmark.py"
-N=1000
+N=0
 
 combo="${EMBEDDING}_${DATASET}_${SPLITMODE}"
 ts=$(date +"%Y%m%d_%H%M%S")
