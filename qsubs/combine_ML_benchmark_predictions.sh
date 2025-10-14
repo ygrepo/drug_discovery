@@ -46,6 +46,7 @@ DATE_PATTERN="20251013"
 ts=$(date +"%Y%m%d_%H%M%S")
 LOG_FILE="${LOG_DIR}/${ts}_combine_ML_benchmark_${DATASET}.log"
 
+
 echo "JOBID=${LSB_JOBID:-local}  IDX=${LSB_JOBINDEX:-}  HOST=$(hostname)"
 echo "=== Running ${DATASET} ==="
 echo "  data_dir : ${BASE_DATA_DIR}"
@@ -59,7 +60,7 @@ set +e
   --dataset "${DATASET}" \
   --prediction_dir "${PREDICTION_DIR}" \
   --output_dir "${OUTPUT_DIR}" \
-  --date_pattern "${DATE_PATTERN}"
+  --date_pattern "${DATE_PATTERN}" \
 exit_code=$?
 set -e
 

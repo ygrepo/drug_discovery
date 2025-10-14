@@ -71,11 +71,16 @@ MAIN="src/ML_benchmark_prediction_analysis.py"
 
 [[ -f "${MAIN}" ]] || { echo "[ERROR] MAIN not found: ${MAIN} (PWD=$(pwd))"; exit 2; }
 
+TOP_K=10
+MIN_N=10
+
 echo "Python     : $(command -v "${PYTHON}")"
 echo "Main script: ${MAIN}"
 echo "Data file  : ${DATA_FN}"
 echo "Output dir : ${OUTPUT_DIR}"
 echo "Prefix     : ${PREFIX}"
+echo "Top K      : ${TOP_K}"
+echo "Min N      : ${MIN_N}"
 echo "------------------------------------------------------------"
 
 set +e
@@ -84,6 +89,8 @@ set +e
   --log_level "${LOG_LEVEL}" \
   --data_fn "${DATA_FN}" \
   --prefix "${PREFIX}" \
+  --top_k "${TOP_K}" \
+  --min_n "${MIN_N}" \
   --output_dir "${OUTPUT_DIR}"
 exit_code=$?
 set -e

@@ -88,24 +88,82 @@ def normalize_ec(df: pd.DataFrame, ec_col: str = "EC number") -> pd.DataFrame:
     return df
 
 
+import numpy as np
+import pandas as pd
+from scipy.stats import pearsonr
+
+
 def _one_group(g: pd.DataFrame, y_col: str, yhat_col: str) -> pd.Series:
+    """Calculate metrics for one group, handling small sample sizes"""
     y_true = g[y_col].astype(float).to_numpy()
     y_pred = g[yhat_col].astype(float).to_numpy()
-    rmse, mae, mse, r2, pearson_corr, median_ae, explained_variance = calculate_metrics(
-        y_true, y_pred
-    )
-    return pd.Series(
-        {
-            "n": len(g),
-            "rmse": rmse,
-            "mae": mae,
-            "mse": mse,
-            "r2": r2,
-            "pearson": pearson_corr,
-            "median_ae": median_ae,
-            "explained_variance": explained_variance,
-        }
-    )
+
+    # Check if we have enough data points
+    if len(y_true) < 2:
+        return pd.Series(
+            {
+                "n": len(g),
+                "rmse": np.nan,
+                "mae": np.nan,
+                "mse": np.nan,
+                "r2": np.nan,
+                "pearson": np.nan,
+                "median_ae": np.nan,
+                "explained_variance": np.nan,
+            }
+        )
+
+    try:
+        # Calculate metrics safely
+        mse = np.mean((y_true - y_pred) ** 2)
+        rmse = np.sqrt(mse)
+        mae = np.mean(np.abs(y_true - y_pred))
+        median_ae = np.median(np.abs(y_true - y_pred))
+
+        # Handle R2 calculation
+        ss_res = np.sum((y_true - y_pred) ** 2)
+        ss_tot = np.sum((y_true - np.mean(y_true)) ** 2)
+        r2 = 1 - (ss_res / ss_tot) if ss_tot != 0 else np.nan
+
+        # Handle correlation calculation
+        if len(np.unique(y_true)) > 1 and len(np.unique(y_pred)) > 1:
+            pearson_corr, _ = pearsonr(y_true, y_pred)
+        else:
+            pearson_corr = np.nan
+
+        # Explained variance
+        var_y = np.var(y_true)
+        explained_variance = (
+            1 - np.var(y_true - y_pred) / var_y if var_y != 0 else np.nan
+        )
+
+        return pd.Series(
+            {
+                "n": len(g),
+                "rmse": rmse,
+                "mae": mae,
+                "mse": mse,
+                "r2": r2,
+                "pearson": pearson_corr,
+                "median_ae": median_ae,
+                "explained_variance": explained_variance,
+            }
+        )
+
+    except Exception as e:
+        logger.info(f"Error calculating metrics for group of size {len(g)}: {e}")
+        return pd.Series(
+            {
+                "n": len(g),
+                "rmse": np.nan,
+                "mae": np.nan,
+                "mse": np.nan,
+                "r2": np.nan,
+                "pearson": np.nan,
+                "median_ae": np.nan,
+                "explained_variance": np.nan,
+            }
+        )
 
 
 def metrics_per_category(
@@ -113,45 +171,111 @@ def metrics_per_category(
     category_col: str,
     y_col: str = "Affinity",
     yhat_col: str = "pred_affinity",
-    by: (
-        list[str] | None
-    ) = None,  # e.g., ["Dataset","Split mode","Embedding","model_name"]
-    top_k: int | None = None,  # keep only K biggest categories
-    min_n: int = 20,  # drop tiny categories
+    by: list[str] | None = None,
+    top_k: int | None = None,
+    min_n: int = 20,
 ) -> pd.DataFrame:
-    """
-    Compute regression metrics per category (and optional facets) using `calculate_metrics`.
-    Returns a tidy DataFrame: one row per (facet..., category).
-    """
+    """Calculate metrics per category with robust error handling"""
+
+    # Start fresh
     dfe = df.copy()
+    logger.info(f"Starting with: {dfe.shape}")
 
-    # basic cleaning
-    dfe = dfe.dropna(subset=[y_col, yhat_col, category_col])
-    dfe = dfe[
-        np.isfinite(dfe[y_col].astype(float)) & np.isfinite(dfe[yhat_col].astype(float))
-    ]
+    # Check if required columns exist
+    required_cols = [y_col, yhat_col, category_col]
+    if by:
+        required_cols.extend(by)
 
-    # restrict to top-K most frequent categories (by count)
-    if top_k is not None:
-        top = dfe[category_col].value_counts().nlargest(top_k).index
-        dfe = dfe[dfe[category_col].isin(top)]
+    missing_cols = [col for col in required_cols if col not in dfe.columns]
+    if missing_cols:
+        raise ValueError(f"Missing columns: {missing_cols}")
 
-    # enforce minimum group size
-    counts = dfe[category_col].value_counts()
-    keep = counts[counts >= min_n].index
-    dfe = dfe[dfe[category_col].isin(keep)]
-
-    group_cols = ([] if by is None else list(by)) + [category_col]
-
-    out = (
-        dfe.groupby(group_cols, dropna=False, sort=False)
-        .apply(lambda g: _one_group(g, y_col, yhat_col))
-        .reset_index()
-        .rename(columns={category_col: "category"})
-        .sort_values(["n", "rmse"], ascending=[False, True])
-        .reset_index(drop=True)
+    # Handle category column - convert None to string and filter
+    logger.info(
+        f"Unique values in {category_col} before cleaning: {dfe[category_col].nunique()}"
     )
-    return out
+    dfe[category_col] = dfe[category_col].astype(str)
+    dfe = dfe[~dfe[category_col].isin(["None", "nan", "NaN", "null"])]
+    logger.info(f"After removing None values: {dfe.shape}")
+
+    if len(dfe) == 0:
+        logger.info("No valid categories found")
+        return pd.DataFrame()
+
+    # Clean numeric columns
+    logger.info(f"Cleaning numeric columns: {y_col}, {yhat_col}")
+
+    # Convert to numeric, coercing errors to NaN
+    dfe[y_col] = pd.to_numeric(dfe[y_col], errors="coerce")
+    dfe[yhat_col] = pd.to_numeric(dfe[yhat_col], errors="coerce")
+
+    # Remove rows with NaN values
+    dfe = dfe.dropna(subset=[y_col, yhat_col])
+    logger.info(f"After dropna: {dfe.shape}")
+
+    # Remove infinite values
+    dfe = dfe[np.isfinite(dfe[y_col]) & np.isfinite(dfe[yhat_col])]
+    logger.info(f"After removing infinite values: {dfe.shape}")
+
+    if len(dfe) == 0:
+        logger.info("No valid data after cleaning")
+        return pd.DataFrame()
+
+    # Apply top_k filter
+    if top_k is not None:
+        value_counts = dfe[category_col].value_counts()
+        logger.info(f"Available categories: {len(value_counts)}")
+
+        if len(value_counts) > 0:
+            k = min(top_k, len(value_counts))
+            top_categories = value_counts.nlargest(k).index
+            dfe = dfe[dfe[category_col].isin(top_categories)]
+            logger.info(f"After top_{k} filtering: {dfe.shape}")
+
+    # Apply minimum size filter
+    if min_n > 0:
+        counts = dfe[category_col].value_counts()
+        valid_categories = counts[counts >= min_n].index
+        logger.info(f"Categories meeting min_n={min_n}: {len(valid_categories)}")
+
+        dfe = dfe[dfe[category_col].isin(valid_categories)]
+        logger.info(f"After min_n filtering: {dfe.shape}")
+
+    if len(dfe) == 0:
+        logger.info(f"No data left after filtering")
+        return pd.DataFrame()
+
+    # Group and calculate metrics
+    group_cols = ([] if by is None else list(by)) + [category_col]
+    logger.info(f"Grouping by: {group_cols}")
+
+    # Check group sizes before processing
+    group_sizes = dfe.groupby(group_cols).size()
+    small_groups = group_sizes[group_sizes < 2]
+    if len(small_groups) > 0:
+        logger.info(f"Warning: {len(small_groups)} groups have <2 observations")
+
+    try:
+        result = (
+            dfe.groupby(group_cols, dropna=False)
+            .apply(lambda g: _one_group(g, y_col, yhat_col), include_groups=False)
+            .reset_index()
+        )
+
+        # Rename category column
+        result = result.rename(columns={category_col: "category"})
+
+        # Sort results
+        result = result.sort_values(["n", "rmse"], ascending=[False, True]).reset_index(
+            drop=True
+        )
+
+        logger.info(f"Final result shape: {result.shape}")
+        return result
+
+    except Exception as e:
+        logger.info(f"Error in groupby operation: {e}")
+        return pd.DataFrame()
 
 
 def parse_args():
@@ -215,23 +339,49 @@ def main():
         logger.info(f"Loaded {len(df)} samples")
         logger.info(df["Split mode"].unique())
 
+        output_dir = Path(args.output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        # Mutant
+        res = metrics_per_category(
+            df,
+            "Mutant",
+            by=["Embedding"],
+            top_k=args.top_k,
+            min_n=args.min_n,
+        )
+        save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_mutant.csv")
+
         # Target class
         res = metrics_per_category(
             df,
             "Target Class",
-            by=["Dataset", "Split mode", "Embedding", "model_name"],
+            by=["Embedding"],
             top_k=args.top_k,
             min_n=args.min_n,
         )
-        output_dir = Path(args.output_dir)
-        output_dir.mkdir(parents=True, exist_ok=True)
-        save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_class.csv")
+
+        save_csv_parquet_torch(
+            res, output_dir / f"{args.prefix}_by_target_class_embeddings.csv"
+        )
+
+        # Target class
+        res = metrics_per_category(
+            df,
+            "Target Class",
+            by=["Split mode", "Embedding"],
+            top_k=args.top_k,
+            min_n=args.min_n,
+        )
+
+        save_csv_parquet_torch(
+            res, output_dir / f"{args.prefix}_by_target_class_split_mode.csv"
+        )
 
         # Finer taxonomies
         res = metrics_per_category(
             df,
             "Target_Class_Level_1",
-            by=["Dataset", "Split mode", "Embedding", "model_name"],
+            by=["Embedding"],
             top_k=args.top_k,
             min_n=args.min_n,
         )
@@ -241,7 +391,7 @@ def main():
         res = metrics_per_category(
             df,
             "Target_Class_Level_2",
-            by=["Dataset", "Split mode", "Embedding", "model_name"],
+            by=["Embedding"],
             top_k=args.top_k,
             min_n=args.min_n,
         )
@@ -251,7 +401,7 @@ def main():
         res = metrics_per_category(
             df,
             "Target_Class_Level_3",
-            by=["Dataset", "Split mode", "Embedding", "model_name"],
+            by=["Embedding"],
             top_k=args.top_k,
             min_n=args.min_n,
         )
@@ -261,7 +411,7 @@ def main():
         res = metrics_per_category(
             df,
             "Target_Class_Level_4",
-            by=["Dataset", "Split mode", "Embedding", "model_name"],
+            by=["Embedding"],
             top_k=args.top_k,
             min_n=args.min_n,
         )
@@ -271,7 +421,7 @@ def main():
         res = metrics_per_category(
             df,
             "Target_Class_Level_5",
-            by=["Dataset", "Split mode", "Embedding", "model_name"],
+            by=["Embedding"],
             top_k=args.top_k,
             min_n=args.min_n,
         )
@@ -281,7 +431,7 @@ def main():
         res = metrics_per_category(
             df,
             "Target_Class_Level_6",
-            by=["Dataset", "Split mode", "Embedding", "model_name"],
+            by=["Embedding"],
             top_k=args.top_k,
             min_n=args.min_n,
         )
@@ -293,17 +443,26 @@ def main():
         res = metrics_per_category(
             df,
             "EC_top",
-            by=["Dataset", "Split mode", "Embedding", "model_name"],
+            by=["Embedding"],
             top_k=args.top_k,
             min_n=args.min_n,
         )
-        save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_ec.csv")
+        save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_ec_embedding.csv")
+
+        res = metrics_per_category(
+            df,
+            "EC_top",
+            by=["Split mode", "Embedding"],
+            top_k=args.top_k,
+            min_n=args.min_n,
+        )
+        save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_ec_split_mode.csv")
 
         # FDA approved vs not
         res = metrics_per_category(
             df,
             "FDA Approved",
-            by=["Dataset", "Split mode", "Embedding", "model_name"],
+            by=["Embedding"],
             min_n=30,
         )
         save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_fda_approved.csv")
