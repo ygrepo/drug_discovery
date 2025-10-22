@@ -273,130 +273,133 @@ def _one_group(g: pd.DataFrame, y_col: str, yhat_col: str) -> pd.Series:
 #         logger.info(f"Error in groupby operation: {e}")
 #         return pd.DataFrame()
 
+import numpy as np
+import pandas as pd
+from typing import Sequence, Union, Optional
+
 
 def metrics_per_category(
     df: pd.DataFrame,
-    category_cols: Union[str, Sequence[str]],
+    category_col: Union[str, Sequence[str]],
     y_col: str = "Affinity",
     yhat_col: str = "pred_affinity",
     by: Optional[Sequence[str]] = None,
     top_k: Optional[int] = None,
     min_n: int = 20,
-    *,
-    add_combined_label: bool = True,
-    combined_label_name: str = "category",
-    combined_sep: str = " | ",
 ) -> pd.DataFrame:
-    """
-    Calculate metrics per category (one or many columns) with robust cleaning.
+    """Calculate metrics per category (single column or list of columns)."""
 
-    Notes
-    -----
-    - If `category_cols` is a single column name (str), the output will include that
-      column and (optionally) a 'category' alias for compatibility.
-    - If it's multiple columns, the output keeps each column, and if
-      `add_combined_label=True`, also adds a combined label column.
-    """
-
-    def _normalize_cat(x):
-        # Normalize categories and mark "empty-like" as NaN
-        if pd.isna(x):
-            return np.nan
-        s = str(x).strip()
-        if s == "" or s.lower() in {"nan", "none", "null", "na", "nil"}:
-            return np.nan
-        return s
-
-    # Clone and basic checks
+    # --- setup / normalize inputs ---
     dfe = df.copy()
     logger.info(f"Starting with: {dfe.shape}")
 
-    # Normalize inputs
-    if isinstance(category_cols, str):
-        category_cols = [category_cols]
-    category_cols = list(category_cols)
-    group_cols = (list(by) if by else []) + category_cols
+    if isinstance(category_col, str):
+        cat_cols = [category_col]
+        multi_cat = False
+    else:
+        cat_cols = list(category_col)
+        multi_cat = True
 
+    group_cols = ([] if by is None else list(by)) + cat_cols
+
+    # --- required columns check ---
     required_cols = [y_col, yhat_col] + group_cols
-    missing = [c for c in required_cols if c not in dfe.columns]
-    if missing:
-        raise ValueError(f"Missing columns: {missing}")
+    missing_cols = [col for col in required_cols if col not in dfe.columns]
+    if missing_cols:
+        raise ValueError(f"Missing columns: {missing_cols}")
 
-    # Clean category columns
-    for c in category_cols:
-        dfe[c] = dfe[c].map(_normalize_cat)
+    # --- clean category columns ---
+    for c in cat_cols:
+        logger.info(
+            f"Unique values in {c} before cleaning: {dfe[c].nunique(dropna=False)}"
+        )
+        dfe[c] = dfe[c].astype(str).str.strip()
+        # mark empty-like strings as NaN, then drop
+        dfe.loc[dfe[c].str.lower().isin({"none", "nan", "null", ""}), c] = np.nan
+
     before = len(dfe)
-    dfe = dfe.dropna(subset=category_cols)
+    dfe = dfe.dropna(subset=cat_cols)
     logger.info(
         f"Dropped {before - len(dfe)} rows with empty/NaN categories; now {dfe.shape}"
     )
 
     if len(dfe) == 0:
-        logger.info("No valid categories after cleaning")
+        logger.info("No valid categories found")
         return pd.DataFrame()
 
-    # Clean numeric columns
+    # --- clean numeric columns ---
+    logger.info(f"Cleaning numeric columns: {y_col}, {yhat_col}")
     dfe[y_col] = pd.to_numeric(dfe[y_col], errors="coerce")
     dfe[yhat_col] = pd.to_numeric(dfe[yhat_col], errors="coerce")
     dfe = dfe.dropna(subset=[y_col, yhat_col])
     dfe = dfe[np.isfinite(dfe[y_col]) & np.isfinite(dfe[yhat_col])]
     logger.info(f"After numeric cleaning: {dfe.shape}")
+
     if len(dfe) == 0:
+        logger.info("No valid data after cleaning")
         return pd.DataFrame()
 
-    # Optional: keep only top_k most frequent combinations
+    # --- top_k on full combination ---
     if top_k is not None:
-        vc = dfe.value_counts(subset=group_cols)
-        keep_index = vc.nlargest(min(top_k, len(vc))).index
-        # Build a MultiIndex filter robustly
-        idx_df = pd.DataFrame(keep_index.tolist(), columns=group_cols)
-        key = pd.MultiIndex.from_frame(dfe[group_cols])
-        mask = key.isin(pd.MultiIndex.from_frame(idx_df))
-        dfe = dfe[mask]
-        logger.info(f"After top_{top_k} by combo frequency: {dfe.shape}")
+        # frequency of combos in group_cols
+        vc = dfe.groupby(group_cols, dropna=False).size().sort_values(ascending=False)
+        if len(vc) > 0:
+            k = min(top_k, len(vc))
+            keep_idx = vc.iloc[:k].index
+            key = pd.MultiIndex.from_frame(dfe[group_cols])
+            dfe = dfe[key.isin(keep_idx)]
+            logger.info(f"After top_{k} filtering (by combo): {dfe.shape}")
 
-    # Apply minimum size filter on full combination
-    counts = dfe.groupby(group_cols).size()
-    valid_keys = counts[counts >= min_n].index
-    if len(valid_keys) == 0:
-        logger.info(f"No groups meet min_n={min_n}")
-        return pd.DataFrame()
-    # Filter to valid groups
-    key = pd.MultiIndex.from_frame(dfe[group_cols])
-    dfe = dfe[key.isin(valid_keys)]
-    logger.info(f"After min_n={min_n} filtering: {dfe.shape}")
+    # --- min_n on full combination of cat_cols (not including 'by') ---
+    if min_n > 0:
+        counts = dfe.groupby(group_cols, dropna=False).size()
+        valid_keys = counts[counts >= min_n].index
+        logger.info(f"Groups meeting min_n={min_n}: {len(valid_keys)}")
+        if len(valid_keys) == 0:
+            logger.info("No data left after min_n filtering")
+            return pd.DataFrame()
+        key = pd.MultiIndex.from_frame(dfe[group_cols])
+        dfe = dfe[key.isin(valid_keys)]
+        logger.info(f"After min_n filtering: {dfe.shape}")
 
     if len(dfe) == 0:
+        logger.info("No data left after filtering")
         return pd.DataFrame()
 
+    # --- group and compute metrics ---
     logger.info(f"Grouping by: {group_cols}")
+    group_sizes = dfe.groupby(group_cols, dropna=False).size()
+    small_groups = group_sizes[group_sizes < 2]
+    if len(small_groups) > 0:
+        logger.info(f"Warning: {len(small_groups)} groups have <2 observations")
 
-    # Compute metrics per group (expects your _one_group)
-    result = (
-        dfe.groupby(group_cols, dropna=False)
-        .apply(lambda g: _one_group(g, y_col, yhat_col), include_groups=False)
-        .reset_index()
-    )
-
-    # Optional combined label for convenience / plotting
-    if add_combined_label:
-        result[combined_label_name] = (
-            result[category_cols].astype(str).agg(combined_sep.join, axis=1)
+    try:
+        result = (
+            dfe.groupby(group_cols, dropna=False)
+            .apply(lambda g: _one_group(g, y_col, yhat_col), include_groups=False)
+            .reset_index()
         )
 
-    # Back-compat: if single category col, also offer a 'category' alias
-    if len(category_cols) == 1 and "category" not in result.columns:
-        result = result.rename(columns={category_cols[0]: "category"})
+        # single category: keep your original rename
+        if not multi_cat:
+            result = result.rename(columns={cat_cols[0]: "category"})
+        else:
+            # multi category: add a combined label for convenience
+            result["category"] = result[cat_cols].astype(str).agg(" | ".join, axis=1)
 
-    # Sort: largest n, then smallest rmse if present
-    sort_cols, ascending = (
-        (["n", "rmse"], [False, True]) if "rmse" in result.columns else (["n"], [False])
-    )
-    result = result.sort_values(
-        sort_cols, ascending=ascending, kind="mergesort"
-    ).reset_index(drop=True)
-    logger.info(f"Final result shape: {result.shape}")
-    return result
+        # sort results
+        sort_cols = ["n", "rmse"] if "rmse" in result.columns else ["n"]
+        sort_asc = [False, True][: len(sort_cols)]
+        result = result.sort_values(sort_cols, ascending=sort_asc).reset_index(
+            drop=True
+        )
+
+        logger.info(f"Final result shape: {result.shape}")
+        return result
+
+    except Exception as e:
+        logger.info(f"Error in groupby operation: {e}")
+        return pd.DataFrame()
 
 
 def sanitize(a, *, to_lower=False, strip=True, drop_empty=True):
