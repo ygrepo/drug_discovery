@@ -285,6 +285,8 @@ def metrics_per_category(
     by: Optional[Sequence[str]] = None,
     top_k: Optional[int] = None,
     min_n: int = 20,
+    add_combined_label: bool = False,  # <- default: don't add the trailing "category"
+    combined_sep: str = " | ",
 ) -> pd.DataFrame:
     """Calculate metrics per category (single column or list of columns)."""
 
@@ -294,10 +296,8 @@ def metrics_per_category(
 
     if isinstance(category_col, str):
         cat_cols = [category_col]
-        multi_cat = False
     else:
         cat_cols = list(category_col)
-        multi_cat = True
 
     group_cols = ([] if by is None else list(by)) + cat_cols
 
@@ -379,12 +379,10 @@ def metrics_per_category(
             .reset_index()
         )
 
-        # single category: keep your original rename
-        if not multi_cat:
-            result = result.rename(columns={cat_cols[0]: "category"})
-        else:
-            # multi category: add a combined label for convenience
-            result["category"] = result[cat_cols].astype(str).agg(" | ".join, axis=1)
+        if add_combined_label:
+            result["category"] = (
+                result[cat_cols].astype(str).agg(combined_sep.join, axis=1)
+            )
 
         # sort results
         sort_cols = ["n", "rmse"] if "rmse" in result.columns else ["n"]
@@ -506,14 +504,20 @@ def main():
         logger.info(f"Gene fn: {gene_fn}")
         gene_df = read_csv_parquet_torch(gene_fn)
         logger.info(f"Loaded {len(gene_df)} gene df")
-        logger.info(f"Unique genes: {gene_df['Gene'].nunique()}")
+        logger.info(
+            f"Before HomoSapines filter. Unique genes: {gene_df['Gene'].nunique()}"
+        )
         mask = gene_df["Organism"].notna() & gene_df["Organism"].str.contains(
             "Homo sapiens", regex=False
         )
         gene_df = gene_df[mask]
-        logger.info(f"Unique genes: {gene_df['Gene'].nunique()}")
-        protein_seq_gene_df = gene_df[["Sequence", "Gene"]]
-        logger.info(f"Unique proteins: {gene_df['Sequence'].nunique()}")
+        logger.info(f"HomoSapines filter. Unique genes: {gene_df['Gene'].nunique()}")
+        protein_seq_gene_df = gene_df[
+            ["Sequence", "Gene", "Association Type", "Disease_Name"]
+        ]
+        logger.info(
+            f"After HomoSapines filter. Unique proteins: {gene_df['Sequence'].nunique()}"
+        )
         s_seq = sanitize(protein_seq_gene_df["Sequence"], to_lower=True, strip=True)
         s_target = sanitize(df["Target"], to_lower=True, strip=True)
         logger.info(f"Common sequences: {len(np.intersect1d(s_seq, s_target))}")
@@ -523,10 +527,7 @@ def main():
         logger.info(f"Unique genes: {df['Gene'].nunique()}")
         logger.info(f"Unique proteins: {df['Target'].nunique()}")
         logger.info(
-            "dtypes:",
-            df.dtypes.get(
-                ["Affinity", "pred_affinity"], pd.Series(dtype=object)
-            ).to_dict(),
+            f"dtypes: {df.dtypes.get(['Affinity', 'pred_affinity'], pd.Series(dtype=object)).to_dict()}"
         )
 
         # pick one of the rows shown in your CSV (e.g., Embedding==ESM2, Gene==BRAF, Mutant==Mutant)
@@ -534,15 +535,15 @@ def main():
             ["Affinity", "pred_affinity"]
         ]
 
-        logger.info("head:\n", probe.head())
-        logger.info("na counts:", probe.isna().sum().to_dict())
+        logger.info(f"head:\n {probe.head()}")
+        logger.info(f"na counts: {probe.isna().sum().to_dict()}")
 
         output_dir = Path(args.output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
         # Mutant
         res = metrics_per_category(
             df,
-            ["Gene", "Mutant"],
+            ["Gene", "Mutant", "Disease_Name", "Association Type"],
             # "Mutant",
             by=["Embedding"],
             top_k=args.top_k,
