@@ -5,6 +5,7 @@ import argparse
 import os
 import numpy as np
 import pandas as pd
+from typing import Sequence, Union, Optional
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
@@ -272,10 +273,6 @@ def _one_group(g: pd.DataFrame, y_col: str, yhat_col: str) -> pd.Series:
 #         logger.info(f"Error in groupby operation: {e}")
 #         return pd.DataFrame()
 
-import numpy as np
-import pandas as pd
-from typing import Sequence, Union, Optional
-
 
 def metrics_per_category(
     df: pd.DataFrame,
@@ -525,7 +522,8 @@ def main():
         # Mutant
         res = metrics_per_category(
             df,
-            "Mutant",
+            ["Gene", "Mutant"],
+            # "Mutant",
             by=["Embedding"],
             top_k=args.top_k,
             min_n=args.min_n,
