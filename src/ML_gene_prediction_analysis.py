@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 from typing import Sequence, Union, Optional
 from scipy.stats import pearsonr
+from datetime import datetime
 
 
 # import numpy as np
@@ -414,17 +415,6 @@ def main():
         )
         logger.info(f"Unique genes: {df['Gene'].nunique()}")
         logger.info(f"Unique proteins: {df['Target'].nunique()}")
-        logger.info(
-            f"dtypes: {df.dtypes.get(['Affinity', 'pred_affinity'], pd.Series(dtype=object)).to_dict()}"
-        )
-
-        # pick one of the rows shown in your CSV (e.g., Embedding==ESM2, Gene==BRAF, Mutant==Mutant)
-        probe = df.query("Embedding=='ESM2' and Gene=='BRAF' and Mutant=='Mutant'")[
-            ["Affinity", "pred_affinity"]
-        ]
-
-        logger.info(f"head:\n {probe.head()}")
-        logger.info(f"na counts: {probe.isna().sum().to_dict()}")
 
         output_dir = Path(args.output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -438,7 +428,10 @@ def main():
             top_k=args.top_k,
             min_n=args.min_n,
         )
-        save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_mutant.csv")
+        datestamp = datetime.now().strftime("%Y%m%d")
+        save_csv_parquet_torch(
+            res, output_dir / f"{datestamp}_{args.prefix}_by_mutant.csv"
+        )
 
         core_vatiables_2 = ["Gene", "Mutant", "Disease_Name", "Association_Type"]
         # Mutant
@@ -450,7 +443,9 @@ def main():
             top_k=args.top_k,
             min_n=args.min_n,
         )
-        save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_mutant_2.csv")
+        save_csv_parquet_torch(
+            res, output_dir / f"{datestamp}_{args.prefix}_by_mutant_2.csv"
+        )
 
         # Target class
         res = metrics_per_category(
@@ -471,7 +466,9 @@ def main():
             min_n=args.min_n,
         )
 
-        save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_target_class_2.csv")
+        save_csv_parquet_torch(
+            res, output_dir / f"{datestamp}_{args.prefix}_by_target_class_2.csv"
+        )
 
         # Target class
         # res = metrics_per_category(
