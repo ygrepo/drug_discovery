@@ -161,116 +161,245 @@ def _one_group(g: pd.DataFrame, y_col: str, yhat_col: str) -> pd.Series:
         )
 
 
+# def metrics_per_category(
+#     df: pd.DataFrame,
+#     category_col: str,
+#     y_col: str = "Affinity",
+#     yhat_col: str = "pred_affinity",
+#     by: list[str] | None = None,
+#     top_k: int | None = None,
+#     min_n: int = 20,
+# ) -> pd.DataFrame:
+#     """Calculate metrics per category with robust error handling"""
+
+#     # Start fresh
+#     dfe = df.copy()
+#     logger.info(f"Starting with: {dfe.shape}")
+
+#     # Check if required columns exist
+#     required_cols = [y_col, yhat_col, category_col]
+#     if by:
+#         required_cols.extend(by)
+
+#     missing_cols = [col for col in required_cols if col not in dfe.columns]
+#     if missing_cols:
+#         raise ValueError(f"Missing columns: {missing_cols}")
+
+#     # Handle category column - convert None to string and filter
+#     logger.info(
+#         f"Unique values in {category_col} before cleaning: {dfe[category_col].nunique()}"
+#     )
+#     dfe[category_col] = dfe[category_col].astype(str)
+#     dfe = dfe[~dfe[category_col].isin(["None", "nan", "NaN", "null"])]
+#     logger.info(f"After removing None values: {dfe.shape}")
+
+#     if len(dfe) == 0:
+#         logger.info("No valid categories found")
+#         return pd.DataFrame()
+
+#     # Clean numeric columns
+#     logger.info(f"Cleaning numeric columns: {y_col}, {yhat_col}")
+
+#     # Convert to numeric, coercing errors to NaN
+#     dfe[y_col] = pd.to_numeric(dfe[y_col], errors="coerce")
+#     dfe[yhat_col] = pd.to_numeric(dfe[yhat_col], errors="coerce")
+
+#     # Remove rows with NaN values
+#     dfe = dfe.dropna(subset=[y_col, yhat_col])
+#     logger.info(f"After dropna: {dfe.shape}")
+
+#     # Remove infinite values
+#     dfe = dfe[np.isfinite(dfe[y_col]) & np.isfinite(dfe[yhat_col])]
+#     logger.info(f"After removing infinite values: {dfe.shape}")
+
+#     if len(dfe) == 0:
+#         logger.info("No valid data after cleaning")
+#         return pd.DataFrame()
+
+#     # Apply top_k filter
+#     if top_k is not None:
+#         value_counts = dfe[category_col].value_counts()
+#         logger.info(f"Available categories: {len(value_counts)}")
+
+#         if len(value_counts) > 0:
+#             k = min(top_k, len(value_counts))
+#             top_categories = value_counts.nlargest(k).index
+#             dfe = dfe[dfe[category_col].isin(top_categories)]
+#             logger.info(f"After top_{k} filtering: {dfe.shape}")
+
+#     # Apply minimum size filter
+#     if min_n > 0:
+#         counts = dfe[category_col].value_counts()
+#         valid_categories = counts[counts >= min_n].index
+#         logger.info(f"Categories meeting min_n={min_n}: {len(valid_categories)}")
+
+#         dfe = dfe[dfe[category_col].isin(valid_categories)]
+#         logger.info(f"After min_n filtering: {dfe.shape}")
+
+#     if len(dfe) == 0:
+#         logger.info(f"No data left after filtering")
+#         return pd.DataFrame()
+
+#     # Group and calculate metrics
+#     group_cols = ([] if by is None else list(by)) + [category_col]
+#     logger.info(f"Grouping by: {group_cols}")
+
+#     # Check group sizes before processing
+#     group_sizes = dfe.groupby(group_cols).size()
+#     small_groups = group_sizes[group_sizes < 2]
+#     if len(small_groups) > 0:
+#         logger.info(f"Warning: {len(small_groups)} groups have <2 observations")
+
+#     try:
+#         result = (
+#             dfe.groupby(group_cols, dropna=False)
+#             .apply(lambda g: _one_group(g, y_col, yhat_col), include_groups=False)
+#             .reset_index()
+#         )
+
+#         # Rename category column
+#         result = result.rename(columns={category_col: "category"})
+
+#         # Sort results
+#         result = result.sort_values(["n", "rmse"], ascending=[False, True]).reset_index(
+#             drop=True
+#         )
+
+#         logger.info(f"Final result shape: {result.shape}")
+#         return result
+
+#     except Exception as e:
+#         logger.info(f"Error in groupby operation: {e}")
+#         return pd.DataFrame()
+
+import numpy as np
+import pandas as pd
+from typing import Sequence, Union, Optional
+
+
 def metrics_per_category(
     df: pd.DataFrame,
-    category_col: str,
+    category_cols: Union[str, Sequence[str]],
     y_col: str = "Affinity",
     yhat_col: str = "pred_affinity",
-    by: list[str] | None = None,
-    top_k: int | None = None,
+    by: Optional[Sequence[str]] = None,
+    top_k: Optional[int] = None,
     min_n: int = 20,
+    *,
+    add_combined_label: bool = True,
+    combined_label_name: str = "category",
+    combined_sep: str = " | ",
 ) -> pd.DataFrame:
-    """Calculate metrics per category with robust error handling"""
+    """
+    Calculate metrics per category (one or many columns) with robust cleaning.
 
-    # Start fresh
+    Notes
+    -----
+    - If `category_cols` is a single column name (str), the output will include that
+      column and (optionally) a 'category' alias for compatibility.
+    - If it's multiple columns, the output keeps each column, and if
+      `add_combined_label=True`, also adds a combined label column.
+    """
+
+    def _normalize_cat(x):
+        # Normalize categories and mark "empty-like" as NaN
+        if pd.isna(x):
+            return np.nan
+        s = str(x).strip()
+        if s == "" or s.lower() in {"nan", "none", "null", "na", "nil"}:
+            return np.nan
+        return s
+
+    # Clone and basic checks
     dfe = df.copy()
     logger.info(f"Starting with: {dfe.shape}")
 
-    # Check if required columns exist
-    required_cols = [y_col, yhat_col, category_col]
-    if by:
-        required_cols.extend(by)
+    # Normalize inputs
+    if isinstance(category_cols, str):
+        category_cols = [category_cols]
+    category_cols = list(category_cols)
+    group_cols = (list(by) if by else []) + category_cols
 
-    missing_cols = [col for col in required_cols if col not in dfe.columns]
-    if missing_cols:
-        raise ValueError(f"Missing columns: {missing_cols}")
+    required_cols = [y_col, yhat_col] + group_cols
+    missing = [c for c in required_cols if c not in dfe.columns]
+    if missing:
+        raise ValueError(f"Missing columns: {missing}")
 
-    # Handle category column - convert None to string and filter
+    # Clean category columns
+    for c in category_cols:
+        dfe[c] = dfe[c].map(_normalize_cat)
+    before = len(dfe)
+    dfe = dfe.dropna(subset=category_cols)
     logger.info(
-        f"Unique values in {category_col} before cleaning: {dfe[category_col].nunique()}"
+        f"Dropped {before - len(dfe)} rows with empty/NaN categories; now {dfe.shape}"
     )
-    dfe[category_col] = dfe[category_col].astype(str)
-    dfe = dfe[~dfe[category_col].isin(["None", "nan", "NaN", "null"])]
-    logger.info(f"After removing None values: {dfe.shape}")
 
     if len(dfe) == 0:
-        logger.info("No valid categories found")
+        logger.info("No valid categories after cleaning")
         return pd.DataFrame()
 
     # Clean numeric columns
-    logger.info(f"Cleaning numeric columns: {y_col}, {yhat_col}")
-
-    # Convert to numeric, coercing errors to NaN
     dfe[y_col] = pd.to_numeric(dfe[y_col], errors="coerce")
     dfe[yhat_col] = pd.to_numeric(dfe[yhat_col], errors="coerce")
-
-    # Remove rows with NaN values
     dfe = dfe.dropna(subset=[y_col, yhat_col])
-    logger.info(f"After dropna: {dfe.shape}")
-
-    # Remove infinite values
     dfe = dfe[np.isfinite(dfe[y_col]) & np.isfinite(dfe[yhat_col])]
-    logger.info(f"After removing infinite values: {dfe.shape}")
-
+    logger.info(f"After numeric cleaning: {dfe.shape}")
     if len(dfe) == 0:
-        logger.info("No valid data after cleaning")
         return pd.DataFrame()
 
-    # Apply top_k filter
+    # Optional: keep only top_k most frequent combinations
     if top_k is not None:
-        value_counts = dfe[category_col].value_counts()
-        logger.info(f"Available categories: {len(value_counts)}")
+        vc = dfe.value_counts(subset=group_cols)
+        keep_index = vc.nlargest(min(top_k, len(vc))).index
+        # Build a MultiIndex filter robustly
+        idx_df = pd.DataFrame(keep_index.tolist(), columns=group_cols)
+        key = pd.MultiIndex.from_frame(dfe[group_cols])
+        mask = key.isin(pd.MultiIndex.from_frame(idx_df))
+        dfe = dfe[mask]
+        logger.info(f"After top_{top_k} by combo frequency: {dfe.shape}")
 
-        if len(value_counts) > 0:
-            k = min(top_k, len(value_counts))
-            top_categories = value_counts.nlargest(k).index
-            dfe = dfe[dfe[category_col].isin(top_categories)]
-            logger.info(f"After top_{k} filtering: {dfe.shape}")
-
-    # Apply minimum size filter
-    if min_n > 0:
-        counts = dfe[category_col].value_counts()
-        valid_categories = counts[counts >= min_n].index
-        logger.info(f"Categories meeting min_n={min_n}: {len(valid_categories)}")
-
-        dfe = dfe[dfe[category_col].isin(valid_categories)]
-        logger.info(f"After min_n filtering: {dfe.shape}")
+    # Apply minimum size filter on full combination
+    counts = dfe.groupby(group_cols).size()
+    valid_keys = counts[counts >= min_n].index
+    if len(valid_keys) == 0:
+        logger.info(f"No groups meet min_n={min_n}")
+        return pd.DataFrame()
+    # Filter to valid groups
+    key = pd.MultiIndex.from_frame(dfe[group_cols])
+    dfe = dfe[key.isin(valid_keys)]
+    logger.info(f"After min_n={min_n} filtering: {dfe.shape}")
 
     if len(dfe) == 0:
-        logger.info(f"No data left after filtering")
         return pd.DataFrame()
 
-    # Group and calculate metrics
-    group_cols = ([] if by is None else list(by)) + [category_col]
     logger.info(f"Grouping by: {group_cols}")
 
-    # Check group sizes before processing
-    group_sizes = dfe.groupby(group_cols).size()
-    small_groups = group_sizes[group_sizes < 2]
-    if len(small_groups) > 0:
-        logger.info(f"Warning: {len(small_groups)} groups have <2 observations")
+    # Compute metrics per group (expects your _one_group)
+    result = (
+        dfe.groupby(group_cols, dropna=False)
+        .apply(lambda g: _one_group(g, y_col, yhat_col), include_groups=False)
+        .reset_index()
+    )
 
-    try:
-        result = (
-            dfe.groupby(group_cols, dropna=False)
-            .apply(lambda g: _one_group(g, y_col, yhat_col), include_groups=False)
-            .reset_index()
+    # Optional combined label for convenience / plotting
+    if add_combined_label:
+        result[combined_label_name] = (
+            result[category_cols].astype(str).agg(combined_sep.join, axis=1)
         )
 
-        # Rename category column
-        result = result.rename(columns={category_col: "category"})
+    # Back-compat: if single category col, also offer a 'category' alias
+    if len(category_cols) == 1 and "category" not in result.columns:
+        result = result.rename(columns={category_cols[0]: "category"})
 
-        # Sort results
-        result = result.sort_values(["n", "rmse"], ascending=[False, True]).reset_index(
-            drop=True
-        )
-
-        logger.info(f"Final result shape: {result.shape}")
-        return result
-
-    except Exception as e:
-        logger.info(f"Error in groupby operation: {e}")
-        return pd.DataFrame()
+    # Sort: largest n, then smallest rmse if present
+    sort_cols, ascending = (
+        (["n", "rmse"], [False, True]) if "rmse" in result.columns else (["n"], [False])
+    )
+    result = result.sort_values(
+        sort_cols, ascending=ascending, kind="mergesort"
+    ).reset_index(drop=True)
+    logger.info(f"Final result shape: {result.shape}")
+    return result
 
 
 def sanitize(a, *, to_lower=False, strip=True, drop_empty=True):
@@ -386,22 +515,22 @@ def main():
         np.intersect1d(s_seq, s_target)
         logger.info(f"Common sequences: {len(np.intersect1d(s_seq, s_target))}")
         df = df.merge(
-            protein_seq_gene_df, how="inner", lef_on="Target", right_on="Sequence"
+            protein_seq_gene_df, how="inner", left_on="Target", right_on="Sequence"
         )
         logger.info(f"Unique genes: {df['Gene'].nunique()}")
         logger.info(f"Unique proteins: {df['Target'].nunique()}")
 
-        # output_dir = Path(args.output_dir)
-        # output_dir.mkdir(parents=True, exist_ok=True)
-        # # Mutant
-        # res = metrics_per_category(
-        #     df,
-        #     "Mutant",
-        #     by=["Embedding"],
-        #     top_k=args.top_k,
-        #     min_n=args.min_n,
-        # )
-        # save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_mutant.csv")
+        output_dir = Path(args.output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        # Mutant
+        res = metrics_per_category(
+            df,
+            "Mutant",
+            by=["Embedding"],
+            top_k=args.top_k,
+            min_n=args.min_n,
+        )
+        save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_mutant.csv")
 
         # # Target class
         # res = metrics_per_category(
