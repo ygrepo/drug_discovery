@@ -456,7 +456,9 @@ def main():
             min_n=args.min_n,
         )
 
-        save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_target_class.csv")
+        save_csv_parquet_torch(
+            res, output_dir / f"{datestamp}_{args.prefix}_by_target_class.csv"
+        )
 
         res = metrics_per_category(
             df,
