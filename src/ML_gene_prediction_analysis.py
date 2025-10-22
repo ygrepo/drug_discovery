@@ -540,7 +540,7 @@ def main():
 
         output_dir = Path(args.output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
-        core_vatiables = ["Gene", "Mutant", "Disease_Name", "Association_Type"]
+        core_vatiables = ["Gene", "Mutant"]
         # Mutant
         res = metrics_per_category(
             df,
@@ -552,7 +552,40 @@ def main():
         )
         save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_mutant.csv")
 
-        # # Target class
+        core_vatiables_2 = ["Gene", "Mutant", "Disease_Name", "Association_Type"]
+        # Mutant
+        res = metrics_per_category(
+            df,
+            core_vatiables_2,
+            # "Mutant",
+            by=["Embedding"],
+            top_k=args.top_k,
+            min_n=args.min_n,
+        )
+        save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_mutant_2.csv")
+
+        # Target class
+        res = metrics_per_category(
+            df,
+            core_vatiables + ["Target Class"],
+            by=["Embedding"],
+            top_k=args.top_k,
+            min_n=args.min_n,
+        )
+
+        save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_target_class.csv")
+
+        res = metrics_per_category(
+            df,
+            core_vatiables_2 + ["Target Class"],
+            by=["Embedding"],
+            top_k=args.top_k,
+            min_n=args.min_n,
+        )
+
+        save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_target_class_2.csv")
+
+        # Target class
         # res = metrics_per_category(
         #     df,
         #     "Target Class",
