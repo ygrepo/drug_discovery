@@ -6,6 +6,12 @@ import os
 import numpy as np
 import pandas as pd
 from typing import Sequence, Union, Optional
+from scipy.stats import pearsonr
+
+
+# import numpy as np
+# import pandas as pd
+# from typing import Sequence, Union, Optional
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
@@ -14,9 +20,6 @@ from src.utils import (
     get_logger,
     read_csv_parquet_torch,
     save_csv_parquet_torch,
-)
-from src.ML_benchmark_util import (
-    calculate_metrics,
 )
 
 logger = get_logger(__name__)
@@ -273,10 +276,6 @@ def _one_group(g: pd.DataFrame, y_col: str, yhat_col: str) -> pd.Series:
 #         logger.info(f"Error in groupby operation: {e}")
 #         return pd.DataFrame()
 
-import numpy as np
-import pandas as pd
-from typing import Sequence, Union, Optional
-
 
 def metrics_per_category(
     df: pd.DataFrame,
@@ -508,17 +507,35 @@ def main():
         gene_df = read_csv_parquet_torch(gene_fn)
         logger.info(f"Loaded {len(gene_df)} gene df")
         logger.info(f"Unique genes: {gene_df['Gene'].nunique()}")
+        mask = gene_df["Organism"].notna() & gene_df["Organism"].str.contains(
+            "Homo sapiens", regex=False
+        )
+        gene_df = gene_df[mask]
+        logger.info(f"Unique genes: {gene_df['Gene'].nunique()}")
         protein_seq_gene_df = gene_df[["Sequence", "Gene"]]
         logger.info(f"Unique proteins: {gene_df['Sequence'].nunique()}")
         s_seq = sanitize(protein_seq_gene_df["Sequence"], to_lower=True, strip=True)
         s_target = sanitize(df["Target"], to_lower=True, strip=True)
-        np.intersect1d(s_seq, s_target)
         logger.info(f"Common sequences: {len(np.intersect1d(s_seq, s_target))}")
         df = df.merge(
             protein_seq_gene_df, how="inner", left_on="Target", right_on="Sequence"
         )
         logger.info(f"Unique genes: {df['Gene'].nunique()}")
         logger.info(f"Unique proteins: {df['Target'].nunique()}")
+        logger.info(
+            "dtypes:",
+            df.dtypes.get(
+                ["Affinity", "pred_affinity"], pd.Series(dtype=object)
+            ).to_dict(),
+        )
+
+        # pick one of the rows shown in your CSV (e.g., Embedding==ESM2, Gene==BRAF, Mutant==Mutant)
+        probe = df.query("Embedding=='ESM2' and Gene=='BRAF' and Mutant=='Mutant'")[
+            ["Affinity", "pred_affinity"]
+        ]
+
+        logger.info("head:\n", probe.head())
+        logger.info("na counts:", probe.isna().sum().to_dict())
 
         output_dir = Path(args.output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
