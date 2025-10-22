@@ -513,7 +513,7 @@ def main():
         gene_df = gene_df[mask]
         logger.info(f"HomoSapines filter. Unique genes: {gene_df['Gene'].nunique()}")
         protein_seq_gene_df = gene_df[
-            ["Sequence", "Gene", "Association Type", "Disease_Name"]
+            ["Sequence", "Gene", "Association_Type", "Disease_Name"]
         ]
         logger.info(
             f"After HomoSapines filter. Unique proteins: {gene_df['Sequence'].nunique()}"
@@ -540,10 +540,11 @@ def main():
 
         output_dir = Path(args.output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
+        core_vatiables = ["Gene", "Mutant", "Disease_Name", "Association_Type"]
         # Mutant
         res = metrics_per_category(
             df,
-            ["Gene", "Mutant", "Disease_Name", "Association Type"],
+            core_vatiables,
             # "Mutant",
             by=["Embedding"],
             top_k=args.top_k,
@@ -551,7 +552,7 @@ def main():
         )
         save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_mutant.csv")
 
-        # # Target class
+l        # # Target class
         # res = metrics_per_category(
         #     df,
         #     "Target Class",
