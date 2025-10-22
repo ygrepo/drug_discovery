@@ -552,7 +552,7 @@ def main():
         )
         save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_mutant.csv")
 
-l        # # Target class
+        # # Target class
         # res = metrics_per_category(
         #     df,
         #     "Target Class",
