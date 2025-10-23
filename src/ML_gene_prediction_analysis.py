@@ -402,7 +402,7 @@ def main():
         gene_df = gene_df[mask]
         logger.info(f"HomoSapines filter. Unique genes: {gene_df['Gene'].nunique()}")
         protein_seq_gene_df = gene_df[
-            ["Sequence", "Gene", "Association_Type", "Disease_Name"]
+            ["Gene", "Role", "Sequence", "Association_Type", "Disease_Name"]
         ]
         logger.info(
             f"After HomoSapines filter. Unique proteins: {gene_df['Sequence'].nunique()}"
@@ -418,7 +418,7 @@ def main():
 
         output_dir = Path(args.output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
-        core_vatiables = ["Gene", "Mutant"]
+        core_vatiables = ["Gene", "Role", "Mutant"]
         # Mutant
         res = metrics_per_category(
             df,
@@ -433,7 +433,13 @@ def main():
             res, output_dir / f"{datestamp}_{args.prefix}_by_mutant.csv"
         )
 
-        core_vatiables_2 = ["Gene", "Mutant", "Disease_Name", "Association_Type"]
+        core_vatiables_2 = [
+            "Gene",
+            "Role",
+            "Mutant",
+            "Disease_Name",
+            "Association_Type",
+        ]
         # Mutant
         res = metrics_per_category(
             df,
@@ -472,121 +478,113 @@ def main():
             res, output_dir / f"{datestamp}_{args.prefix}_by_target_class_2.csv"
         )
 
-        # Target class
-        # res = metrics_per_category(
-        #     df,
-        #     "Target Class",
-        #     by=["Embedding"],
-        #     top_k=args.top_k,
-        #     min_n=args.min_n,
-        # )
+        # Finer taxonomies
+        res = metrics_per_category(
+            df,
+            core_vatiables_2 + ["Target_Class_Level_1"],
+            by=["Embedding"],
+            top_k=args.top_k,
+            min_n=args.min_n,
+        )
+        save_csv_parquet_torch(
+            res, output_dir / f"{datestamp}_{args.prefix}_by_class_level_1.csv"
+        )
 
-        # save_csv_parquet_torch(
-        #     res, output_dir / f"{args.prefix}_by_target_class_embeddings.csv"
-        # )
+        # Target class level 2
+        res = metrics_per_category(
+            df,
+            core_vatiables_2 + ["Target_Class_Level_2"],
+            by=["Embedding"],
+            top_k=args.top_k,
+            min_n=args.min_n,
+        )
+        save_csv_parquet_torch(
+            res, output_dir / f"{datestamp}_{args.prefix}_by_class_level_2.csv"
+        )
 
-        # # Target class
-        # res = metrics_per_category(
-        #     df,
-        #     "Target Class",
-        #     by=["Split mode", "Embedding"],
-        #     top_k=args.top_k,
-        #     min_n=args.min_n,
-        # )
+        # Target class level 3
+        res = metrics_per_category(
+            df,
+            core_vatiables_2 + ["Target_Class_Level_3"],
+            by=["Embedding"],
+            top_k=args.top_k,
+            min_n=args.min_n,
+        )
+        save_csv_parquet_torch(
+            res, output_dir / f"{datestamp}_{args.prefix}_by_class_level_3.csv"
+        )
 
-        # save_csv_parquet_torch(
-        #     res, output_dir / f"{args.prefix}_by_target_class_split_mode.csv"
-        # )
+        # Target class level 4
+        res = metrics_per_category(
+            df,
+            core_vatiables_2 + ["Target_Class_Level_4"],
+            by=["Embedding"],
+            top_k=args.top_k,
+            min_n=args.min_n,
+        )
+        save_csv_parquet_torch(
+            res, output_dir / f"{datestamp}_{args.prefix}_by_class_level_4.csv"
+        )
 
-        # # Finer taxonomies
-        # res = metrics_per_category(
-        #     df,
-        #     "Target_Class_Level_1",
-        #     by=["Embedding"],
-        #     top_k=args.top_k,
-        #     min_n=args.min_n,
-        # )
-        # save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_class_level_1.csv")
+        # Target class level 5
+        res = metrics_per_category(
+            df,
+            core_vatiables_2 + ["Target_Class_Level_5"],
+            by=["Embedding"],
+            top_k=args.top_k,
+            min_n=args.min_n,
+        )
+        save_csv_parquet_torch(
+            res, output_dir / f"{datestamp}_{args.prefix}_by_class_level_5.csv"
+        )
 
-        # # Target class level 2
-        # res = metrics_per_category(
-        #     df,
-        #     "Target_Class_Level_2",
-        #     by=["Embedding"],
-        #     top_k=args.top_k,
-        #     min_n=args.min_n,
-        # )
-        # save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_class_level_2.csv")
+        # Target class level 6
+        res = metrics_per_category(
+            df,
+            core_vatiables_2 + ["Target_Class_Level_6"],
+            by=["Embedding"],
+            top_k=args.top_k,
+            min_n=args.min_n,
+        )
+        save_csv_parquet_torch(
+            res, output_dir / f"{datestamp}_{args.prefix}_by_class_level_6.csv"
+        )
 
-        # # Target class level 3
-        # res = metrics_per_category(
-        #     df,
-        #     "Target_Class_Level_3",
-        #     by=["Embedding"],
-        #     top_k=args.top_k,
-        #     min_n=args.min_n,
-        # )
-        # save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_class_level_3.csv")
+        # EC hierarchy (full)
+        df = normalize_ec(df, ec_col="EC number")
 
-        # # Target class level 4
-        # res = metrics_per_category(
-        #     df,
-        #     "Target_Class_Level_4",
-        #     by=["Embedding"],
-        #     top_k=args.top_k,
-        #     min_n=args.min_n,
-        # )
-        # save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_class_level_4.csv")
+        res = metrics_per_category(
+            df,
+            core_vatiables_2 + ["EC_top"],
+            by=["Embedding"],
+            top_k=args.top_k,
+            min_n=args.min_n,
+        )
+        save_csv_parquet_torch(
+            res, output_dir / f"{datestamp}_{args.prefix}_by_ec_embedding.csv"
+        )
 
-        # # Target class level 5
-        # res = metrics_per_category(
-        #     df,
-        #     "Target_Class_Level_5",
-        #     by=["Embedding"],
-        #     top_k=args.top_k,
-        #     min_n=args.min_n,
-        # )
-        # save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_class_level_5.csv")
+        res = metrics_per_category(
+            df,
+            core_vatiables_2 + ["EC_top"],
+            by=["Split mode", "Embedding"],
+            top_k=args.top_k,
+            min_n=args.min_n,
+        )
+        save_csv_parquet_torch(
+            res, output_dir / f"{datestamp}_{args.prefix}_by_ec_split_mode.csv"
+        )
 
-        # # Target class level 6
-        # res = metrics_per_category(
-        #     df,
-        #     "Target_Class_Level_6",
-        #     by=["Embedding"],
-        #     top_k=args.top_k,
-        #     min_n=args.min_n,
-        # )
-        # save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_class_level_6.csv")
-
-        # # EC hierarchy (full)
-        # df = normalize_ec(df, ec_col="EC number")
-
-        # res = metrics_per_category(
-        #     df,
-        #     "EC_top",
-        #     by=["Embedding"],
-        #     top_k=args.top_k,
-        #     min_n=args.min_n,
-        # )
-        # save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_ec_embedding.csv")
-
-        # res = metrics_per_category(
-        #     df,
-        #     "EC_top",
-        #     by=["Split mode", "Embedding"],
-        #     top_k=args.top_k,
-        #     min_n=args.min_n,
-        # )
-        # save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_ec_split_mode.csv")
-
-        # # FDA approved vs not
-        # res = metrics_per_category(
-        #     df,
-        #     "FDA Approved",
-        #     by=["Embedding"],
-        #     min_n=30,
-        # )
-        # save_csv_parquet_torch(res, output_dir / f"{args.prefix}_by_fda_approved.csv")
+        # FDA approved vs not
+        res = metrics_per_category(
+            df,
+            core_vatiables_2 + ["FDA Approved"],
+            by=["Embedding"],
+            min_n=30,
+        )
+        save_csv_parquet_torch(
+            res, output_dir / f"{datestamp}_{args.prefix}_by_fda_approved.csv"
+        )
 
     except Exception as e:
         logger.exception("Analysis failed: %s", e)
