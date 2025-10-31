@@ -318,9 +318,8 @@ def main():
         protein_seq_gene_df.rename(columns={"Sequence": "Target"}, inplace=True)
         logger.info(f"protein_seq_gene_df shape: {protein_seq_gene_df.shape}")
 
-        df = df.merge(
-            protein_seq_gene_df, how="inner", left_on="Target", right_on="Target"
-        )
+        df = df.merge(protein_seq_gene_df, on="Target", how="left")
+
         logger.info(f"Unique genes: {df['Gene'].nunique()}")
         logger.info(f"Unique proteins: {df['Target'].nunique()}")
         logger.info(f"Shape:{df.shape}")
@@ -328,7 +327,7 @@ def main():
         output_dir.mkdir(parents=True, exist_ok=True)
         datestamp = datetime.now().strftime("%Y%m%d")
         save_csv_parquet_torch(
-            df, output_dir / f"{datestamp}_{args.prefix}_by_mutant.csv"
+            df, output_dir / f"{datestamp}_all_binding_db_genes.parquet"
         )
 
     except Exception as e:
