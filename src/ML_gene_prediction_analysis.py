@@ -169,8 +169,8 @@ def _one_group(g: pd.DataFrame, y_col: str, yhat_col: str) -> pd.Series:
 def metrics_per_category(
     df: pd.DataFrame,
     group_cols: Union[str, Sequence[str]],
-    y_col: str = "Affinity",
-    yhat_col: str = "pred_affinity",
+    y_col: str = "True_Affinity",
+    yhat_col: str = "Predicted_Affinity",
     top_k: Optional[int] = None,
     min_n: int = 20,
 ) -> pd.DataFrame:
