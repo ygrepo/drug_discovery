@@ -380,6 +380,26 @@ def main():
         save_csv_parquet_torch(
             res, output_dir / f"{datestamp}_{args.prefix}_by_model_mutant.csv"
         )
+        # Gene Role, Mutant
+        res = metrics_per_category(
+            df,
+            ["Role", "Mutant"],
+            top_k=args.top_k,
+            min_n=args.min_n,
+        )
+        save_csv_parquet_torch(
+            res, output_dir / f"{datestamp}_{args.prefix}_by_gene_role_mutant.csv"
+        )
+        # Target_Class, Mutant
+        res = metrics_per_category(
+            df,
+            ["Target_Class", "Mutant"],
+            top_k=args.top_k,
+            min_n=args.min_n,
+        )
+        save_csv_parquet_torch(
+            res, output_dir / f"{datestamp}_{args.prefix}_by_target_class_mutant.csv"
+        )
     except Exception as e:
         logger.exception("Analysis failed: %s", e)
         sys.exit(1)
