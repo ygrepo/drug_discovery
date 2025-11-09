@@ -1,15 +1,15 @@
 #!/bin/bash
-# ML_gene_benchmark_prediction_analysis.sh —
+# ML_gene_prediction_analysis.sh —
 
 # ------- LSF resources ------
-#BSUB -J ML_gene_benchmark_prediction_analysis
+#BSUB -J ML_gene_prediction_analysis
 #BSUB -P acc_DiseaseGeneCell
 #BSUB -q premium
 #BSUB -n 1
 #BSUB -R "rusage[mem=128G]"
 #BSUB -W 6:00
-#BSUB -o logs/ML_gene_benchmark_prediction_analysis.%J.out
-#BSUB -e logs/ML_gene_benchmark_prediction_analysis.%J.err
+#BSUB -o logs/ML_gene_prediction_analysis.%J.out
+#BSUB -e logs/ML_gene_prediction_analysis.%J.err
 
 
 # --------------------------------
@@ -64,7 +64,7 @@ PYTHON="${ENV_PREFIX}/bin/python"
 
 # ---- Project paths ----
 LOG_LEVEL="INFO"
-DATA_FN="output/data/20251031_all_binding_db_genes.parquet"
+DATA_FN="output/metrics/20251031_all_binding_db_genes.parquet"
 OUTPUT_DIR="output/metrics"; mkdir -p "${OUTPUT_DIR}"
 PREFIX="All_BindingDB_prediction_analysis"
 MAIN="src/ML_gene_prediction_analysis.py"
