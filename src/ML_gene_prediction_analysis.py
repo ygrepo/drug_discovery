@@ -191,7 +191,7 @@ def metrics_per_category(
     if missing_cols:
         raise ValueError(f"Missing columns: {missing_cols}")
 
-    # --- clean group  columns ---
+    # --- clean group columns ---
     before = len(dfe)
     dfe = dfe.dropna(subset=group_cols)
     logger.info(
@@ -221,11 +221,19 @@ def metrics_per_category(
         if len(vc) > 0:
             k = min(top_k, len(vc))
             keep_idx = vc.iloc[:k].index
-            key = pd.MultiIndex.from_frame(dfe[group_cols])
-            dfe = dfe[key.isin(keep_idx)]
+
+            # Handle single vs multiple grouping columns
+            if len(group_cols) == 1:
+                # Single column: use direct filtering
+                dfe = dfe[dfe[group_cols[0]].isin(keep_idx)]
+            else:
+                # Multiple columns: use MultiIndex
+                key = pd.MultiIndex.from_frame(dfe[group_cols])
+                dfe = dfe[key.isin(keep_idx)]
+
             logger.info(f"After top_{k} filtering (by combo): {dfe.shape}")
 
-    # --- min_n on full combination of cat_cols (not including 'by') ---
+    # --- min_n on full combination ---
     if min_n > 0:
         counts = dfe.groupby(group_cols, dropna=False).size()
         valid_keys = counts[counts >= min_n].index
@@ -233,8 +241,16 @@ def metrics_per_category(
         if len(valid_keys) == 0:
             logger.info("No data left after min_n filtering")
             return pd.DataFrame()
-        key = pd.MultiIndex.from_frame(dfe[group_cols])
-        dfe = dfe[key.isin(valid_keys)]
+
+        # Handle single vs multiple grouping columns
+        if len(group_cols) == 1:
+            # Single column: use direct filtering
+            dfe = dfe[dfe[group_cols[0]].isin(valid_keys)]
+        else:
+            # Multiple columns: use MultiIndex
+            key = pd.MultiIndex.from_frame(dfe[group_cols])
+            dfe = dfe[key.isin(valid_keys)]
+
         logger.info(f"After min_n filtering: {dfe.shape}")
 
     if len(dfe) == 0:
