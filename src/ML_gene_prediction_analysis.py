@@ -307,6 +307,9 @@ def parse_args():
         help="Show only top K results per category (None = all results)",
     )
     parser.add_argument(
+        "--prefix", type=str, default="", help="Prefix for output filenames"
+    )
+    parser.add_argument(
         "--log_fn", type=str, default="logs/ML_benchmark_prediction_analysis.log"
     )
     parser.add_argument("--log_level", type=str, default="INFO", help="Logging level")
@@ -356,6 +359,9 @@ def main():
             ["Mutant", "Mutant"],
             top_k=args.top_k,
             min_n=args.min_n,
+        )
+        save_csv_parquet_torch(
+            res, output_dir / f"{datestamp}_{args.prefix}_by_model_mutant.csv"
         )
     except Exception as e:
         logger.exception("Analysis failed: %s", e)

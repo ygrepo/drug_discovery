@@ -304,9 +304,6 @@ def parse_args():
         help="Show only top K results per category (None = all results)",
     )
     parser.add_argument(
-        "--prefix", type=str, default="", help="Prefix for output filenames"
-    )
-    parser.add_argument(
         "--log_fn", type=str, default="logs/ML_benchmark_prediction_analysis.log"
     )
     parser.add_argument("--log_level", type=str, default="INFO", help="Logging level")
