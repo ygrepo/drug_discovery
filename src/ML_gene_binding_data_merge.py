@@ -223,15 +223,6 @@ def parse_args():
         help="Minimum number of samples per category",
     )
     parser.add_argument(
-        "--top_k",
-        type=int,
-        default=None,
-        help="Show only top K results per category (None = all results)",
-    )
-    parser.add_argument(
-        "--prefix", type=str, default="", help="Prefix for output filenames"
-    )
-    parser.add_argument(
         "--log_fn", type=str, default="logs/ML_benchmark_prediction_analysis.log"
     )
     parser.add_argument("--log_level", type=str, default="INFO", help="Logging level")
@@ -249,8 +240,6 @@ def main():
         logger.info(f"Data file: {args.data_fn}")
         logger.info(f"Output dir: {args.output_dir}")
         logger.info(f"Minimum samples per category: {args.min_n}")
-        logger.info(f"Top K results per category: {args.top_k}")
-        logger.info(f"Prefix: {args.prefix}")
         logger.info(f"Limit to N rows: {args.N}")
         data_fn = Path(args.data_fn).resolve()
         logger.info(f"Data fn: {data_fn}")

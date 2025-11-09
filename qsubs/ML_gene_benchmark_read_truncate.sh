@@ -11,7 +11,6 @@
 #BSUB -o logs/ML_gene_benchmark_merge.%J.out
 #BSUB -e logs/ML_gene_benchmark_merge.%J.err
 
-
 # --------------------------------
 
 set -Eeuo pipefail
@@ -64,31 +63,31 @@ PYTHON="${ENV_PREFIX}/bin/python"
 
 # ---- Project paths ----
 LOG_LEVEL="INFO"
-DATA_FN="output/data/combined_predictions_BindingDB.parquet"
-GENE_FN="output/data/gtdb_causal_onco_tsg_gene_disease_icd10_protein_class.csv"
+DATA_FN="output/metrics/20251031_all_binding_db_genes.parquet"
 OUTPUT_DIR="output/metrics"; mkdir -p "${OUTPUT_DIR}"
-MAIN="src/ML_gene_binding_data_merge.py"
-
-[[ -f "${MAIN}" ]] || { echo "[ERROR] MAIN not found: ${MAIN} (PWD=$(pwd))"; exit 2; }
-
-MIN_N=10
+OUTPUT_FN="output/metrics/20251031_all_binding_db_genes_small.parquet"
+N=1000
 
 echo "Python     : $(command -v "${PYTHON}")"
-echo "Main script: ${MAIN}"
 echo "Data file  : ${DATA_FN}"
-echo "Gene file  : ${GENE_FN}"
-echo "Output dir : ${OUTPUT_DIR}"
-echo "Min N      : ${MIN_N}"
+echo "Output File: ${OUTPUT_FN}"
+echo "N rows     : ${N}"
 echo "------------------------------------------------------------"
 
+# Run the Python script and capture exit code
 set +e
-"${PYTHON}" "${MAIN}" \
-  --log_fn "${log_file}" \
-  --log_level "${LOG_LEVEL}" \
-  --data_fn "${DATA_FN}" \
-  --gene_fn "${GENE_FN}" \
-  --min_n "${MIN_N}" \
-  --output_dir "${OUTPUT_DIR}"
+python -c "
+import pandas as pd
+import os
+try:
+    df = pd.read_parquet('${DATA_FN}')
+    truncated_df = df.head(${N})
+    truncated_df.to_parquet('${OUTPUT_FN}', index=False)
+    print(f'Successfully truncated {len(df)} rows to {len(truncated_df)} rows and saved to ${OUTPUT_FN}')
+except Exception as e:
+    print(f'Error: {e}')
+    exit(1)
+"
 exit_code=$?
 set -e
 
