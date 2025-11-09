@@ -335,7 +335,8 @@ def main():
         # Load data
         df = read_csv_parquet_torch(data_fn)
         logger.info(f"Loaded {len(df)} samples")
-        logger.info(df["Split mode"].unique())
+        logger.info(df["Model"].unique())
+        logger.info(df["Dataset"].unique())
         if args.N > 0:
             df = df.head(n=args.N)
             logger.info(f"Limited to {len(df)} samples")
@@ -356,7 +357,7 @@ def main():
         # Mutant
         res = metrics_per_category(
             df,
-            ["Mutant", "Mutant"],
+            ["Model", "Mutant"],
             top_k=args.top_k,
             min_n=args.min_n,
         )
