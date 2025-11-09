@@ -64,24 +64,22 @@ PYTHON="${ENV_PREFIX}/bin/python"
 
 # ---- Project paths ----
 LOG_LEVEL="INFO"
-DATA_FN="output/data/combined_predictions_BindingDB.parquet"
-GENE_FN="output/data/gtdb_causal_onco_tsg_gene_disease_icd10_protein_class.csv"
+DATA_FN="output/data/20251031_all_binding_db_genes.parquet"
 OUTPUT_DIR="output/metrics"; mkdir -p "${OUTPUT_DIR}"
 PREFIX="All_BindingDB_prediction_analysis"
 MAIN="src/ML_gene_prediction_analysis.py"
 
 [[ -f "${MAIN}" ]] || { echo "[ERROR] MAIN not found: ${MAIN} (PWD=$(pwd))"; exit 2; }
 
-#TOP_K=10
+TOP_K=10
 MIN_N=10
 
 echo "Python     : $(command -v "${PYTHON}")"
 echo "Main script: ${MAIN}"
 echo "Data file  : ${DATA_FN}"
-echo "Gene file  : ${GENE_FN}"
 echo "Output dir : ${OUTPUT_DIR}"
 echo "Prefix     : ${PREFIX}"
-#echo "Top K      : ${TOP_K}"
+echo "Top K      : ${TOP_K}"
 echo "Min N      : ${MIN_N}"
 echo "------------------------------------------------------------"
 
@@ -90,10 +88,10 @@ set +e
   --log_fn "${log_file}" \
   --log_level "${LOG_LEVEL}" \
   --data_fn "${DATA_FN}" \
-  --gene_fn "${GENE_FN}" \
+  --top_k "${TOP_K}" \
+  --output_dir "${OUTPUT_DIR}" \
   --prefix "${PREFIX}" \
-  --min_n "${MIN_N}" \
-  --output_dir "${OUTPUT_DIR}"
+  --min_n "${MIN_N}"
 exit_code=$?
 set -e
 

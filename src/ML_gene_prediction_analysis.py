@@ -123,7 +123,7 @@ def _one_group(g: pd.DataFrame, y_col: str, yhat_col: str) -> pd.Series:
         # Handle R2 calculation
         ss_res = np.sum((y_true - y_pred) ** 2)
         ss_tot = np.sum((y_true - np.mean(y_true)) ** 2)
-        r2 = 1 - (ss_res / ss_tot) if ss_tot != 0 else np.nan
+        r2 = 1 - (ss_res / ss_tot) if ss_tot > 0 else np.nan
 
         # Handle correlation calculation
         if len(np.unique(y_true)) > 1 and len(np.unique(y_pred)) > 1:
@@ -134,7 +134,7 @@ def _one_group(g: pd.DataFrame, y_col: str, yhat_col: str) -> pd.Series:
         # Explained variance
         var_y = np.var(y_true)
         explained_variance = (
-            1 - np.var(y_true - y_pred) / var_y if var_y != 0 else np.nan
+            1 - np.var(y_true - y_pred) / var_y if var_y > 0 else np.nan
         )
 
         return pd.Series(
@@ -168,14 +168,11 @@ def _one_group(g: pd.DataFrame, y_col: str, yhat_col: str) -> pd.Series:
 
 def metrics_per_category(
     df: pd.DataFrame,
-    category_col: Union[str, Sequence[str]],
+    group_cols: Union[str, Sequence[str]],
     y_col: str = "Affinity",
     yhat_col: str = "pred_affinity",
-    by: Optional[Sequence[str]] = None,
     top_k: Optional[int] = None,
     min_n: int = 20,
-    add_combined_label: bool = False,  # <- default: don't add the trailing "category"
-    combined_sep: str = " | ",
 ) -> pd.DataFrame:
     """Calculate metrics per category (single column or list of columns)."""
 
@@ -183,12 +180,10 @@ def metrics_per_category(
     dfe = df.copy()
     logger.info(f"Starting with: {dfe.shape}")
 
-    if isinstance(category_col, str):
-        cat_cols = [category_col]
+    if isinstance(group_cols, str):
+        group_cols = [group_cols]
     else:
-        cat_cols = list(category_col)
-
-    group_cols = ([] if by is None else list(by)) + cat_cols
+        group_cols = list(group_cols)
 
     # --- required columns check ---
     required_cols = [y_col, yhat_col] + group_cols
@@ -196,17 +191,9 @@ def metrics_per_category(
     if missing_cols:
         raise ValueError(f"Missing columns: {missing_cols}")
 
-    # --- clean category columns ---
-    for c in cat_cols:
-        logger.info(
-            f"Unique values in {c} before cleaning: {dfe[c].nunique(dropna=False)}"
-        )
-        dfe[c] = dfe[c].astype(str).str.strip()
-        # mark empty-like strings as NaN, then drop
-        dfe.loc[dfe[c].str.lower().isin({"none", "nan", "null", ""}), c] = np.nan
-
+    # --- clean group  columns ---
     before = len(dfe)
-    dfe = dfe.dropna(subset=cat_cols)
+    dfe = dfe.dropna(subset=group_cols)
     logger.info(
         f"Dropped {before - len(dfe)} rows with empty/NaN categories; now {dfe.shape}"
     )
@@ -268,11 +255,6 @@ def metrics_per_category(
             .reset_index()
         )
 
-        if add_combined_label:
-            result["category"] = (
-                result[cat_cols].astype(str).agg(combined_sep.join, axis=1)
-            )
-
         # sort results
         sort_cols = ["n", "rmse"] if "rmse" in result.columns else ["n"]
         sort_asc = [False, True][: len(sort_cols)]
@@ -286,29 +268,6 @@ def metrics_per_category(
     except Exception as e:
         logger.info(f"Error in groupby operation: {e}")
         return pd.DataFrame()
-
-
-def sanitize(a, *, to_lower=False, strip=True, drop_empty=True):
-    """Remove NaN/None, coerce to str (optionally normalize)."""
-    out = []
-    for x in np.asarray(a, dtype=object):
-        if x is None:
-            continue
-        if isinstance(x, float) and np.isnan(x):
-            continue
-        # bytes → str
-        if isinstance(x, (bytes, bytearray)):
-            x = x.decode("utf-8", "ignore")
-        # everything else → str
-        x = str(x)
-        if strip:
-            x = x.strip()
-        if to_lower:
-            x = x.lower()
-        if drop_empty and x == "":
-            continue
-        out.append(x)
-    return np.array(out, dtype=object)
 
 
 def parse_args():
@@ -330,14 +289,6 @@ def parse_args():
         help="Path to the combined predictions parquet/CSV file",
     )
     parser.add_argument(
-        "--gene_fn",
-        type=Path,
-        default=Path(
-            "output/data/gtdb_causal_onco_tsg_gene_disease_icd10_protein_class.csv"
-        ),
-        help="Path to the gene names file",
-    )
-    parser.add_argument(
         "--output_dir",
         type=str,
         default="output/metrics",
@@ -354,9 +305,6 @@ def parse_args():
         type=int,
         default=None,
         help="Show only top K results per category (None = all results)",
-    )
-    parser.add_argument(
-        "--prefix", type=str, default="", help="Prefix for output filenames"
     )
     parser.add_argument(
         "--log_fn", type=str, default="logs/ML_benchmark_prediction_analysis.log"
@@ -377,7 +325,6 @@ def main():
         logger.info(f"Output dir: {args.output_dir}")
         logger.info(f"Minimum samples per category: {args.min_n}")
         logger.info(f"Top K results per category: {args.top_k}")
-        logger.info(f"Prefix: {args.prefix}")
         logger.info(f"Limit to N rows: {args.N}")
         data_fn = Path(args.data_fn).resolve()
         logger.info(f"Data fn: {data_fn}")
@@ -389,203 +336,27 @@ def main():
         if args.N > 0:
             df = df.head(n=args.N)
             logger.info(f"Limited to {len(df)} samples")
-        gene_fn = Path(args.gene_fn).resolve()
-        logger.info(f"Gene fn: {gene_fn}")
-        gene_df = read_csv_parquet_torch(gene_fn)
-        logger.info(f"Loaded {len(gene_df)} gene df")
-        logger.info(
-            f"Before HomoSapines filter. Unique genes: {gene_df['Gene'].nunique()}"
-        )
-        mask = gene_df["Organism"].notna() & gene_df["Organism"].str.contains(
-            "Homo sapiens", regex=False
-        )
-        gene_df = gene_df[mask]
-        logger.info(f"HomoSapines filter. Unique genes: {gene_df['Gene'].nunique()}")
-        protein_seq_gene_df = gene_df[
-            ["Gene", "Role", "Sequence", "Association_Type", "Disease_Name"]
-        ]
-        logger.info(
-            f"After HomoSapines filter. Unique proteins: {gene_df['Sequence'].nunique()}"
-        )
-        s_seq = sanitize(protein_seq_gene_df["Sequence"], to_lower=True, strip=True)
-        s_target = sanitize(df["Target"], to_lower=True, strip=True)
-        logger.info(f"Common sequences: {len(np.intersect1d(s_seq, s_target))}")
-        df = df.merge(
-            protein_seq_gene_df, how="inner", left_on="Target", right_on="Sequence"
-        )
-        logger.info(f"Unique genes: {df['Gene'].nunique()}")
-        logger.info(f"Unique proteins: {df['Target'].nunique()}")
 
         output_dir = Path(args.output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
-        core_vatiables = ["Gene", "Role", "Mutant"]
-        # Mutant
+        # Baseline
         res = metrics_per_category(
             df,
-            core_vatiables,
-            # "Mutant",
-            by=["Embedding"],
+            ["Model"],
             top_k=args.top_k,
             min_n=args.min_n,
         )
         datestamp = datetime.now().strftime("%Y%m%d")
         save_csv_parquet_torch(
-            res, output_dir / f"{datestamp}_{args.prefix}_by_mutant.csv"
+            res, output_dir / f"{datestamp}_{args.prefix}_by_model.csv"
         )
-
-        core_vatiables_2 = [
-            "Gene",
-            "Role",
-            "Mutant",
-            "Disease_Name",
-            "Association_Type",
-        ]
         # Mutant
         res = metrics_per_category(
             df,
-            core_vatiables_2,
-            # "Mutant",
-            by=["Embedding"],
+            ["Mutant", "Mutant"],
             top_k=args.top_k,
             min_n=args.min_n,
         )
-        save_csv_parquet_torch(
-            res, output_dir / f"{datestamp}_{args.prefix}_by_mutant_2.csv"
-        )
-
-        # Target class
-        res = metrics_per_category(
-            df,
-            core_vatiables + ["Target Class"],
-            by=["Embedding"],
-            top_k=args.top_k,
-            min_n=args.min_n,
-        )
-
-        save_csv_parquet_torch(
-            res, output_dir / f"{datestamp}_{args.prefix}_by_target_class.csv"
-        )
-
-        res = metrics_per_category(
-            df,
-            core_vatiables_2 + ["Target Class"],
-            by=["Embedding"],
-            top_k=args.top_k,
-            min_n=args.min_n,
-        )
-
-        save_csv_parquet_torch(
-            res, output_dir / f"{datestamp}_{args.prefix}_by_target_class_2.csv"
-        )
-
-        # Finer taxonomies
-        res = metrics_per_category(
-            df,
-            core_vatiables_2 + ["Target_Class_Level_1"],
-            by=["Embedding"],
-            top_k=args.top_k,
-            min_n=args.min_n,
-        )
-        save_csv_parquet_torch(
-            res, output_dir / f"{datestamp}_{args.prefix}_by_class_level_1.csv"
-        )
-
-        # Target class level 2
-        res = metrics_per_category(
-            df,
-            core_vatiables_2 + ["Target_Class_Level_2"],
-            by=["Embedding"],
-            top_k=args.top_k,
-            min_n=args.min_n,
-        )
-        save_csv_parquet_torch(
-            res, output_dir / f"{datestamp}_{args.prefix}_by_class_level_2.csv"
-        )
-
-        # Target class level 3
-        res = metrics_per_category(
-            df,
-            core_vatiables_2 + ["Target_Class_Level_3"],
-            by=["Embedding"],
-            top_k=args.top_k,
-            min_n=args.min_n,
-        )
-        save_csv_parquet_torch(
-            res, output_dir / f"{datestamp}_{args.prefix}_by_class_level_3.csv"
-        )
-
-        # Target class level 4
-        res = metrics_per_category(
-            df,
-            core_vatiables_2 + ["Target_Class_Level_4"],
-            by=["Embedding"],
-            top_k=args.top_k,
-            min_n=args.min_n,
-        )
-        save_csv_parquet_torch(
-            res, output_dir / f"{datestamp}_{args.prefix}_by_class_level_4.csv"
-        )
-
-        # Target class level 5
-        res = metrics_per_category(
-            df,
-            core_vatiables_2 + ["Target_Class_Level_5"],
-            by=["Embedding"],
-            top_k=args.top_k,
-            min_n=args.min_n,
-        )
-        save_csv_parquet_torch(
-            res, output_dir / f"{datestamp}_{args.prefix}_by_class_level_5.csv"
-        )
-
-        # Target class level 6
-        res = metrics_per_category(
-            df,
-            core_vatiables_2 + ["Target_Class_Level_6"],
-            by=["Embedding"],
-            top_k=args.top_k,
-            min_n=args.min_n,
-        )
-        save_csv_parquet_torch(
-            res, output_dir / f"{datestamp}_{args.prefix}_by_class_level_6.csv"
-        )
-
-        # EC hierarchy (full)
-        df = normalize_ec(df, ec_col="EC number")
-
-        res = metrics_per_category(
-            df,
-            core_vatiables_2 + ["EC_top"],
-            by=["Embedding"],
-            top_k=args.top_k,
-            min_n=args.min_n,
-        )
-        save_csv_parquet_torch(
-            res, output_dir / f"{datestamp}_{args.prefix}_by_ec_embedding.csv"
-        )
-
-        res = metrics_per_category(
-            df,
-            core_vatiables_2 + ["EC_top"],
-            by=["Split mode", "Embedding"],
-            top_k=args.top_k,
-            min_n=args.min_n,
-        )
-        save_csv_parquet_torch(
-            res, output_dir / f"{datestamp}_{args.prefix}_by_ec_split_mode.csv"
-        )
-
-        # FDA approved vs not
-        res = metrics_per_category(
-            df,
-            core_vatiables_2 + ["FDA Approved"],
-            by=["Embedding"],
-            min_n=30,
-        )
-        save_csv_parquet_torch(
-            res, output_dir / f"{datestamp}_{args.prefix}_by_fda_approved.csv"
-        )
-
     except Exception as e:
         logger.exception("Analysis failed: %s", e)
         sys.exit(1)

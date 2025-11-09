@@ -1,15 +1,15 @@
 #!/bin/bash
-# ML_gene_benchmark_merge.sh —
+# ML_gene_benchmark_read_truncate.sh —
 
 # ------- LSF resources ------
-#BSUB -J ML_gene_benchmark_merge
+#BSUB -J ML_gene_benchmark_read_truncate
 #BSUB -P acc_DiseaseGeneCell
 #BSUB -q premium
 #BSUB -n 1
 #BSUB -R "rusage[mem=128G]"
 #BSUB -W 6:00
-#BSUB -o logs/ML_gene_benchmark_merge.%J.out
-#BSUB -e logs/ML_gene_benchmark_merge.%J.err
+#BSUB -o logs/ML_gene_benchmark_read_truncate.%J.out
+#BSUB -e logs/ML_gene_benchmark_read_truncate.%J.err
 
 # --------------------------------
 
