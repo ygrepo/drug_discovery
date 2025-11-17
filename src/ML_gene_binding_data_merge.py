@@ -286,18 +286,18 @@ def main():
         gene_df = read_csv_parquet_torch(gene_fn)
         logger.info(f"Loaded {len(gene_df)} gene df")
         logger.info(
-            f"Before HomoSapines filter. Unique genes: {gene_df['Gene'].nunique()}"
+            f"Before HomoSapiens filter. Unique genes: {gene_df['Gene'].nunique()}"
         )
         mask = gene_df["Organism"].notna() & gene_df["Organism"].str.contains(
             "Homo sapiens", regex=False
         )
         gene_df = gene_df[mask]
-        logger.info(f"HomoSapines filter. Unique genes: {gene_df['Gene'].nunique()}")
+        logger.info(f"HomoSapiens filter. Unique genes: {gene_df['Gene'].nunique()}")
         protein_seq_gene_df = gene_df[
             ["Gene", "Role", "Sequence", "Association_Type", "Disease_Name"]
         ]
         logger.info(
-            f"After HomoSapines filter. Unique proteins: {gene_df['Sequence'].nunique()}"
+            f"After HomoSapiens filter. Unique proteins: {gene_df['Sequence'].nunique()}"
         )
         s_seq = sanitize(protein_seq_gene_df["Sequence"], to_lower=True, strip=True)
         s_target = sanitize(df["Target"], to_lower=True, strip=True)

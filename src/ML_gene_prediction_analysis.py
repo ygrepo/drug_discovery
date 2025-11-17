@@ -171,7 +171,7 @@ def metrics_per_category(
     group_cols: Union[str, Sequence[str]],
     y_col: str = "True_Affinity",
     yhat_col: str = "Predicted_Affinity",
-    top_k: Optional[int] = None,
+    top_k: int = 0,
     min_n: int = 20,
 ) -> pd.DataFrame:
     """Calculate metrics per category (single column or list of columns)."""
@@ -215,7 +215,7 @@ def metrics_per_category(
         return pd.DataFrame()
 
     # --- top_k on full combination ---
-    if top_k is not None:
+    if top_k > 0:
         # frequency of combos in group_cols
         vc = dfe.groupby(group_cols, dropna=False).size().sort_values(ascending=False)
         if len(vc) > 0:
@@ -319,8 +319,8 @@ def parse_args():
     parser.add_argument(
         "--top_k",
         type=int,
-        default=None,
-        help="Show only top K results per category (None = all results)",
+        default=0,
+        help="Show only top K results per category (0 = all results)",
     )
     parser.add_argument(
         "--prefix", type=str, default="", help="Prefix for output filenames"
@@ -374,31 +374,29 @@ def main():
         res = metrics_per_category(
             df,
             ["Model", "Dataset", "Mutant"],
-            top_k=args.top_k,
-            min_n=args.min_n,
         )
         save_csv_parquet_torch(
-            res, output_dir / f"{datestamp}_{args.prefix}_by_model_mutant.csv"
+            res, output_dir / f"{datestamp}_{args.prefix}_by_mutant.csv"
         )
-        # Gene Role, Mutant
+        # Gene Role
         res = metrics_per_category(
             df,
-            ["Role", "Dataset", "Mutant"],
+            ["Model", "Dataset", "Mutant", "Role"],
             top_k=args.top_k,
             min_n=args.min_n,
         )
         save_csv_parquet_torch(
-            res, output_dir / f"{datestamp}_{args.prefix}_by_gene_role_mutant.csv"
+            res, output_dir / f"{datestamp}_{args.prefix}_by_gene_role.csv"
         )
-        # Target_Class, Mutant
+        # Target_Class
         res = metrics_per_category(
             df,
-            ["Target_Class", "Dataset", "Mutant"],
+            ["Model", "Dataset", "Mutant", "Target_Class"],
             top_k=args.top_k,
             min_n=args.min_n,
         )
         save_csv_parquet_torch(
-            res, output_dir / f"{datestamp}_{args.prefix}_by_target_class_mutant.csv"
+            res, output_dir / f"{datestamp}_{args.prefix}_by_target_class.csv"
         )
     except Exception as e:
         logger.exception("Analysis failed: %s", e)
