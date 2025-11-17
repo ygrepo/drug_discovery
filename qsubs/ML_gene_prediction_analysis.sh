@@ -73,7 +73,7 @@ MAIN="src/ML_gene_prediction_analysis.py"
 
 TOP_K=10
 MIN_N=10
-N=1000
+N=0
 
 echo "Python     : $(command -v "${PYTHON}")"
 echo "Main script: ${MAIN}"
