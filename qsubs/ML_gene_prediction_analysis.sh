@@ -71,8 +71,8 @@ MAIN="src/ML_gene_prediction_analysis.py"
 
 [[ -f "${MAIN}" ]] || { echo "[ERROR] MAIN not found: ${MAIN} (PWD=$(pwd))"; exit 2; }
 
-TOP_K=10
-MIN_N=10
+TOP_K=0
+MIN_N=0
 N=0
 
 echo "Python     : $(command -v "${PYTHON}")"

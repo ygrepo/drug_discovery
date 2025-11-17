@@ -350,14 +350,15 @@ def main():
 
         # Load data
         df = read_csv_parquet_torch(data_fn)
-        logger.info(f"Loaded {len(df)} samples")
-        logger.info(df["Model"].unique())
-        logger.info(df["Dataset"].unique())
         if args.N > 0:
             df = df.head(n=args.N)
             logger.info(f"Limited to {len(df)} samples")
 
+        logger.info(f"Loaded {len(df)} samples")
+        logger.info(df["Model"].unique())
+        logger.info(df["Dataset"].unique())
         logger.info(df["Mutant"].unique())
+        logger.info(df["Role"].unique())
         output_dir = Path(args.output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
         # Baseline
