@@ -172,7 +172,7 @@ def metrics_per_category(
     y_col: str = "True_Affinity",
     yhat_col: str = "Predicted_Affinity",
     top_k: int = 0,
-    min_n: int = 20,
+    min_n: int = 0,
 ) -> pd.DataFrame:
     """Calculate metrics per category (single column or list of columns)."""
 
