@@ -362,7 +362,7 @@ def main():
         # Baseline
         res = metrics_per_category(
             df,
-            ["Model"],
+            ["Model", "Dataset"],
             top_k=args.top_k,
             min_n=args.min_n,
         )
@@ -373,7 +373,7 @@ def main():
         # Mutant
         res = metrics_per_category(
             df,
-            ["Model", "Mutant"],
+            ["Model", "Dataset", "Mutant"],
             top_k=args.top_k,
             min_n=args.min_n,
         )
@@ -383,7 +383,7 @@ def main():
         # Gene Role, Mutant
         res = metrics_per_category(
             df,
-            ["Role", "Mutant"],
+            ["Role", "Dataset", "Mutant"],
             top_k=args.top_k,
             min_n=args.min_n,
         )
@@ -393,7 +393,7 @@ def main():
         # Target_Class, Mutant
         res = metrics_per_category(
             df,
-            ["Target_Class", "Mutant"],
+            ["Target_Class", "Dataset", "Mutant"],
             top_k=args.top_k,
             min_n=args.min_n,
         )

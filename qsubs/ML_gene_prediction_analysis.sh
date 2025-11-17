@@ -73,6 +73,7 @@ MAIN="src/ML_gene_prediction_analysis.py"
 
 TOP_K=10
 MIN_N=10
+N=1000
 
 echo "Python     : $(command -v "${PYTHON}")"
 echo "Main script: ${MAIN}"
@@ -81,6 +82,7 @@ echo "Output dir : ${OUTPUT_DIR}"
 echo "Prefix     : ${PREFIX}"
 echo "Top K      : ${TOP_K}"
 echo "Min N      : ${MIN_N}"
+echo "N rows     : ${N}"
 echo "------------------------------------------------------------"
 
 set +e
@@ -91,6 +93,7 @@ set +e
   --top_k "${TOP_K}" \
   --output_dir "${OUTPUT_DIR}" \
   --prefix "${PREFIX}" \
+  --N "${N}" \
   --min_n "${MIN_N}"
 exit_code=$?
 set -e
