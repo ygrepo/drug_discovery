@@ -357,6 +357,7 @@ def main():
             df = df.head(n=args.N)
             logger.info(f"Limited to {len(df)} samples")
 
+        logger.info(df["Mutant"].unique())
         output_dir = Path(args.output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
         # Baseline
@@ -373,7 +374,9 @@ def main():
         # Mutant
         res = metrics_per_category(
             df,
-            ["Model", "Dataset", "Mutant"],
+            group_cols=["Model", "Dataset", "Mutant"],
+            top_k=0,
+            min_n=0,
         )
         save_csv_parquet_torch(
             res, output_dir / f"{datestamp}_{args.prefix}_by_mutant.csv"
