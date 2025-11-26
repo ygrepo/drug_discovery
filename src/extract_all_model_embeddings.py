@@ -199,16 +199,15 @@ def main():
 
         # Load data
         is_BindDB_flag = is_BindDB(Path(args.data_fn))
-        is_binding_flag = is_binding_data(Path(args.data_fn))
         logger.info(f"Is BindDB: {is_BindDB_flag}")
+        is_binding_flag = is_binding_data(Path(args.data_fn))
         logger.info(f"Is binding data: {is_binding_flag}")
+        is_KM_flag = is_KM(Path(args.data_fn))
+        logger.info(f"Is KM data: {is_KM_flag}")
 
-        if is_binding_flag:
-            df = load_binding_data(
-                Path(args.data_fn), args.n_samples, args.nrows, args.seed
-            )
-        else:
-            df = load_data(Path(args.data_fn), args.n_samples, args.seed)
+        df = load_binding_data(
+            Path(args.data_fn), args.n_samples, args.nrows, args.seed
+        )
 
         target_id_col = get_target_id_col(Path(args.data_fn))
         target_col = get_target_col(Path(args.data_fn))
