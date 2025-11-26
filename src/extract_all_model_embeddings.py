@@ -132,7 +132,6 @@ def load_binding_data(
 
     if is_KM(data_fn):
         df = joblib.load(data_fn)
-        df.drop_duplicates(inplace=True)
 
     logger.info(f"Loaded dataset: {len(df)} rows")
     if n_samples > 0:
