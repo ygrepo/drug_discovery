@@ -93,20 +93,23 @@ echo "  Log file: ${LOG_FILE}" | tee -a "$LOG_FILE"
 export CUDA_LAUNCH_BLOCKING=1
 
 PYTHON="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.conda/envs/drug_discovery_env/bin/python"
+MAIN="src/extract_all_model_embeddings.py"
 
-$PYTHON \
-    "src/extract_all_model_embeddings.py" \
+set +e
+"${PYTHON}" "${MAIN}" \
     --data_fn "$DATA_FN" \
     --output_fn "$OUTPUT_FN" \
     --log_fn "$LOG_FILE" \
     --log_level "$LOG_LEVEL" \
     --seed "$SEED" \
     --n_samples "$N_SAMPLES" \
-    --nrows "$NROWS" \
-    2>&1 | tee -a "$LOG_FILE"
+    --nrows "$NROWS"
+xit_code=$?
+set -e
+
 
 # Check the exit status of the Python script
-EXIT_CODE=${PIPESTATUS[0]}
+EXIT_CODE=$exit_code
 
 if [ $EXIT_CODE -eq 0 ]; then
     echo "Script completed successfully at $(date)" | tee -a "$LOG_FILE"

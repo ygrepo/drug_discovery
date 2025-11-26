@@ -1,14 +1,10 @@
 import sys
 import os
-import logging
 from pathlib import Path
 import pandas as pd
 import argparse
 import torch
 import joblib
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
@@ -19,7 +15,9 @@ from src.model_util import (
     load_model_factory,
     ModelType,
 )
-from src.utils import setup_logging, save_csv_parquet_torch
+from src.utils import setup_logging, save_csv_parquet_torch, get_logger, setup_logging
+
+logger = get_logger(__name__)
 
 BINDDB_COLS = [
     "UniProt (SwissProt) Primary ID of Target Chain 1",

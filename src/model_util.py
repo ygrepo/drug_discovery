@@ -31,7 +31,7 @@ _ESM2_REPO = {
     36: "facebook/esm2_t36_3B_UR50D",
 }
 
-from src.utils import cosine_similarity, save_csv_parquet_torch
+from src.utils import cosine_similarity, save_csv_parquet_torch, get_logger
 
 SYS_INFER = (
     "You are an expert at biology and life science. Now a user gives you several protein sequences "
@@ -41,11 +41,8 @@ SYS_INFER = (
 
 try:
     from esm import pretrained  # FAIR’s original library
-
-    HAS_FAIR_ESM = True
 except ImportError:
     warnings.warn("FAIR esm not installed. `pip install fair-esm`")
-    HAS_FAIR_ESM = False
 
 VALID_AAS = set("ACDEFGHIKLMNPQRSTVWY")
 
@@ -60,8 +57,7 @@ def sanitize_sequence(seq: str) -> tuple[str, int]:
     return clean_seq, replaced
 
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger = get_logger(__name__)
 
 
 # Enum for model types
@@ -1565,8 +1561,6 @@ def _embed_single_sequence(
 
         # --- Path B: FAIR ESMv1 ---
         else:
-            if not HAS_FAIR_ESM:
-                raise RuntimeError("FAIR esm not installed. `pip install fair-esm`")
 
             # 1. Sanitize
             seq = seq.strip().upper()
