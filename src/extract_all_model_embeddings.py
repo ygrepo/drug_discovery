@@ -27,6 +27,8 @@ BINDDB_COLS = [
 
 BIND_COLS = ["Target_ID", "Target"]
 
+KM_COLS = ["Sequence", "Sequence"]
+
 
 def parse_args():
     """Parse command line arguments."""
@@ -108,6 +110,10 @@ def is_BindDB(data_fn: Path) -> bool:
     return "BindingDB" in str(data_fn)
 
 
+def is_KM(data_fn: Path) -> bool:
+    return "data_km" in str(data_fn)
+
+
 def load_binding_data(
     data_fn: Path, n_samples: int, nrows: int, seed: int
 ) -> pd.DataFrame:
@@ -118,9 +124,18 @@ def load_binding_data(
         else:
             df = pd.read_csv(data_fn, sep="\t", usecols=BINDDB_COLS)
         df.drop_duplicates(inplace=True)
-    else:
+
+    if is_binding_data(data_fn):
         df = torch.load(data_fn, weights_only=False)
         df = df[BIND_COLS].drop_duplicates()
+
+    if is_KM(data_fn):
+        if nrows > 0:
+            df = pd.read_csv(data_fn, usecols=KM_COLS, nrows=nrows)
+        else:
+            df = pd.read_csv(data_fn, usecols=KM_COLS)
+        df.drop_duplicates(inplace=True)
+
     logger.info(f"Loaded dataset: {len(df)} rows")
     if n_samples > 0:
         logger.info(f"Sampling {n_samples} rows")
@@ -133,16 +148,22 @@ def get_target_col(data_fn: Path) -> str:
     """Get the target column name."""
     if is_BindDB(data_fn):
         return BINDDB_COLS[1]
-    else:
+    if is_binding_data(data_fn):
         return BIND_COLS[1]
+    if is_KM(data_fn):
+        return KM_COLS[1]
+    raise ValueError(f"Unknown data format: {data_fn}")
 
 
 def get_target_id_col(data_fn: Path) -> str:
     """Get the target ID column name."""
     if is_BindDB(data_fn):
         return BINDDB_COLS[0]
-    else:
+    if is_binding_data(data_fn):
         return BIND_COLS[0]
+    if is_KM(data_fn):
+        return KM_COLS[0]
+    raise ValueError(f"Unknown data format: {data_fn}")
 
 
 def merge_embeddings(
@@ -211,16 +232,15 @@ def main():
             )
             emb_df.drop(columns=[target_col], inplace=True)
             logger.debug(f"Columns in emb_df before merge: {list(emb_df.columns)}")
-            df_out = merge_embeddings(df, emb_df, target_col, target_id_col, mt)
-            #          df_out = merge_embeddings(df_out, emb_df, target_col, target_id_col, mt)
-            logger.debug(f"Columns in df_out after merge: {list(df_out.columns)}")
+            df = merge_embeddings(df, emb_df, target_col, target_id_col, mt)
+            logger.debug(f"Columns in df after merge: {list(df.columns)}")
 
             embedding_col = f"{mt}_embedding"
-            if embedding_col in df_out.columns:
-                missing_count = df_out[df_out[embedding_col].isnull()].shape[0]
+            if embedding_col in df.columns:
+                missing_count = df[df[embedding_col].isnull()].shape[0]
                 logger.info(f"Missing embeddings for {mt}: {missing_count}")
             else:
-                available_cols = list(df_out.columns)
+                available_cols = list(df.columns)
                 logger.error(
                     f"Column {embedding_col} not found. Available: {available_cols}"
                 )
@@ -246,7 +266,7 @@ def main():
                 # Default to current directory
                 output_file = Path(f"{mt}_embeddings.pt")
 
-            save_csv_parquet_torch(df_out, output_file)
+            save_csv_parquet_torch(df, output_file)
 
     except Exception as e:
         logger.exception("Script failed: %s", e)

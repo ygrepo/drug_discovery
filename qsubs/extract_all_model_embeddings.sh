@@ -35,8 +35,8 @@ mkdir -p "$TORCH_HOME"
 #DATA_FN="bind_data/BindDB/BindDB.pt"
 #DATA_FN="bind_data/Davis/Davis.pt"
 #DATA_FN="bind_data/Kiba/Kiba.pt"
-DATA_FN="bind_data/BindingDB/BindingDB_All_07282025.tsv"
-
+#DATA_FN="bind_data/BindingDB/BindingDB_All_07282025.tsv"
+DATA_FN="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/wangcDrugRepoProject/EnzymaticReactionPrediction/Regression_Data/exp_of_catpred_MPEK_EITLEM_inhouse_dataset/experiments/dataset_MPEK_km/A01_dataset/data_km_with_features.joblib"
 OUTPUT_DIR="output/data"
 #OUTPUT_FN="${OUTPUT_DIR}/esmv1_structural_split_train_with_embeddings.csv"
 #OUTPUT_FN="${OUTPUT_DIR}/esm1_bindDB_embeddings.pt"
@@ -45,9 +45,10 @@ OUTPUT_DIR="output/data"
 #OUTPUT_FN="${OUTPUT_DIR}/BindDB_embeddings.pt"
 #OUTPUT_FN="${OUTPUT_DIR}/Davis_embeddings.pt"
 #OUTPUT_FN="${OUTPUT_DIR}/Kiba_embeddings.pt"
-OUTPUT_FN="${OUTPUT_DIR}/BindingDB_embeddings_"
+#OUTPUT_FN="${OUTPUT_DIR}/BindingDB_embeddings_"
+OUTPUT_FN="${OUTPUT_DIR}/data_km_embeddings_"
 N_SAMPLES=0
-NROWS=0
+NROWS=100
 LOG_DIR="logs"
 LOG_LEVEL="INFO"
 SEED=42
