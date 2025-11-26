@@ -8,7 +8,7 @@
 #BSUB -R h100nvl
 #BSUB -n 1
 #BSUB -R "rusage[mem=512G]"
-#BSUB -W 6:00
+#BSUB -W 100:00
 #BSUB -o logs/extract_all_model_embeddings.%J.out
 #BSUB -e logs/extract_all_model_embeddings.%J.err
 

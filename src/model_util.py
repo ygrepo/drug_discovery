@@ -1252,7 +1252,7 @@ def retrieve_embeddings(
 
     p_vecs: List[np.ndarray] = []
     # batching over rows
-    for start in tqdm(range(0, len(out), batch_size), desc="Embedding pairs"):
+    for start in tqdm(range(0, len(out), batch_size), desc="Embedding"):
         batch_df = out.iloc[start : start + batch_size]
         s_list = batch_df[seq_col].astype(str).tolist()
 
