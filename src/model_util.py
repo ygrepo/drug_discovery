@@ -44,6 +44,7 @@ try:
 
     HAS_FAIR_ESM = True
 except ImportError:
+    warnings.warn("FAIR esm not installed. `pip install fair-esm`")
     HAS_FAIR_ESM = False
 
 VALID_AAS = set("ACDEFGHIKLMNPQRSTVWY")
