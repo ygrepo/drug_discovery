@@ -5,6 +5,7 @@ from pathlib import Path
 import pandas as pd
 import argparse
 import torch
+import joblib
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -130,10 +131,7 @@ def load_binding_data(
         df = df[BIND_COLS].drop_duplicates()
 
     if is_KM(data_fn):
-        if nrows > 0:
-            df = pd.read_csv(data_fn, usecols=KM_COLS, nrows=nrows)
-        else:
-            df = pd.read_csv(data_fn, usecols=KM_COLS)
+        df = joblib.load(data_fn)
         df.drop_duplicates(inplace=True)
 
     logger.info(f"Loaded dataset: {len(df)} rows")
