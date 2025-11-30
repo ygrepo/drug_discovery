@@ -48,9 +48,9 @@ OUTPUT_DIR="output/data"
 #OUTPUT_FN="${OUTPUT_DIR}/BindingDB_embeddings_"
 OUTPUT_FN="${OUTPUT_DIR}/data_km_embeddings_"
 N_SAMPLES=0
-NROWS=100
+NROWS=10
 LOG_DIR="logs"
-LOG_LEVEL="INFO"
+LOG_LEVEL="DEBUG"
 SEED=42
 
 

@@ -218,7 +218,6 @@ def main():
             logger.info(f"Extracting embeddings for {mt}...")
             model, tokenizer = load_model_factory(mt, config_path=Path(args.config))
             logger.info("Model loaded successfully.")
-            logger.info("Extracting embeddings...")
             # Don't pass output_fn to retrieve_embeddings since we save at end
             emb_df = retrieve_embeddings(
                 model_type=mt,
@@ -228,8 +227,13 @@ def main():
                 tokenizer=tokenizer,
                 output_fn=None,
             )
-            emb_df.drop(columns=[target_col], inplace=True)
+            # Only drop the sequence column if it is NOT the id column
+            if target_col != target_id_col and target_col in emb_df.columns:
+                logger.info(f"Dropping column {target_col} from emb_df")
+                emb_df.drop(columns=[target_col], inplace=True)
+
             logger.debug(f"Columns in emb_df before merge: {list(emb_df.columns)}")
+            logger.debug(f"Columns in df before merge: {list(df.columns)}")
             df = merge_embeddings(df, emb_df, target_col, target_id_col, mt)
             logger.debug(f"Columns in df after merge: {list(df.columns)}")
 
@@ -243,28 +247,28 @@ def main():
                     f"Column {embedding_col} not found. Available: {available_cols}"
                 )
 
-            # Determine output path - handle the pattern from shell script
-            if args.output_fn:
-                # If output_fn ends with underscore, append model and extension
-                if args.output_fn.endswith("_"):
-                    output_file = Path(f"{args.output_fn}{mt}.pt")
-                else:
-                    # Otherwise treat as base path and add model suffix
-                    output_path = Path(args.output_fn)
-                    if output_path.suffix:
-                        # Has extension, insert model type before extension
-                        stem = output_path.stem
-                        suffix = output_path.suffix
-                        parent = output_path.parent
-                        output_file = parent / f"{stem}_{mt}{suffix}"
-                    else:
-                        # No extension, add model type and .pt
-                        output_file = Path(f"{args.output_fn}_{mt}.pt")
+        # Determine output path - handle the pattern from shell script
+        if args.output_fn:
+            # If output_fn ends with underscore, append model and extension
+            if args.output_fn.endswith("_"):
+                output_file = Path(f"{args.output_fn}{mt}.pt")
             else:
-                # Default to current directory
-                output_file = Path(f"{mt}_embeddings.pt")
+                # Otherwise treat as base path and add model suffix
+                output_path = Path(args.output_fn)
+                if output_path.suffix:
+                    # Has extension, insert model type before extension
+                    stem = output_path.stem
+                    suffix = output_path.suffix
+                    parent = output_path.parent
+                    output_file = parent / f"{stem}_{mt}{suffix}"
+                else:
+                    # No extension, add model type and .pt
+                    output_file = Path(f"{args.output_fn}_{mt}.pt")
+        else:
+            # Default to current directory
+            output_file = Path(f"{mt}_embeddings.pt")
 
-            save_csv_parquet_torch(df, output_file)
+        save_csv_parquet_torch(df, output_file)
 
     except Exception as e:
         logger.exception("Script failed: %s", e)
