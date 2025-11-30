@@ -174,9 +174,21 @@ def merge_embeddings(
     model_type: ModelType,
 ) -> pd.DataFrame:
     """Merge the embeddings into the original dataframe."""
-    # The embedding column name is based on the target_col
     embedding_col_name = f"{target_col}_embedding"
-    emb_df.rename({embedding_col_name: f"{model_type}_embedding"}, axis=1, inplace=True)
+
+    # Work on a copy and keep only join key + embedding
+    emb_df = emb_df.copy()
+    cols_to_keep = [
+        c for c in emb_df.columns if c in (target_id_col, embedding_col_name)
+    ]
+    emb_df = emb_df[cols_to_keep]
+
+    emb_df.rename(
+        {embedding_col_name: f"{model_type}_embedding"},
+        axis=1,
+        inplace=True,
+    )
+
     return df.merge(emb_df, on=[target_id_col], how="left")
 
 
@@ -214,22 +226,29 @@ def main():
         target_id_col = get_target_id_col(Path(args.data_fn))
         target_col = get_target_col(Path(args.data_fn))
         logger.info(f"Target id col: {target_id_col}-target col: {target_col}")
-        # df_out = df[[target_id_col, target_col]].copy()
+
         for mt in PLM_MODEL:
             logger.info(f"Extracting embeddings for {mt}...")
             model, tokenizer = load_model_factory(mt, config_path=Path(args.config))
             logger.info("Model loaded successfully.")
-            # Don't pass output_fn to retrieve_embeddings since we save at end
-            logger.info(f"df: {df.head()}")
+
+            # Build a minimal dataframe for embedding extraction
+            if target_id_col == target_col:
+                df_seq = df[[target_col]].drop_duplicates()
+            else:
+                df_seq = df[[target_id_col, target_col]].drop_duplicates()
+
             emb_df = retrieve_embeddings(
                 model_type=mt,
                 model=model,
-                df=df,
+                df=df_seq,
                 seq_col=target_col,
                 tokenizer=tokenizer,
                 output_fn=None,
             )
-            logger.info(f"emb_df: {emb_df.head()}")
+
+            logger.info(f"emb_df before column filtering: {emb_df.head()}")
+
             # Only drop the sequence column if it is NOT the id column
             if target_col != target_id_col and target_col in emb_df.columns:
                 logger.info(f"Dropping column {target_col} from emb_df")
@@ -237,7 +256,9 @@ def main():
 
             logger.debug(f"Columns in emb_df before merge: {list(emb_df.columns)}")
             logger.debug(f"Columns in df before merge: {list(df.columns)}")
+
             df = merge_embeddings(df, emb_df, target_col, target_id_col, mt)
+
             logger.debug(f"Columns in df after merge: {list(df.columns)}")
 
             embedding_col = f"{mt}_embedding"
