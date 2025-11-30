@@ -134,7 +134,7 @@ def load_binding_data(
         df = joblib.load(data_fn)
         if nrows > 0:
             df = df.head(nrows)
-        df = df[KM_COLS[0]].drop_duplicates()
+        df = df[[KM_COLS[0]]].drop_duplicates()
 
     logger.info(f"Loaded dataset: {len(df)} rows")
     if n_samples > 0:
@@ -220,6 +220,7 @@ def main():
             model, tokenizer = load_model_factory(mt, config_path=Path(args.config))
             logger.info("Model loaded successfully.")
             # Don't pass output_fn to retrieve_embeddings since we save at end
+            logger.info(f"df: {df.head()}")
             emb_df = retrieve_embeddings(
                 model_type=mt,
                 model=model,
@@ -228,6 +229,7 @@ def main():
                 tokenizer=tokenizer,
                 output_fn=None,
             )
+            logger.info(f"emb_df: {emb_df.head()}")
             # Only drop the sequence column if it is NOT the id column
             if target_col != target_id_col and target_col in emb_df.columns:
                 logger.info(f"Dropping column {target_col} from emb_df")
