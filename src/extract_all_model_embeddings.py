@@ -126,10 +126,14 @@ def load_binding_data(
 
     if is_binding_data(data_fn):
         df = torch.load(data_fn, weights_only=False)
+        if nrows > 0:
+            df = df.head(nrows)
         df = df[BIND_COLS].drop_duplicates()
 
     if is_KM(data_fn):
         df = joblib.load(data_fn)
+        if nrows > 0:
+            df = df.head(nrows)
 
     logger.info(f"Loaded dataset: {len(df)} rows")
     if n_samples > 0:
