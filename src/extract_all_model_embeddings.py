@@ -5,6 +5,7 @@ import pandas as pd
 import argparse
 import torch
 import joblib
+from datetime import datetime
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
@@ -271,27 +272,17 @@ def main():
                     f"Column {embedding_col} not found. Available: {available_cols}"
                 )
 
-        # Determine output path - handle the pattern from shell script
-        if args.output_fn:
-            # If output_fn ends with underscore, append model and extension
-            if args.output_fn.endswith("_"):
-                output_file = Path(f"{args.output_fn}{mt}.pt")
-            else:
-                # Otherwise treat as base path and add model suffix
-                output_path = Path(args.output_fn)
-                if output_path.suffix:
-                    # Has extension, insert model type before extension
-                    stem = output_path.stem
-                    suffix = output_path.suffix
-                    parent = output_path.parent
-                    output_file = parent / f"{stem}_{mt}{suffix}"
-                else:
-                    # No extension, add model type and .pt
-                    output_file = Path(f"{args.output_fn}_{mt}.pt")
-        else:
-            # Default to current directory
-            output_file = Path(f"{mt}_embeddings.pt")
+        timestamp = datetime.now().strftime("%Y%m%d")
 
+        if args.output_fn:
+            out_path = Path(args.output_fn)
+            parent = out_path.parent
+            base = out_path.stem  # removes any extension, safe even if no extension
+            output_file = parent / f"{timestamp}_{base}.pt"
+        else:
+            output_file = Path(f"{timestamp}_embeddings.pt")
+
+        logger.info(f"Saving embeddings to: {output_file}")
         save_csv_parquet_torch(df, output_file)
 
     except Exception as e:
