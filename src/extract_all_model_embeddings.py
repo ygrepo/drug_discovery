@@ -248,7 +248,7 @@ def main():
                 output_fn=None,
             )
 
-            logger.info(f"emb_df before column filtering: {emb_df.head()}")
+            logger.debug(f"emb_df before column filtering: {emb_df.head()}")
 
             # Only drop the sequence column if it is NOT the id column
             if target_col != target_id_col and target_col in emb_df.columns:
