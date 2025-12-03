@@ -204,7 +204,7 @@ def main():
         is_binding_flag = is_binding_data(Path(args.data_fn))
         logger.info(f"Is binding data: {is_binding_flag}")
         is_KM_flag = is_KM_KCAT_KI(Path(args.data_fn))
-        logger.info(f"Is KM data: {is_KM_flag}")
+        logger.info(f"Is KM/Kcat/Ki data: {is_KM_flag}")
 
         df = load_binding_data(
             Path(args.data_fn), args.n_samples, args.nrows, args.seed
