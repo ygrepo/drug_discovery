@@ -4,6 +4,10 @@
 
 set -euo pipefail
 
+# Directory where this script lives (so we can find run_experiment_embeddings.sh)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+RUN_SCRIPT="${SCRIPT_DIR}/run_experiment_embeddings.sh"
+
 # ------------------------------------------------------------------
 # Experiment configuration
 # ------------------------------------------------------------------
@@ -90,8 +94,12 @@ for EXPERIMENT in "${EXPERIMENTS[@]}"; do
         echo "  Output fn: ${OUTPUT_FN}"
         echo "  Log fn:    ${LOG_FN}"
 
-        # Submit one job per (experiment, dataset)
-        bsub -J "$JOB_NAME" run_experiment_embeddings.sh \
+        # IMPORTANT: supply -P (and -W if your esub requires it) on the bsub command line
+        bsub \
+          -J "$JOB_NAME" \
+          -P acc_DiseaseGeneCell \
+          -W 100:00 \
+          "${RUN_SCRIPT}" \
             --data_fn "$DATA_FN" \
             --output_fn "$OUTPUT_FN" \
             --log_fn "$LOG_FN" \
@@ -99,5 +107,6 @@ for EXPERIMENT in "${EXPERIMENTS[@]}"; do
             --n_samples "$N_SAMPLES" \
             --nrows "$NROWS" \
             --seed "$SEED"
+
     done
 done
