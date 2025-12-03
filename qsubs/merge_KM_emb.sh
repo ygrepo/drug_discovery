@@ -37,7 +37,7 @@ OUTPUT_DIR="output/data"
 
 OUTPUT_FN="data_km_with_features_and_embeddings"
 N_SAMPLES=0
-NROWS=10
+NROWS=0
 LOG_DIR="logs"
 LOG_LEVEL="DEBUG"
 
@@ -73,7 +73,6 @@ set +e  # Disable exit on error to handle the error message
 echo "Starting with the following configuration:" | tee -a "$LOG_FILE"
 echo "  Data fn: ${DATA_FN}" | tee -a "$LOG_FILE"
 echo "  Embedding fn: ${EMBEDDING_FN}" | tee -a "$LOG_FILE"
-echo "  Random seed: ${SEED}" | tee -a "$LOG_FILE"
 echo "  Output fn: ${OUTPUT_FN}" | tee -a "$LOG_FILE"
 echo "  N_SAMPLES: ${N_SAMPLES}" | tee -a "$LOG_FILE"
 echo "  NROWS: ${NROWS}" | tee -a "$LOG_FILE"
