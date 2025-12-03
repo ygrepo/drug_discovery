@@ -97,6 +97,11 @@ for EXPERIMENT in "${EXPERIMENTS[@]}"; do
         # IMPORTANT: supply -P (and -W if your esub requires it) on the bsub command line
         bsub \
           -J "$JOB_NAME" \
+          -n 4 \
+          -q "gpu" \
+          -gpu "num=1" \
+          -R "a10080g" \
+          -R "rusage[mem=512G]" \
           -P acc_DiseaseGeneCell \
           -W 100:00 \
           "${RUN_SCRIPT}" \
@@ -107,6 +112,5 @@ for EXPERIMENT in "${EXPERIMENTS[@]}"; do
             --n_samples "$N_SAMPLES" \
             --nrows "$NROWS" \
             --seed "$SEED"
-
     done
 done

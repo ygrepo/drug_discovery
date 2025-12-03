@@ -6,7 +6,7 @@
 #BSUB -P acc_DiseaseGeneCell
 #BSUB -q gpu
 #BSUB -R h100nvl
-#BSUB -n 1
+#BSUB -n 4
 #BSUB -R "rusage[mem=512G]"
 #BSUB -W 100:00
 #BSUB -o logs/run_experiment_embeddings.%J.out
