@@ -31,7 +31,8 @@ export TORCH_HOME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.torch_hub"
 mkdir -p "$TORCH_HOME"
 
 # Default configuration
-DATA_FN="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/wangcDrugRepoProject/EnzymaticReactionPrediction/Regression_Data/exp_of_catpred_MPEK_EITLEM_inhouse_dataset/experiments/dataset_MPEK_km/A01_dataset/data_km_with_features.joblib"
+#DATA_FN="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/wangcDrugRepoProject/EnzymaticReactionPrediction/Regression_Data/exp_of_catpred_MPEK_EITLEM_inhouse_dataset/experiments/dataset_MPEK_km/A01_dataset/data_km_with_features.joblib"
+DATA_FN="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/wangcDrugRepoProject/EnzymaticReactionPrediction/Regression_Data/exp_of_catpred_MPEK_EITLEM_inhouse_dataset/experiments/dataset_catpred_kcat/kcat_with_features.joblib"
 EMBEDDING_FN="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/drug_discovery/output/data/20251203_data_km_embeddings.pt"
 OUTPUT_DIR="output/data"
 

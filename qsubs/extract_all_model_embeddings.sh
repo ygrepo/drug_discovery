@@ -32,23 +32,15 @@ export TORCH_HOME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.torch_hub"
 mkdir -p "$TORCH_HOME"
 
 # Default configuration
-#DATA_FN="bind_data/BindDB/BindDB.pt"
-#DATA_FN="bind_data/Davis/Davis.pt"
-#DATA_FN="bind_data/Kiba/Kiba.pt"
-#DATA_FN="bind_data/BindingDB/BindingDB_All_07282025.tsv"
-DATA_FN="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/wangcDrugRepoProject/EnzymaticReactionPrediction/Regression_Data/exp_of_catpred_MPEK_EITLEM_inhouse_dataset/experiments/dataset_MPEK_km/A01_dataset/data_km_with_features.joblib"
+#DATA_FN="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/wangcDrugRepoProject/EnzymaticReactionPrediction/Regression_Data/exp_of_catpred_MPEK_EITLEM_inhouse_dataset/experiments/dataset_MPEK_km/A01_dataset/data_km_with_features.joblib"
+BASE_DATA_DIR="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/wangcDrugRepoProject/EnzymaticReactionPrediction/Regression_Data/exp_of_catpred_MPEK_EITLEM_inhouse_dataset/experiments"
+EXPERIMENT="dataset_catpred_kcat"
+DATA="kcat_with_features.joblib"
+DATA_FN="${BASE_DATA_DIR}/${EXPERIMENT}/A01_dataset/${DATA}"
 OUTPUT_DIR="output/data"
-#OUTPUT_FN="${OUTPUT_DIR}/esmv1_structural_split_train_with_embeddings.csv"
-#OUTPUT_FN="${OUTPUT_DIR}/esm1_bindDB_embeddings.pt"
-#OUTPUT_FN="${OUTPUT_DIR}/esm2_t33_650M_UR50D_bindDB_embeddings.pt"
-#OUTPUT_FN="${OUTPUT_DIR}/mutaplm_bindDB_embeddings.pt"
-#OUTPUT_FN="${OUTPUT_DIR}/BindDB_embeddings.pt"
-#OUTPUT_FN="${OUTPUT_DIR}/Davis_embeddings.pt"
-#OUTPUT_FN="${OUTPUT_DIR}/Kiba_embeddings.pt"
-#OUTPUT_FN="${OUTPUT_DIR}/BindingDB_embeddings_"
-OUTPUT_FN="${OUTPUT_DIR}/data_km_embeddings"
+OUTPUT_FN="${OUTPUT_DIR}/${EXPERIMENT}_with_features_and_embeddings"
 N_SAMPLES=0
-NROWS=0
+NROWS=10
 LOG_DIR="logs"
 LOG_LEVEL="DEBUG"
 SEED=42
