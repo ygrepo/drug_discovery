@@ -32,6 +32,7 @@ EXPERIMENTS=(
   dataset_EITLEM_km
   dataset_inhouse_kd
   dataset_MPEK_kcat
+  dataset_MPEK_km
 )
 
 # Helper: given an experiment name, return one or more data basenames
@@ -45,10 +46,10 @@ get_data_basenames_for_experiment() {
             echo "ki_with_features.joblib"
             ;;
         dataset_catpred_km)
-            echo "kcat_data_with_features.joblib"   # adjust if needed
+            echo "km_data_with_features.joblib"   # adjust if needed
             ;;
         dataset_EITLEM_kcat)
-            echo "data_km_with_features.joblib"     # adjust if needed
+            echo "kcat_data_with_features.joblib"     # adjust if needed
             ;;
         dataset_EITLEM_kkm)
             echo "kkm_data_with_features.joblib"
@@ -62,6 +63,9 @@ get_data_basenames_for_experiment() {
         dataset_MPEK_kcat)
             # Special case: two datasets
             echo "data_kcat_with_features.joblib data_km_with_features.joblib"
+            ;;
+        dataset_MPEK_km)
+            echo "data_km_with_features.joblib"
             ;;
         *)
             echo "Unknown EXPERIMENT: $exp" >&2
@@ -84,7 +88,7 @@ for EXPERIMENT in "${EXPERIMENTS[@]}"; do
         DATA_STEM="${DATA_STEM%.joblib}"
         DATA_STEM="${DATA_STEM// /_}"
 
-        OUTPUT_FN="${OUTPUT_DIR}/${EXPERIMENT}_${DATA_STEM}_with_features_and_embeddings"
+        OUTPUT_FN="${OUTPUT_DIR}/${EXPERIMENT}_${DATA_STEM}_and_embeddings"
         LOG_FN="${LOG_DIR}/extract_embeddings_${EXPERIMENT}_${DATA_STEM}.log"
 
         JOB_NAME="emb_${EXPERIMENT}_${DATA_STEM}"
@@ -99,7 +103,7 @@ for EXPERIMENT in "${EXPERIMENTS[@]}"; do
           -J "$JOB_NAME" \
           -n 4 \
           -q "gpu" \
-          -gpu "num=1" \
+          -gpu "num=4" \
           -R "a10080g" \
           -R "rusage[mem=512G]" \
           -P acc_DiseaseGeneCell \
