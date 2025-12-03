@@ -94,7 +94,7 @@ def is_BindDB(data_fn: Path) -> bool:
 
 
 def is_KM_KCAT_KI(data_fn: Path) -> bool:
-    return "data_km" in str(data_fn) or "kcat" in str(data_fn) or "ki" in str(data_fn)
+    return "km" in str(data_fn) or "kcat" in str(data_fn) or "ki" in str(data_fn)
 
 
 def load_binding_data(
