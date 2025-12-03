@@ -17,7 +17,7 @@ OUTPUT_DIR="output/data"
 LOG_DIR="logs"
 LOG_LEVEL="DEBUG"
 N_SAMPLES=0
-NROWS=10
+NROWS=0
 SEED=42
 
 mkdir -p "$OUTPUT_DIR" "$LOG_DIR"
