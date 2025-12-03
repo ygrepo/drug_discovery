@@ -85,23 +85,6 @@ def parse_args():
     return parser.parse_args()
 
 
-def load_data(data_fn: Path, n: int, seed: int) -> pd.DataFrame:
-    """Load the dataset."""
-    df = pd.read_csv(
-        Path(data_fn),
-        low_memory=False,
-    )
-    df.drop(columns=["Unnamed: 0"], inplace=True)
-    # Drop missing sequences
-    df = df.dropna(subset=["protein1", "protein2"])
-    logger.info(f"Loaded dataset: {len(df)} rows")
-    if n > 0:
-        logger.info(f"Sampling {n} rows")
-        df = df.sample(n=n, random_state=seed)
-    logger.info(f"Loaded dataset: {len(df)} rows")
-    return df
-
-
 def is_binding_data(data_fn: Path) -> bool:
     return "bind" in str(data_fn)
 

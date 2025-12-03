@@ -1,16 +1,15 @@
 #!/bin/bash
-#   extract_all_model_embeddings.sh    — submit extract_all_model_embeddings jobs to LSF GPU queue
+#   merge_KM_embeddings.sh    — submit merge_KM_embeddings jobs to LSF GPU queue
 
 
-#BSUB -J extract_all_model_embeddings
+#BSUB -J merge_KM_embeddings
 #BSUB -P acc_DiseaseGeneCell
-#BSUB -q gpu
-#BSUB -R h100nvl
-#BSUB -n 1
-#BSUB -R "rusage[mem=512G]"
+#BSUB -q premium
+#BSUB -n 4
+#BSUB -R "rusage[mem=64G]"
 #BSUB -W 100:00
-#BSUB -o logs/extract_all_model_embeddings.%J.out
-#BSUB -e logs/extract_all_model_embeddings.%J.err
+#BSUB -o logs/merge_KM_embeddings.%J.out
+#BSUB -e logs/merge_KM_embeddings.%J.err
 
 set -euo pipefail
 
@@ -32,23 +31,13 @@ export TORCH_HOME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.torch_hub"
 mkdir -p "$TORCH_HOME"
 
 # Default configuration
-#DATA_FN="bind_data/BindDB/BindDB.pt"
-#DATA_FN="bind_data/Davis/Davis.pt"
-#DATA_FN="bind_data/Kiba/Kiba.pt"
-#DATA_FN="bind_data/BindingDB/BindingDB_All_07282025.tsv"
 DATA_FN="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/wangcDrugRepoProject/EnzymaticReactionPrediction/Regression_Data/exp_of_catpred_MPEK_EITLEM_inhouse_dataset/experiments/dataset_MPEK_km/A01_dataset/data_km_with_features.joblib"
+EMBEDDING_FN="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/drug_discovery/output/data/20251203_data_km_embeddings.pt"
 OUTPUT_DIR="output/data"
-#OUTPUT_FN="${OUTPUT_DIR}/esmv1_structural_split_train_with_embeddings.csv"
-#OUTPUT_FN="${OUTPUT_DIR}/esm1_bindDB_embeddings.pt"
-#OUTPUT_FN="${OUTPUT_DIR}/esm2_t33_650M_UR50D_bindDB_embeddings.pt"
-#OUTPUT_FN="${OUTPUT_DIR}/mutaplm_bindDB_embeddings.pt"
-#OUTPUT_FN="${OUTPUT_DIR}/BindDB_embeddings.pt"
-#OUTPUT_FN="${OUTPUT_DIR}/Davis_embeddings.pt"
-#OUTPUT_FN="${OUTPUT_DIR}/Kiba_embeddings.pt"
-#OUTPUT_FN="${OUTPUT_DIR}/BindingDB_embeddings_"
-OUTPUT_FN="${OUTPUT_DIR}/data_km_embeddings"
+
+OUTPUT_FN="${OUTPUT_DIR}/data_km_with_features_and_embeddings"
 N_SAMPLES=0
-NROWS=0
+NROWS=10
 LOG_DIR="logs"
 LOG_LEVEL="DEBUG"
 SEED=42
@@ -58,6 +47,7 @@ SEED=42
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --data_fn) DATA_FN="$2"; shift 2 ;;
+    --embedding_fn) EMBEDDING_FN="$2"; shift 2 ;;
     --output_fn) OUTPUT_FN="$2"; shift 2 ;;
     --n) N="$2"; shift 2 ;;
     --log_dir) LOG_DIR="$2"; shift 2 ;;
@@ -74,7 +64,7 @@ mkdir -p "$LOG_DIR"
 
 # Set up log file with timestamp
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-LOG_FILE="${LOG_DIR}/extract_embeddings_${TIMESTAMP}.log"
+LOG_FILE="${LOG_DIR}/merge_KM_embeddings_${TIMESTAMP}.log"
 
 echo "Starting training at $(date)" | tee -a "$LOG_FILE"
 echo "Logging to: $LOG_FILE" | tee -a "$LOG_FILE"
@@ -83,6 +73,7 @@ echo "Logging to: $LOG_FILE" | tee -a "$LOG_FILE"
 set +e  # Disable exit on error to handle the error message
 echo "Starting with the following configuration:" | tee -a "$LOG_FILE"
 echo "  Data fn: ${DATA_FN}" | tee -a "$LOG_FILE"
+echo "  Embedding fn: ${EMBEDDING_FN}" | tee -a "$LOG_FILE"
 echo "  Random seed: ${SEED}" | tee -a "$LOG_FILE"
 echo "  Output fn: ${OUTPUT_FN}" | tee -a "$LOG_FILE"
 echo "  N_SAMPLES: ${N_SAMPLES}" | tee -a "$LOG_FILE"
@@ -93,11 +84,12 @@ echo "  Log file: ${LOG_FILE}" | tee -a "$LOG_FILE"
 export CUDA_LAUNCH_BLOCKING=1
 
 PYTHON="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.conda/envs/drug_discovery_env/bin/python"
-MAIN="src/extract_all_model_embeddings.py"
+MAIN="src/merge_KM_embeddings.py"
 
 set +e
 "${PYTHON}" "${MAIN}" \
     --data_fn "$DATA_FN" \
+    --embedding_fn "$EMBEDDING_FN" \
     --output_fn "$OUTPUT_FN" \
     --log_fn "$LOG_FILE" \
     --log_level "$LOG_LEVEL" \
