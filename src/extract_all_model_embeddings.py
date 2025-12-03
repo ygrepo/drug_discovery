@@ -93,8 +93,8 @@ def is_BindDB(data_fn: Path) -> bool:
     return "BindingDB" in str(data_fn)
 
 
-def is_KM_KCAT(data_fn: Path) -> bool:
-    return "data_km" in str(data_fn) or "kcat" in str(data_fn)
+def is_KM_KCAT_KI(data_fn: Path) -> bool:
+    return "data_km" in str(data_fn) or "kcat" in str(data_fn) or "ki" in str(data_fn)
 
 
 def load_binding_data(
@@ -114,7 +114,7 @@ def load_binding_data(
             df = df.head(nrows)
         df = df[BIND_COLS].drop_duplicates()
 
-    elif is_KM_KCAT(data_fn):
+    elif is_KM_KCAT_KI(data_fn):
         df = joblib.load(data_fn)
         if nrows > 0:
             df = df.head(nrows)
@@ -122,7 +122,7 @@ def load_binding_data(
 
     else:
         raise ValueError(f"Unknown data format: {data_fn}")
-    
+
     logger.info(f"Loaded dataset: {len(df)} rows")
     if n_samples > 0:
         logger.info(f"Sampling {n_samples} rows")
@@ -137,7 +137,7 @@ def get_target_col(data_fn: Path) -> str:
         return BINDDB_COLS[1]
     if is_binding_data(data_fn):
         return BIND_COLS[1]
-    if is_KM(data_fn):
+    if is_KM_KCAT_KI(data_fn):
         return KM_COLS[1]
     raise ValueError(f"Unknown data format: {data_fn}")
 
@@ -148,7 +148,7 @@ def get_target_id_col(data_fn: Path) -> str:
         return BINDDB_COLS[0]
     if is_binding_data(data_fn):
         return BIND_COLS[0]
-    if is_KM(data_fn):
+    if is_KM_KCAT_KI(data_fn):
         return KM_COLS[0]
     raise ValueError(f"Unknown data format: {data_fn}")
 
@@ -203,7 +203,7 @@ def main():
         logger.info(f"Is BindDB: {is_BindDB_flag}")
         is_binding_flag = is_binding_data(Path(args.data_fn))
         logger.info(f"Is binding data: {is_binding_flag}")
-        is_KM_flag = is_KM(Path(args.data_fn))
+        is_KM_flag = is_KM_KCAT_KI(Path(args.data_fn))
         logger.info(f"Is KM data: {is_KM_flag}")
 
         df = load_binding_data(
