@@ -128,7 +128,7 @@ def read_csv_parquet_torch(fn: Path) -> pd.DataFrame:
     if fn.suffix == ".csv":
         return pd.read_csv(fn)
     if fn.suffix == ".pt":
-        return torch.load(fn)
+        return torch.load(fn, weights_only=False)
     raise ValueError(f"Unsupported file format: {fn.suffix}")
 
 
@@ -393,7 +393,7 @@ def add_sequence_hashes(
     df: pd.DataFrame, target_col: str = "Target", hash_length: int = 8
 ) -> pd.DataFrame:
     """Add hash column without modifying original sequence column"""
-    #df = df.copy()
+    # df = df.copy()
 
     # Add new column with hashes, keep original intact
     df[f"{target_col}_hash"] = df[target_col].apply(create_hash)
