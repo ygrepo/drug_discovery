@@ -75,6 +75,12 @@ def parse_args():
         default="INFO",
         help="Logging level (e.g., 'INFO', 'DEBUG')",
     )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Random seed for reproducibility",
+    )
     return parser.parse_args()
 
 
@@ -134,6 +140,7 @@ def main():
         logger.info(f"Output fn: {args.output_fn}")
         logger.info(f"Number of samples: {args.n_samples}")
         logger.info(f"Number of rows: {args.nrows}")
+        logger.info(f"Random seed: {args.seed}")
 
         # Load data
         is_BindDB_flag = is_BindDB(Path(args.data_fn))

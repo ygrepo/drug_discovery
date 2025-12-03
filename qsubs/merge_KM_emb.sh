@@ -40,7 +40,6 @@ N_SAMPLES=0
 NROWS=10
 LOG_DIR="logs"
 LOG_LEVEL="DEBUG"
-SEED=42
 
 
 # Parse command line arguments
@@ -52,7 +51,6 @@ while [[ $# -gt 0 ]]; do
     --n) N="$2"; shift 2 ;;
     --log_dir) LOG_DIR="$2"; shift 2 ;;
     --log_level) LOG_LEVEL="$2"; shift 2 ;;
-    --seed) SEED="$2"; shift 2 ;;
     *) echo "Unknown parameter: $1"; exit 1 ;;
   esac
 done
@@ -93,7 +91,6 @@ set +e
     --output_fn "$OUTPUT_FN" \
     --log_fn "$LOG_FILE" \
     --log_level "$LOG_LEVEL" \
-    --seed "$SEED" \
     --n_samples "$N_SAMPLES" \
     --nrows "$NROWS"
 exit_code=$?
