@@ -58,8 +58,14 @@ def parse_args():
         help="Path to the embedding file",
     )
     parser.add_argument(
-        "--output_fn",
+        "--output_dir",
         type=Path,
+        default="output/data",
+        help="Path to the output directory",
+    )
+    parser.add_argument(
+        "--output_fn",
+        type=str,
         default="",
         help="Path to the output dataset file",
     )
@@ -137,6 +143,7 @@ def main():
         logger.info(f"Logging to: {args.log_fn}")
         logger.info(f"Data fn: {args.data_fn}")
         logger.info(f"Embedding fn: {args.embedding_fn}")
+        logger.info(f"Output dir: {args.output_dir}")
         logger.info(f"Output fn: {args.output_fn}")
         logger.info(f"Number of samples: {args.n_samples}")
         logger.info(f"Number of rows: {args.nrows}")
@@ -157,7 +164,8 @@ def main():
         df = df.merge(emb_df, on="Sequence", how="left")
         logger.info(f"Merged df: {len(df)} rows")
         timestamp = datetime.now().strftime("%Y%m%d")
-        output_file = Path(f"{timestamp}_{str(args.output_fn.resolve())}.pt")
+        output_dir = args.output_dir.resolve()
+        output_file = output_dir / f"{timestamp}_{args.output_fn}.pt"
         logger.info(f"Saving embeddings to: {output_file}")
         save_csv_parquet_torch(df, output_file)
 
