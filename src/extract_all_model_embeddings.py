@@ -93,8 +93,8 @@ def is_BindDB(data_fn: Path) -> bool:
     return "BindingDB" in str(data_fn)
 
 
-def is_KM(data_fn: Path) -> bool:
-    return "data_km" in str(data_fn)
+def is_KM_KCAT(data_fn: Path) -> bool:
+    return "data_km" in str(data_fn) or "kcat" in str(data_fn)
 
 
 def load_binding_data(
@@ -108,18 +108,21 @@ def load_binding_data(
             df = pd.read_csv(data_fn, sep="\t", usecols=BINDDB_COLS)
         df.drop_duplicates(inplace=True)
 
-    if is_binding_data(data_fn):
+    elif is_binding_data(data_fn):
         df = torch.load(data_fn, weights_only=False)
         if nrows > 0:
             df = df.head(nrows)
         df = df[BIND_COLS].drop_duplicates()
 
-    if is_KM(data_fn):
+    elif is_KM_KCAT(data_fn):
         df = joblib.load(data_fn)
         if nrows > 0:
             df = df.head(nrows)
         df = df[[KM_COLS[0]]].drop_duplicates()
 
+    else:
+        raise ValueError(f"Unknown data format: {data_fn}")
+    
     logger.info(f"Loaded dataset: {len(df)} rows")
     if n_samples > 0:
         logger.info(f"Sampling {n_samples} rows")
