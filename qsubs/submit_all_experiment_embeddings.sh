@@ -24,16 +24,19 @@ mkdir -p "$OUTPUT_DIR" "$LOG_DIR"
 
 # List of experiments you want to process
 EXPERIMENTS=(
-  dataset_catpred_kcat
-  dataset_catpred_ki
   dataset_catpred_km
-  dataset_EITLEM_kcat
-  dataset_EITLEM_kkm
-  dataset_EITLEM_km
-  dataset_inhouse_kd
-  dataset_MPEK_kcat
-  dataset_MPEK_km
 )
+# EXPERIMENTS=(
+#   dataset_catpred_kcat
+#   dataset_catpred_ki
+#   dataset_catpred_km
+#   dataset_EITLEM_kcat
+#   dataset_EITLEM_kkm
+#   dataset_EITLEM_km
+#   dataset_inhouse_kd
+#   dataset_MPEK_kcat
+#   dataset_MPEK_km
+# )
 
 # Helper: given an experiment name, return one or more data basenames
 get_data_basenames_for_experiment() {
@@ -46,7 +49,7 @@ get_data_basenames_for_experiment() {
             echo "ki_with_features.joblib"
             ;;
         dataset_catpred_km)
-            echo "km_data_with_features.joblib"   # adjust if needed
+            echo "km_with_features.joblib"   # adjust if needed
             ;;
         dataset_EITLEM_kcat)
             echo "kcat_data_with_features.joblib"     # adjust if needed
