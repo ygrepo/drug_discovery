@@ -103,7 +103,7 @@ for EXPERIMENT in "${EXPERIMENTS[@]}"; do
           -J "$JOB_NAME" \
           -n 4 \
           -q "gpu" \
-          -gpu "num=4" \
+          -gpu "num=2" \
           -R "a10080g" \
           -R "rusage[mem=512G]" \
           -P acc_DiseaseGeneCell \
