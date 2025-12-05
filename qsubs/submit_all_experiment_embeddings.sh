@@ -24,8 +24,8 @@ mkdir -p "$OUTPUT_DIR" "$LOG_DIR"
 
 # List of experiments you want to process
 EXPERIMENTS=(
-      dataset_EITLEM_km
-    #   dataset_MPEK_kcat
+    #  dataset_EITLEM_km
+    dataset_MPEK_kcat
     #   dataset_MPEK_km
 )
 # EXPERIMENTS=(
