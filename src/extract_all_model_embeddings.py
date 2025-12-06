@@ -97,6 +97,10 @@ def is_KM_KCAT_KI(data_fn: Path) -> bool:
     return "km" in str(data_fn) or "kcat" in str(data_fn) or "ki" in str(data_fn)
 
 
+def is_inhouse(data_fn: Path) -> bool:
+    return "inhouse" in str(data_fn)
+
+
 def load_binding_data(
     data_fn: Path, n_samples: int, nrows: int, seed: int
 ) -> pd.DataFrame:
@@ -120,6 +124,12 @@ def load_binding_data(
             df = df.head(nrows)
         df = df[[KM_COLS[0]]].drop_duplicates()
 
+    elif is_inhouse(data_fn):
+        df = pd.read_csv(data_fn)
+        if nrows > 0:
+            df = df.head(nrows)
+        df = df[[KM_COLS[0]]].drop_duplicates()
+
     else:
         raise ValueError(f"Unknown data format: {data_fn}")
 
@@ -139,6 +149,8 @@ def get_target_col(data_fn: Path) -> str:
         return BIND_COLS[1]
     if is_KM_KCAT_KI(data_fn):
         return KM_COLS[1]
+    if is_inhouse(data_fn):
+        return KM_COLS[1]
     raise ValueError(f"Unknown data format: {data_fn}")
 
 
@@ -149,6 +161,8 @@ def get_target_id_col(data_fn: Path) -> str:
     if is_binding_data(data_fn):
         return BIND_COLS[0]
     if is_KM_KCAT_KI(data_fn):
+        return KM_COLS[0]
+    if is_inhouse(data_fn):
         return KM_COLS[0]
     raise ValueError(f"Unknown data format: {data_fn}")
 
@@ -205,6 +219,8 @@ def main():
         logger.info(f"Is binding data: {is_binding_flag}")
         is_KM_flag = is_KM_KCAT_KI(Path(args.data_fn))
         logger.info(f"Is KM/Kcat/Ki data: {is_KM_flag}")
+        is_inhouse_flag = is_inhouse(Path(args.data_fn))
+        logger.info(f"Is inhouse data: {is_inhouse_flag}")
 
         df = load_binding_data(
             Path(args.data_fn), args.n_samples, args.nrows, args.seed

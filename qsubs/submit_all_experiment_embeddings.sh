@@ -14,12 +14,6 @@ RUN_SCRIPT="${SCRIPT_DIR}/run_experiment_embeddings.sh"
 #BASE_DATA_DIR="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/wangcDrugRepoProject/EnzymaticReactionPrediction/Regression_Data/exp_of_catpred_MPEK_EITLEM_inhouse_dataset/experiments"
 BASE_DATA_DIR="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/drug_discovery/output/data"
 
-
-
-
-
-
-
 OUTPUT_DIR="output/data"
 LOG_DIR="logs"
 LOG_LEVEL="DEBUG"
