@@ -11,7 +11,14 @@ RUN_SCRIPT="${SCRIPT_DIR}/run_experiment_embeddings.sh"
 # ------------------------------------------------------------------
 # Experiment configuration
 # ------------------------------------------------------------------
-BASE_DATA_DIR="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/wangcDrugRepoProject/EnzymaticReactionPrediction/Regression_Data/exp_of_catpred_MPEK_EITLEM_inhouse_dataset/experiments"
+#BASE_DATA_DIR="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/wangcDrugRepoProject/EnzymaticReactionPrediction/Regression_Data/exp_of_catpred_MPEK_EITLEM_inhouse_dataset/experiments"
+BASE_DATA_DIR="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/drug_discovery/output/data"
+
+
+
+
+
+
 
 OUTPUT_DIR="output/data"
 LOG_DIR="logs"
@@ -62,7 +69,8 @@ get_data_basenames_for_experiment() {
             echo "km_data_with_features.joblib"
             ;;
         dataset_inhouse_kd)
-            echo "data.joblib"
+            # echo "data.joblib"
+            echo "inhouse_dataset_with_embeddings_dataset_na_1206.csv"
             ;;
         dataset_MPEK_kcat)
             # Special case: two datasets
@@ -108,7 +116,7 @@ for EXPERIMENT in "${EXPERIMENTS[@]}"; do
           -n 4 \
           -q "gpu" \
           -gpu "num=2" \
-          -R "a10080g" \
+          -R "h100nvl" \
           -R "rusage[mem=512G]" \
           -P acc_DiseaseGeneCell \
           -W 100:00 \
@@ -122,3 +130,5 @@ for EXPERIMENT in "${EXPERIMENTS[@]}"; do
             --seed "$SEED"
     done
 done
+h100nvl
+#          -R "a10080g" \
