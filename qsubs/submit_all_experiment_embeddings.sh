@@ -130,5 +130,4 @@ for EXPERIMENT in "${EXPERIMENTS[@]}"; do
             --seed "$SEED"
     done
 done
-h100nvl
 #          -R "a10080g" \
