@@ -24,7 +24,7 @@ mkdir -p "$OUTPUT_DIR" "$LOG_DIR"
 
 # List of experiments you want to process
 EXPERIMENTS=(
-    dataset_catpred_km
+    dataset_inhouse_kd
 )
 
 # EXPERIMENTS=(
