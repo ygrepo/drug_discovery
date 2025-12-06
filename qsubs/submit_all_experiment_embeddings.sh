@@ -88,13 +88,15 @@ for EXPERIMENT in "${EXPERIMENTS[@]}"; do
     read -r -a DATA_BASENAMES <<<"$(get_data_basenames_for_experiment "$EXPERIMENT")"
 
     for DATA_BASENAME in "${DATA_BASENAMES[@]}"; do
-        DATA_FN="${BASE_DATA_DIR}/${EXPERIMENT}/A01_dataset/${DATA_BASENAME}"
+        DATA_FN="${BASE_DATA_DIR}/${DATA_BASENAME}"
+        #DATA_FN="${BASE_DATA_DIR}/${EXPERIMENT}/A01_dataset/${DATA_BASENAME}"
 
         DATA_STEM="${DATA_BASENAME##*/}"
         DATA_STEM="${DATA_STEM%.joblib}"
         DATA_STEM="${DATA_STEM// /_}"
 
-        OUTPUT_FN="${OUTPUT_DIR}/${EXPERIMENT}_${DATA_STEM}_and_embeddings"
+        #OUTPUT_FN="${OUTPUT_DIR}/${EXPERIMENT}_${DATA_STEM}_and_embeddings"
+        OUTPUT_FN="${OUTPUT_DIR}/${EXPERIMENT}_and_embeddings"
         LOG_FN="${LOG_DIR}/extract_embeddings_${EXPERIMENT}_${DATA_STEM}.log"
 
         JOB_NAME="emb_${EXPERIMENT}_${DATA_STEM}"
