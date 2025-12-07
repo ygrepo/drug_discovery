@@ -77,9 +77,12 @@ class ModelType(Enum):
         )
         mapping = {
             # ESMv1: return hub alias (cleaner)
-            ModelType.ESMV1: "esm1v_t33_650M_UR90S_5",
+            # ModelType.ESMV1: "esm1v_t33_650M_UR90S_5",
             # ModelType.ESMV1: "/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/esm1v_t33_650M_UR90S_5",
             # ESM2 can be an HF repo id or a local dir
+            ModelType.ESMV1: Path(
+                os.getenv("ESM2_PATH", str(base / "esm1v_t33_650M_UR90S_5_safe"))
+            ),
             ModelType.ESM2: Path(
                 os.getenv("ESM2_PATH", str(base / "esm2_t33_650M_UR50D_safe"))
             ),
@@ -310,13 +313,19 @@ def load_model_factory(
     device = _device_or_default(None)
     logger.info("Using device: %s", device)
 
+    # if model_type == ModelType.ESMV1:
+    #     model_ref = model_type.path  # can be a hub name *or* a local .pt path
+    #     model, alphabet, src = load_fair_esm_v1_cached(model_ref, device=device)
+    #     _attach_max_len(model, model_type)
+    #     logger.info("Loaded FAIR ESMv1 model and Alphabet (%s)", src)
+    #     return model, alphabet
     if model_type == ModelType.ESMV1:
-        model_ref = model_type.path  # can be a hub name *or* a local .pt path
-        model, alphabet, src = load_fair_esm_v1_cached(model_ref, device=device)
+        model_path = str(model_type.path)
+        model = load_HF_model(model_path).to(device).eval()
+        CACHE_DIR = os.environ.get("HF_CACHE_DIR")
+        logger.info(f"Loading Tokenizer from {CACHE_DIR}")
+        tokenizer = load_HF_tokenizer(model_path, HF_TOKEN=None, CACHE_DIR=CACHE_DIR)
         _attach_max_len(model, model_type)
-        logger.info("Loaded FAIR ESMv1 model and Alphabet (%s)", src)
-        return model, alphabet
-
     if model_type == ModelType.ESM2:
         # (unchanged HF path)
         model_path = str(model_type.path)

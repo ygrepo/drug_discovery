@@ -13,6 +13,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from src.model_util import (
     retrieve_embeddings,
     PLM_MODEL_NO_ESM1V,
+    PLM_MODEL,
     load_model_factory,
     ModelType,
 )
@@ -230,7 +231,7 @@ def main():
         target_col = get_target_col(Path(args.data_fn))
         logger.info(f"Target id col: {target_id_col}-target col: {target_col}")
 
-        for mt in PLM_MODEL_NO_ESM1V:
+        for mt in PLM_MODEL:
             logger.info(f"Extracting embeddings for {mt}...")
             model, tokenizer = load_model_factory(mt, config_path=Path(args.config))
             logger.info("Model loaded successfully.")
