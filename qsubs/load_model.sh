@@ -40,10 +40,10 @@ export HF_TOKEN_PATH="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/tokens/h
 LOG_DIR="logs"
 LOG_LEVEL="INFO"
 #MODEL_TYPE="ESM2"
-#MODEL_TYPE="ESMv1"
+MODEL_TYPE="ESMv1"
 #MODEL_TYPE="MUTAPLM"
 #MODEL_TYPE="ProteinCLIP"
-MODEL_TYPE="LLAMA"
+#MODEL_TYPE="LLAMA"
 
 
 # Parse command line arguments
