@@ -3,7 +3,6 @@ from __future__ import annotations
 from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM
 
 import os
-import logging
 import numpy as np
 import torch
 import torch.nn as nn
@@ -33,6 +32,9 @@ _ESM2_REPO = {
 
 from src.utils import cosine_similarity, save_csv_parquet_torch, get_logger
 
+logger = get_logger(__name__)
+
+
 SYS_INFER = (
     "You are an expert at biology and life science. Now a user gives you several protein sequences "
     "and mutations. Please follow user instructions and answer their questions."
@@ -42,7 +44,7 @@ SYS_INFER = (
 try:
     from esm import pretrained  # FAIR’s original library
 except ImportError:
-    warnings.warn("FAIR esm not installed. `pip install fair-esm`")
+    logger.warn("FAIR esm not installed. `pip install fair-esm`")
 
 VALID_AAS = set("ACDEFGHIKLMNPQRSTVWY")
 
@@ -55,9 +57,6 @@ def sanitize_sequence(seq: str) -> tuple[str, int]:
     replaced = sum(1 for aa in seq if aa not in VALID_AAS)
     clean_seq = "".join([aa if aa in VALID_AAS else "X" for aa in seq])
     return clean_seq, replaced
-
-
-logger = get_logger(__name__)
 
 
 # Enum for model types
@@ -78,7 +77,7 @@ class ModelType(Enum):
         )
         mapping = {
             # ESMv1: return hub alias (cleaner)
-            ModelType.ESMV1: "esm1v_t33_650M_UR90S_5",
+            ModelType.ESMV1: "/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/esm1v_t33_650M_UR90S_5",
             # ESM2 can be an HF repo id or a local dir
             ModelType.ESM2: Path(
                 os.getenv("ESM2_PATH", str(base / "esm2_t33_650M_UR50D_safe"))
@@ -263,7 +262,7 @@ def load_fair_esm_v1_cached(model_ref: str | Path, *, device: torch.device):
     hub_dir = _ensure_torch_home()
     ref = str(model_ref)
     is_local = ref.endswith(".pt") and Path(ref).is_file()
-
+    logger.info(f"Loading ESMv1 model: {ref} (is_local={is_local})")
     if is_local:
         # Local .pt explicitly provided
         model, alphabet = pretrained.load_model_and_alphabet_local(ref)
