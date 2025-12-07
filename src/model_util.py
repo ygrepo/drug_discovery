@@ -81,7 +81,7 @@ class ModelType(Enum):
             # ModelType.ESMV1: "/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/esm1v_t33_650M_UR90S_5",
             # ESM2 can be an HF repo id or a local dir
             ModelType.ESMV1: Path(
-                os.getenv("ESM2_PATH", str(base / "esm1v_t33_650M_UR90S_5_safe"))
+                "/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/drug_discovery/output/esm1v_local"
             ),
             ModelType.ESM2: Path(
                 os.getenv("ESM2_PATH", str(base / "esm2_t33_650M_UR50D_safe"))
@@ -321,7 +321,8 @@ def load_model_factory(
     #     return model, alphabet
     if model_type == ModelType.ESMV1:
         model_path = str(model_type.path)
-        model = load_HF_model(model_path).eval()
+        model = load_HF_model(model_path)
+        model.eval()
         CACHE_DIR = os.environ.get("HF_CACHE_DIR")
         logger.info(f"Loading Tokenizer from {CACHE_DIR}")
         tokenizer = load_HF_tokenizer(model_path, HF_TOKEN=None, CACHE_DIR=CACHE_DIR)
@@ -332,7 +333,8 @@ def load_model_factory(
     if model_type == ModelType.ESM2:
         # (unchanged HF path)
         model_path = str(model_type.path)
-        model = load_HF_model(model_path).eval()
+        model = load_HF_model(model_path)
+        model.eval()
         CACHE_DIR = os.environ.get("HF_CACHE_DIR")
         logger.info(f"Loading Tokenizer from {CACHE_DIR}")
         tokenizer = load_HF_tokenizer(model_path, HF_TOKEN=None, CACHE_DIR=CACHE_DIR)
