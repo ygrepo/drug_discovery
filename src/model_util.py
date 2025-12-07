@@ -326,6 +326,9 @@ def load_model_factory(
         logger.info(f"Loading Tokenizer from {CACHE_DIR}")
         tokenizer = load_HF_tokenizer(model_path, HF_TOKEN=None, CACHE_DIR=CACHE_DIR)
         _attach_max_len(model, model_type)
+        logger.info("Loaded HF ESM2: %s", model_path)
+        return model, tokenizer
+
     if model_type == ModelType.ESM2:
         # (unchanged HF path)
         model_path = str(model_type.path)
