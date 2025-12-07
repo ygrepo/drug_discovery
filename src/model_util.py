@@ -77,7 +77,8 @@ class ModelType(Enum):
         )
         mapping = {
             # ESMv1: return hub alias (cleaner)
-            ModelType.ESMV1: "/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/esm1v_t33_650M_UR90S_5",
+            ModelType.ESMV1: "esm1v_t33_650M_UR90S_5",
+            # ModelType.ESMV1: "/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models/esm1v_t33_650M_UR90S_5",
             # ESM2 can be an HF repo id or a local dir
             ModelType.ESM2: Path(
                 os.getenv("ESM2_PATH", str(base / "esm2_t33_650M_UR50D_safe"))
@@ -102,6 +103,7 @@ class ModelType(Enum):
 
 
 PLM_MODEL = [ModelType.ESMV1, ModelType.ESM2, ModelType.MUTAPLM, ModelType.PROTEINCLIP]
+PLM_MODEL_NO_ESM1V = [ModelType.ESM2, ModelType.MUTAPLM, ModelType.PROTEINCLIP]
 MODEL_TYPE = list(ModelType)
 
 
