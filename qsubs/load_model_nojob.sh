@@ -48,20 +48,19 @@ echo "  Log level: ${LOG_LEVEL}" | tee -a "$LOG_FILE"
 echo "  Log file: ${LOG_FILE}" | tee -a "$LOG_FILE"
 echo "  Model type: ${MODEL_TYPE}" | tee -a "$LOG_FILE"
 
-
-
 set +e
 python \
     "src/load_model.py" \
     --log_fn "$LOG_FILE" \
     --log_level "$LOG_LEVEL" \
-    --model_type "$MODEL_TYPE" \
+    --model_type "$MODEL_TYPE"
+
 exit_code=$?
 set -e
 
 if [[ ${exit_code} -eq 0 ]]; then
-  echo "OK: ${combo} finished at $(date)" | tee -a "${log_file}"
+  echo "OK: finished at $(date)" | tee -a "$LOG_FILE"
 else
-  echo "ERROR: ${combo} failed with exit code ${exit_code} at $(date)" | tee -a "${log_file}"
+  echo "ERROR: failed with exit code ${exit_code} at $(date)" | tee -a "$LOG_FILE"
   exit ${exit_code}
 fi
