@@ -30,8 +30,8 @@ ml proxies/1 || true
 
 #export HF_HOME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.cache/huggingface"
 export HF_HOME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/models"
-
 mkdir -p "$HF_HOME"
+
 export TORCH_HOME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.torch_hub"
 mkdir -p "$TORCH_HOME"
 
