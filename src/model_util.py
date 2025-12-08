@@ -151,9 +151,6 @@ def load_HF_model(model_name: str) -> AutoModel:
     model = AutoModel.from_pretrained(model_name, add_pooling_layer=False)
     max_len = getattr(model.config, "max_position_embeddings", 1024)
     logger.info(f"Model max token length (from config): {max_len}")
-    device = _device_or_default(None)
-    model.to(device)
-    model.eval()
     return model
 
 
@@ -313,30 +310,29 @@ def load_model_factory(
     device = _device_or_default(None)
     logger.info("Using device: %s", device)
 
-    # if model_type == ModelType.ESMV1:
-    #     model_ref = model_type.path  # can be a hub name *or* a local .pt path
-    #     model, alphabet, src = load_fair_esm_v1_cached(model_ref, device=device)
-    #     _attach_max_len(model, model_type)
-    #     logger.info("Loaded FAIR ESMv1 model and Alphabet (%s)", src)
-    #     return model, alphabet
     if model_type == ModelType.ESMV1:
-        model_path = str(model_type.path)
-        model = load_HF_model(model_path)
-        model.to(device)
-        model.eval()
-        CACHE_DIR = os.environ.get("HF_CACHE_DIR")
-        logger.info(f"Loading Tokenizer from {CACHE_DIR}")
-        tokenizer = load_HF_tokenizer(model_path, HF_TOKEN=None, CACHE_DIR=CACHE_DIR)
+        model_ref = model_type.path  # can be a hub name *or* a local .pt path
+        model, alphabet, src = load_fair_esm_v1_cached(model_ref, device=device)
         _attach_max_len(model, model_type)
-        logger.info("Loaded HF ESM1V: %s", model_path)
-        return model, tokenizer
+        logger.info("Loaded FAIR ESMv1 model and Alphabet (%s)", src)
+        return model, alphabet
+
+    # if model_type == ModelType.ESMV1:
+    #     model_path = str(model_type.path)
+    #     model = load_HF_model(model_path).to(device).eval()
+    #     model.to(device)
+    #     model.eval()
+    #     CACHE_DIR = os.environ.get("HF_CACHE_DIR")
+    #     logger.info(f"Loading Tokenizer from {CACHE_DIR}")
+    #     tokenizer = load_HF_tokenizer(model_path, HF_TOKEN=None, CACHE_DIR=CACHE_DIR)
+    #     _attach_max_len(model, model_type)
+    #     logger.info("Loaded HF ESM1V: %s", model_path)
+    #     return model, tokenizer
 
     if model_type == ModelType.ESM2:
         # (unchanged HF path)
         model_path = str(model_type.path)
-        model = load_HF_model(model_path)
-        model.to(device)
-        model.eval()
+        model = load_HF_model(model_path).to(device).eval()
         CACHE_DIR = os.environ.get("HF_CACHE_DIR")
         logger.info(f"Loading Tokenizer from {CACHE_DIR}")
         tokenizer = load_HF_tokenizer(model_path, HF_TOKEN=None, CACHE_DIR=CACHE_DIR)
