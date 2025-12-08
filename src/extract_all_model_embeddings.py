@@ -12,7 +12,6 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from src.model_util import (
     retrieve_embeddings,
-    PLM_MODEL_NO_ESM1V,
     PLM_MODEL,
     load_model_factory,
     ModelType,

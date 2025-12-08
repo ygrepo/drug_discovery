@@ -106,7 +106,6 @@ class ModelType(Enum):
 
 
 PLM_MODEL = [ModelType.ESMV1, ModelType.ESM2, ModelType.MUTAPLM, ModelType.PROTEINCLIP]
-PLM_MODEL_NO_ESM1V = [ModelType.ESM2, ModelType.MUTAPLM, ModelType.PROTEINCLIP]
 MODEL_TYPE = list(ModelType)
 
 
@@ -316,18 +315,6 @@ def load_model_factory(
         _attach_max_len(model, model_type)
         logger.info("Loaded FAIR ESMv1 model and Alphabet (%s)", src)
         return model, alphabet
-
-    # if model_type == ModelType.ESMV1:
-    #     model_path = str(model_type.path)
-    #     model = load_HF_model(model_path).to(device).eval()
-    #     model.to(device)
-    #     model.eval()
-    #     CACHE_DIR = os.environ.get("HF_CACHE_DIR")
-    #     logger.info(f"Loading Tokenizer from {CACHE_DIR}")
-    #     tokenizer = load_HF_tokenizer(model_path, HF_TOKEN=None, CACHE_DIR=CACHE_DIR)
-    #     _attach_max_len(model, model_type)
-    #     logger.info("Loaded HF ESM1V: %s", model_path)
-    #     return model, tokenizer
 
     if model_type == ModelType.ESM2:
         # (unchanged HF path)
