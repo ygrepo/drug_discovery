@@ -232,48 +232,51 @@ def main():
         logger.info(f"Target id col: {target_id_col}-target col: {target_col}")
 
         for mt in PLM_MODEL:
-            logger.info(f"Extracting embeddings for {mt}...")
-            model, tokenizer = load_model_factory(mt, config_path=Path(args.config))
-            logger.info("Model loaded successfully.")
+            try:
+                logger.info(f"Extracting embeddings for {mt}...")
+                model, tokenizer = load_model_factory(mt, config_path=Path(args.config))
+                logger.info("Model loaded successfully.")
 
-            # Build a minimal dataframe for embedding extraction
-            if target_id_col == target_col:
-                df_seq = df[[target_col]].drop_duplicates()
-            else:
-                df_seq = df[[target_id_col, target_col]].drop_duplicates()
+                # Build a minimal dataframe for embedding extraction
+                if target_id_col == target_col:
+                    df_seq = df[[target_col]].drop_duplicates()
+                else:
+                    df_seq = df[[target_id_col, target_col]].drop_duplicates()
 
-            emb_df = retrieve_embeddings(
-                model_type=mt,
-                model=model,
-                df=df_seq,
-                seq_col=target_col,
-                tokenizer=tokenizer,
-                output_fn=None,
-            )
-
-            logger.debug(f"emb_df before column filtering: {emb_df.head()}")
-
-            # Only drop the sequence column if it is NOT the id column
-            if target_col != target_id_col and target_col in emb_df.columns:
-                logger.info(f"Dropping column {target_col} from emb_df")
-                emb_df.drop(columns=[target_col], inplace=True)
-
-            logger.debug(f"Columns in emb_df before merge: {list(emb_df.columns)}")
-            logger.debug(f"Columns in df before merge: {list(df.columns)}")
-
-            df = merge_embeddings(df, emb_df, target_col, target_id_col, mt)
-
-            logger.debug(f"Columns in df after merge: {list(df.columns)}")
-
-            embedding_col = f"{mt}_embedding"
-            if embedding_col in df.columns:
-                missing_count = df[df[embedding_col].isnull()].shape[0]
-                logger.info(f"Missing embeddings for {mt}: {missing_count}")
-            else:
-                available_cols = list(df.columns)
-                logger.error(
-                    f"Column {embedding_col} not found. Available: {available_cols}"
+                emb_df = retrieve_embeddings(
+                    model_type=mt,
+                    model=model,
+                    df=df_seq,
+                    seq_col=target_col,
+                    tokenizer=tokenizer,
+                    output_fn=None,
                 )
+
+                logger.debug(f"emb_df before column filtering: {emb_df.head()}")
+
+                # Only drop the sequence column if it is NOT the id column
+                if target_col != target_id_col and target_col in emb_df.columns:
+                    logger.info(f"Dropping column {target_col} from emb_df")
+                    emb_df.drop(columns=[target_col], inplace=True)
+
+                logger.debug(f"Columns in emb_df before merge: {list(emb_df.columns)}")
+                logger.debug(f"Columns in df before merge: {list(df.columns)}")
+
+                df = merge_embeddings(df, emb_df, target_col, target_id_col, mt)
+
+                logger.debug(f"Columns in df after merge: {list(df.columns)}")
+
+                embedding_col = f"{mt}_embedding"
+                if embedding_col in df.columns:
+                    missing_count = df[df[embedding_col].isnull()].shape[0]
+                    logger.info(f"Missing embeddings for {mt}: {missing_count}")
+                else:
+                    available_cols = list(df.columns)
+                    logger.error(
+                        f"Column {embedding_col} not found. Available: {available_cols}"
+                    )
+            except Exception as e:
+                logger.exception(f"Failed to extract embeddings for {mt}: {e}")
 
         timestamp = datetime.now().strftime("%Y%m%d")
 

@@ -322,6 +322,8 @@ def load_model_factory(
     if model_type == ModelType.ESMV1:
         model_path = str(model_type.path)
         model = load_HF_model(model_path)
+        model.to(device)
+        model.eval()
         CACHE_DIR = os.environ.get("HF_CACHE_DIR")
         logger.info(f"Loading Tokenizer from {CACHE_DIR}")
         tokenizer = load_HF_tokenizer(model_path, HF_TOKEN=None, CACHE_DIR=CACHE_DIR)
@@ -333,6 +335,8 @@ def load_model_factory(
         # (unchanged HF path)
         model_path = str(model_type.path)
         model = load_HF_model(model_path)
+        model.to(device)
+        model.eval()
         CACHE_DIR = os.environ.get("HF_CACHE_DIR")
         logger.info(f"Loading Tokenizer from {CACHE_DIR}")
         tokenizer = load_HF_tokenizer(model_path, HF_TOKEN=None, CACHE_DIR=CACHE_DIR)
