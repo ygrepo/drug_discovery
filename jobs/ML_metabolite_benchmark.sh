@@ -1,5 +1,5 @@
 #!/bin/bash
-# qsubs/ML_benchmark.sh — runs one combo inside an LSF job
+# qsubs/ML_metabolite_benchmark.sh — runs one combo inside an LSF job
 set -euo pipefail
 
 if [[ $# -ne 3 ]]; then
@@ -7,7 +7,7 @@ if [[ $# -ne 3 ]]; then
   exit 2
 fi
 
-DATASET="$1"       # e.g., BindingDB | Davis | Kiba
+DATASET="$1"       # e.g., EITLEM_kkm | EITLEM_kcat | catpred_kcat
 SPLITMODE="$2"     # random | cold_protein | cold_drug
 EMBEDDING="$3"     # ESMv1 | ESM2 | MUTAPLM | ProteinCLIP
 
@@ -37,13 +37,13 @@ MODEL_DIR="output/models"; mkdir -p "${MODEL_DIR}"
 OUTPUT_DIR="output/metrics"; mkdir -p "${OUTPUT_DIR}"
 LOG_LEVEL="INFO"
 
-BASE_DATA_DIR="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/wangcDrugRepoProject/BindDBdata/All_BindingDB"
-MAIN="src/ML_Benchmark.py"
+BASE_DATA_DIR="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/drug_discovery/output/data"
+MAIN="src/ML_metabolite_benchmark.py"
 N=0
 
-combo="${EMBEDDING}_${DATASET}_${SPLITMODE}"
+combo="${DATASET}_${EMBEDDING}_embedding_${SPLITMODE}"
 ts=$(date +"%Y%m%d_%H%M%S")
-log_file="${LOG_DIR}/${ts}_ML_benchmark_${combo}.log"
+log_file="${LOG_DIR}/${ts}_ML_metabolite_benchmark_${combo}.log"
 
 echo "JOBID=${LSB_JOBID:-local}  IDX=${LSB_JOBINDEX:-}  HOST=$(hostname)"
 echo "=== Running ${combo} ==="

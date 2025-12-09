@@ -27,7 +27,7 @@ from src.utils import (
 )
 from src.data_util import (
     load_data,
-    DTIDataset,
+    MetabolicDataset,
     append_predictions,
 )
 from src.ML_benchmark_util import evaluate_model_with_loaders, save_model
@@ -73,7 +73,9 @@ def main():
         logger.info(f"Num workers: {args.num_workers}")
         logger.info(f"Data dir: {args.data_dir}")
         data_dir = Path(args.data_dir)
-        data_dir = data_dir / f"{args.embedding}_{args.dataset}_{args.splitmode}"
+        data_dir = (
+            data_dir / f"{args.dataset}_{args.embedding}_embedding_{args.splitmode}"
+        )
         logger.info(f"Data dir: {data_dir}")
 
         # --- Load data ---
@@ -116,9 +118,7 @@ def main():
                 "Explained_Variance",
             ]
         )
-        prediction_df = pd.DataFrame(
-            columns=["Model", "row_index", "Drug", "Target", "pred_affinity"]
-        )
+        prediction_df = pd.DataFrame(columns=["Model", "row_index", "Pred_Affinity"])
         model_dir = Path(args.model_dir)
         model_dir.mkdir(parents=True, exist_ok=True)
 
@@ -335,7 +335,7 @@ def main():
 
         fn = (
             output_dir
-            / f"{datestamp}_ML_predictions_{args.embedding}_{args.dataset}_{args.splitmode}.csv"
+            / f"{datestamp}_ML_metabolite_predictions_{args.dataset}_{args.embedding}_embedding_{args.splitmode}.csv"
         )
         logger.info(f"Saving predictions to {fn}")
         # Save prediction_df to CSV
