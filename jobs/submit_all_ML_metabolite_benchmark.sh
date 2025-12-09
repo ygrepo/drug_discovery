@@ -32,7 +32,7 @@ for dataset in "${DATASETS[@]}"; do
         -W "${WALL}" \
         -o "logs/ML_metabolite_benchmark.${combo}.%J.out" \
         -e "logs/ML_metabolite_benchmark.${combo}.%J.err" \
-        ./qsubs/ML_metabolite_benchmark.sh "${dataset}" "${splitmode}" "${embedding}"
+        ./jobs/ML_metabolite_benchmark.sh "${dataset}" "${splitmode}" "${embedding}"
     done
   done
 done
