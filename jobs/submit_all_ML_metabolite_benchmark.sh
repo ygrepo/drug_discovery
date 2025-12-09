@@ -18,7 +18,6 @@ LOG_DIR="logs"
 mkdir -p "${LOG_DIR}"
 
 echo "Starting batch at $(date)"
-echo "Base data dir: ${BASE_DATA_DIR}"
 
 for dataset in "${DATASETS[@]}"; do
   for splitmode in "${SPLITMODES[@]}"; do
