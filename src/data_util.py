@@ -23,14 +23,14 @@ logger = get_logger(__name__)
 def load_data(
     data_dir: Path,
     scale_features: bool = False,
-    N: Optional[int] = None,  # Add N parameter
-) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    N: Optional[int] = None,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     train_data = pd.read_parquet(data_dir / "train.parquet")
     val_data = pd.read_parquet(data_dir / "val.parquet")
     test_data = pd.read_parquet(data_dir / "test.parquet")
 
     # Limit rows if N is specified
-    if N > 0:
+    if N is not None and N > 0:
         train_data = train_data.head(N)
         val_data = val_data.head(N)
         test_data = test_data.head(N)
@@ -76,6 +76,81 @@ def stack_dataset(
         f"StackedX_train: {X_train.shape}, X_val: {X_val.shape}, X_test: {X_test.shape}"
     )
     return X_train, X_val, X_test, y_train, y_val, y_test
+
+
+class MetabolicDataset(Dataset):
+    def __init__(
+        self,
+        df: pd.DataFrame,
+        metabolite_col: str = "metabolite_features",
+        protein_col: str = "protein_features",
+        y_col: Optional[str] = "affinity",
+        scale: Optional[str] = None,  # None | "zscore" | "minmax"
+        check_nan: bool = True,
+    ):
+        self.df = df.reset_index(drop=True)
+        self.metabolite_col = metabolite_col
+        self.protein_col = protein_col
+        self.y_col = y_col
+        self.scale = scale
+        self.check_nan = check_nan
+        # Keep originals you want to export later
+        self.row_index = df.index.to_numpy()
+
+        # Features
+        self.metabolite = np.stack(
+            [np.asarray(x, dtype=np.float32) for x in df[metabolite_col]], axis=0
+        )
+        self.prot = np.stack(
+            [np.asarray(x, dtype=np.float32) for x in df[protein_col]], axis=0
+        )
+        # Target (optional)
+        if y_col is not None and y_col in df.columns:
+            self.y = np.asarray(df[y_col].to_numpy(), dtype=np.float32).reshape(-1, 1)
+        else:
+            self.y = None
+
+        if check_nan:
+            for name, arr in [("metabolite", self.metabolite), ("protein", self.prot)]:
+                if not np.isfinite(arr).all():
+                    raise ValueError(f"NaN/Inf found in '{name}'")
+            if self.y is not None and not np.isfinite(self.y).all():
+                raise ValueError("NaN/Inf found in 'y'")
+
+        self.N, self.metabolite_input_dim = self.metabolite.shape
+        self.protein_input_dim = self.prot.shape[1]
+
+        # Scale y if present
+        self.y_mu = self.y_sigma = self.y_min = self.y_max = None
+        if self.y is not None and self.scale is not None:
+            if self.scale == "zscore":
+                self.y_mu = self.y.mean()
+                self.y_sigma = self.y.std() + 1e-8
+                self.y = (self.y - self.y_mu) / self.y_sigma
+            elif self.scale == "minmax":
+                self.y_min = self.y.min()
+                self.y_max = self.y.max()
+                self.y = (self.y - self.y_min) / (self.y_max - self.y_min + 1e-8)
+
+    def __len__(self):
+        return self.N
+
+    def __getitem__(self, idx: int):
+        out = {
+            "row_index": int(self.row_index[idx]),
+            "metabolite": torch.from_numpy(self.metabolite[idx]),
+            "protein": torch.from_numpy(self.prot[idx]),
+        }
+        if self.y is not None:
+            out["y"] = torch.from_numpy(self.y[idx])
+        return out
+
+    def inverse_transform_y(self, y_scaled: np.ndarray) -> np.ndarray:
+        if self.scale == "zscore" and self.y_sigma is not None:
+            return y_scaled * self.y_sigma + self.y_mu
+        if self.scale == "minmax" and self.y_min is not None:
+            return y_scaled * (self.y_max - self.y_min) + self.y_min
+        return y_scaled
 
 
 class DTIDataset(Dataset):
