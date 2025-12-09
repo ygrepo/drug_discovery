@@ -1,5 +1,5 @@
 #!/bin/bash
-# qsubs/ML_metabolite_benchmark.sh — runs one combo inside an LSF job
+# jobs/ML_metabolite_benchmark.sh — runs one combo inside an LSF job
 set -euo pipefail
 
 if [[ $# -ne 3 ]]; then
@@ -37,9 +37,9 @@ MODEL_DIR="output/models"; mkdir -p "${MODEL_DIR}"
 OUTPUT_DIR="output/metrics"; mkdir -p "${OUTPUT_DIR}"
 LOG_LEVEL="INFO"
 
-BASE_DATA_DIR="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/drug_discovery/output/data"
+BASE_DATA_DIR="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/drug_discovery/output/data/enzyme_embeddings_dataset"
 MAIN="src/ML_metabolite_benchmark.py"
-N=0
+N=10
 
 combo="${DATASET}_${EMBEDDING}_embedding_${SPLITMODE}"
 ts=$(date +"%Y%m%d_%H%M%S")
