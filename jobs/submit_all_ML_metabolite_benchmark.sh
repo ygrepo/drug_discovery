@@ -2,11 +2,11 @@
 # submit_all_ML_metabolite_benchmark.sh — submit one LSF job per (embedding, dataset, splitmode)
 set -euo pipefail
 
-DATASETS=( "EITLEM_kkm" )
-SPLITMODES=( "random" )
-EMBEDDINGS=( "ESMv1" )
-# SPLITMODES=( "random" "cold_protein" "cold_drug" )
-# EMBEDDINGS=( "ESMv1" "ESM2" "MUTAPLM" "ProteinCLIP" )
+DATASETS=( "EITLEM_kkm" "EITLEM_kcat" "EITLEM_km" "MPEK_kcat" "MPEK_km" "catpred_kcat" "catpred_ki" "catpred_km" )
+# SPLITMODES=( "random" )
+# EMBEDDINGS=( "ESMv1" )
+SPLITMODES=( "random" "cold_protein" "cold_drug" )
+EMBEDDINGS=( "ESMv1" "ESM2" "MUTAPLM" "ProteinCLIP" )
 
 ACCOUNT="acc_DiseaseGeneCell"
 QUEUE="premium"
