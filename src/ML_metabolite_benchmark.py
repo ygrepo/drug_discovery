@@ -82,7 +82,7 @@ def main():
         train_df, val_df, test_df = load_data(data_dir, N=args.N)
 
         # --- Build datasets/loaders ---
-        protein_col = args.embedding
+        protein_col = f"{args.embedding}_embedding"
         metabolite_col = "metabolite_features"
         train_ds = MetabolicDataset(
             df=train_df,
