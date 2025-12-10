@@ -121,6 +121,8 @@ def main():
         logger.info("Running models...")
         metrics_df = pd.DataFrame(
             columns=[
+                "Data",
+                "Embedding",
                 "Model",
                 "Dataset",
                 "RMSE",
@@ -143,12 +145,14 @@ def main():
 
         # --- Evaluate ---
         metrics_df, (test_row_idx, test_pred) = evaluate_model_with_loaders_no_smiles(
-            metrics_df,
-            model_name,
-            model,
-            train_loader,
-            val_loader,
-            test_loader,
+            metrics_df=metrics_df,
+            data_name=args.dataset,
+            embedding_name=args.embedding,
+            model_name=model_name,
+            model=model,
+            train_loader=train_loader,
+            val_loader=val_loader,
+            test_loader=test_loader,
             drug_col=metabolite_col,
             protein_col=protein_col,
             y_inverse_fn=train_ds.inverse_transform_y if train_ds.scale else None,

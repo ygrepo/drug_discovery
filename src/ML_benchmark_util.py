@@ -192,6 +192,8 @@ def evaluate_model_with_loaders(
 
 def evaluate_model_with_loaders_no_smiles(
     metrics_df: pd.DataFrame,
+    data_name: str,
+    embedding_name: str,
     model_name: str,
     model,
     train_loader: DataLoader,
@@ -246,6 +248,8 @@ def evaluate_model_with_loaders_no_smiles(
         )
         rows.append(
             {
+                "Data": data_name,
+                "Embedding": embedding_name,
                 "Model": model_name,
                 "Dataset": split_name,
                 "RMSE": rmse,
