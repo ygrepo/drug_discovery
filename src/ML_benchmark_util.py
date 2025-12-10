@@ -117,13 +117,19 @@ def evaluate_model_with_loaders(
     train_loader: DataLoader,
     val_loader: DataLoader,
     test_loader: DataLoader,
+    drug_col: str,
+    protein_col: str,
     y_inverse_fn=None,  # pass dataset.inverse_transform_y if scaled
 ) -> tuple[pd.DataFrame, tuple[list[int], list[str], list[str], np.ndarray]]:
     # Materialize arrays for sklearn
-    X_train, y_train, _, _, _ = loader_to_numpy(train_loader)
-    X_val, y_val, _, _, _ = loader_to_numpy(val_loader)
+    X_train, y_train, _, _, _ = loader_to_numpy(
+        drug_col=drug_col, protein_col=protein_col, dl=train_loader
+    )
+    X_val, y_val, _, _, _ = loader_to_numpy(
+        drug_col=drug_col, protein_col=protein_col, dl=val_loader
+    )
     X_test, y_test, test_smiles, test_target_ids, test_row_idx = loader_to_numpy(
-        test_loader
+        drug_col=drug_col, protein_col=protein_col, dl=test_loader
     )
 
     # Fit and predict

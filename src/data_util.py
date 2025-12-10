@@ -232,13 +232,15 @@ class DTIDataset(Dataset):
 
 
 def loader_to_numpy(
+    drug_col: str,
+    protein_col: str,
     dl: DataLoader,
 ) -> tuple[np.ndarray, np.ndarray | None, list[str], list[str], list[int]]:
     Xs, Ys, SMILES, TARGETS, ROW_IDX = [], [], [], [], []
     for batch in dl:
         # --- Concatenate drug and protein features ---
-        drug = batch["drug"]
-        prot = batch["protein"]
+        drug = batch[drug_col]
+        prot = batch[protein_col]
         Xb = torch.cat([drug, prot], dim=-1)  # (B, D_d + D_p)
         Xs.append(Xb.cpu().numpy())
 
@@ -257,19 +259,28 @@ def append_predictions(
     model_name: str,
     df: pd.DataFrame,
     row_idx: list[int],
-    smiles: list[str],
-    target_ids: list[str],
     preds: np.ndarray,
+    smiles: list[str] | None,
+    target_ids: list[str] | None,
 ):
-    pred_df = pd.DataFrame(
-        {
-            "Model": [model_name] * len(row_idx),
-            "row_index": row_idx,
-            "Drug": smiles,
-            "Target": target_ids,  # use the ID column name consistently
-            "pred_affinity": np.asarray(preds).reshape(-1),
-        }
-    )
+    if smiles is not None and target_ids is not None:
+        pred_df = pd.DataFrame(
+            {
+                "Model": [model_name] * len(row_idx),
+                "row_index": row_idx,
+                "Drug": smiles,
+                "Target": target_ids,
+                "PreLabel": np.asarray(preds).reshape(-1),
+            }
+        )
+    else:
+        pred_df = pd.DataFrame(
+            {
+                "Model": [model_name] * len(row_idx),
+                "row_index": row_idx,
+                "PreLabel": np.asarray(preds).reshape(-1),
+            }
+        )
     logger.info(f"Appending {len(pred_df)} predictions to dataframe")
     df = pd.concat(
         [df, pred_df], ignore_index=True, sort=False

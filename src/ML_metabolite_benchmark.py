@@ -82,14 +82,28 @@ def main():
         train_df, val_df, test_df = load_data(data_dir, N=args.N)
 
         # --- Build datasets/loaders ---
+        protein_col = args.embedding
+        metabolite_col = "metabolite_features"
         train_ds = MetabolicDataset(
-            train_df,
+            df=train_df,
+            metabolite_col=metabolite_col,
+            protein_col=protein_col,
             y_col="Label",
         )
         val_ds = MetabolicDataset(
-            val_df, y_col="Label", scale=train_ds.scale
+            df=val_df,
+            metabolite_col=metabolite_col,
+            protein_col=protein_col,
+            y_col="Label",
+            scale=train_ds.scale,
         )  # keep same scaling choice
-        test_ds = MetabolicDataset(test_df, y_col="Label", scale=train_ds.scale)
+        test_ds = MetabolicDataset(
+            df=test_df,
+            metabolite_col=metabolite_col,
+            protein_col=protein_col,
+            y_col="Label",
+            scale=train_ds.scale,
+        )
 
         shuffle = args.shuffle
         batch_size = args.batch_size
@@ -118,7 +132,7 @@ def main():
                 "Explained_Variance",
             ]
         )
-        prediction_df = pd.DataFrame(columns=["Model", "row_index", "Pred_Affinity"])
+        prediction_df = pd.DataFrame(columns=["Model", "row_index", "PreLabel"])
         model_dir = Path(args.model_dir)
         model_dir.mkdir(parents=True, exist_ok=True)
 
@@ -128,7 +142,6 @@ def main():
         model = RandomForestRegressor(n_estimators=100, random_state=SEED, n_jobs=-1)
 
         # --- Evaluate ---
-
         metrics_df, (test_row_idx, test_smiles, test_target_ids, test_pred) = (
             evaluate_model_with_loaders(
                 metrics_df,
@@ -137,6 +150,8 @@ def main():
                 train_loader,
                 val_loader,
                 test_loader,
+                drug_col=metabolite_col,
+                protein_col=protein_col,
                 y_inverse_fn=train_ds.inverse_transform_y if train_ds.scale else None,
             )
         )
@@ -150,12 +165,12 @@ def main():
         save_model(model, model_name, model_filename)
 
         prediction_df = append_predictions(
-            model_name,
-            prediction_df,
-            test_row_idx,
-            test_smiles,
-            test_target_ids,
-            test_pred,
+            model_name=model_name,
+            df=prediction_df,
+            row_idx=test_row_idx,
+            preds=test_pred,
+            smiles=None,
+            target_ids=None,
         )
         logger.info(f"Appended {len(test_smiles)} test predictions")
 
