@@ -30,7 +30,7 @@ from src.data_util import (
     MetabolicDataset,
     append_predictions,
 )
-from src.ML_benchmark_util import evaluate_model_with_loaders, save_model
+from src.ML_benchmark_util import evaluate_model_with_loaders_no_smiles, save_model
 
 logger = get_logger(__name__)
 
@@ -142,18 +142,16 @@ def main():
         model = RandomForestRegressor(n_estimators=100, random_state=SEED, n_jobs=-1)
 
         # --- Evaluate ---
-        metrics_df, (test_row_idx, test_smiles, test_target_ids, test_pred) = (
-            evaluate_model_with_loaders(
-                metrics_df,
-                model_name,
-                model,
-                train_loader,
-                val_loader,
-                test_loader,
-                drug_col=metabolite_col,
-                protein_col=protein_col,
-                y_inverse_fn=train_ds.inverse_transform_y if train_ds.scale else None,
-            )
+        metrics_df, (test_row_idx, test_pred) = evaluate_model_with_loaders_no_smiles(
+            metrics_df,
+            model_name,
+            model,
+            train_loader,
+            val_loader,
+            test_loader,
+            drug_col=metabolite_col,
+            protein_col=protein_col,
+            y_inverse_fn=train_ds.inverse_transform_y if train_ds.scale else None,
         )
 
         # --- Save model ---
@@ -172,7 +170,7 @@ def main():
             smiles=None,
             target_ids=None,
         )
-        logger.info(f"Appended {len(test_smiles)} test predictions")
+        logger.info(f"Appended {len(test_row_idx)} test predictions")
 
         # logger.info("SVR")
         # # SVR

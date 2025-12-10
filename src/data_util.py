@@ -84,7 +84,7 @@ class MetabolicDataset(Dataset):
         df: pd.DataFrame,
         metabolite_col: str = "metabolite_features",
         protein_col: str = "protein_features",
-        y_col: Optional[str] = "affinity",
+        y_col: Optional[str] = "Label",
         scale: Optional[str] = None,  # None | "zscore" | "minmax"
         check_nan: bool = True,
     ):
@@ -138,8 +138,8 @@ class MetabolicDataset(Dataset):
     def __getitem__(self, idx: int):
         out = {
             "row_index": int(self.row_index[idx]),
-            "metabolite": torch.from_numpy(self.metabolite[idx]),
-            "protein": torch.from_numpy(self.prot[idx]),
+            self.metabolite_col: torch.from_numpy(self.metabolite[idx]),
+            self.protein_col: torch.from_numpy(self.prot[idx]),
         }
         if self.y is not None:
             out["y"] = torch.from_numpy(self.y[idx])
@@ -235,6 +235,8 @@ def loader_to_numpy(
     drug_col: str,
     protein_col: str,
     dl: DataLoader,
+    smiles_col: str | None = "smiles",
+    target_id_col: str | None = "target_id",
 ) -> tuple[np.ndarray, np.ndarray | None, list[str], list[str], list[int]]:
     Xs, Ys, SMILES, TARGETS, ROW_IDX = [], [], [], [], []
     for batch in dl:
@@ -246,13 +248,37 @@ def loader_to_numpy(
 
         if "y" in batch:
             Ys.append(batch["y"].view(-1).cpu().numpy())
-        SMILES.extend(list(batch["smiles"]))
-        TARGETS.extend(list(batch["target_id"]))  # from DTIDataset.__getitem__
+        if smiles_col is not None:
+            SMILES.extend(list(batch[smiles_col]))
+        if target_id_col is not None:
+            TARGETS.extend(list(batch[target_id_col]))  # from DTIDataset.__getitem__
         ROW_IDX.extend([int(i) for i in batch["row_index"]])
 
     X = np.concatenate(Xs, axis=0) if Xs else np.empty((0, 0), dtype=np.float32)
     y = np.concatenate(Ys, axis=0) if Ys else None
     return X, y, SMILES, TARGETS, ROW_IDX
+
+
+def loader_to_numpy_no_smiles(
+    drug_col: str,
+    protein_col: str,
+    dl: DataLoader,
+) -> tuple[np.ndarray, np.ndarray | None, list[int]]:
+    Xs, Ys, ROW_IDX = [], [], []
+    for batch in dl:
+        # --- Concatenate drug and protein features ---
+        drug = batch[drug_col]
+        prot = batch[protein_col]
+        Xb = torch.cat([drug, prot], dim=-1)  # (B, D_d + D_p)
+        Xs.append(Xb.cpu().numpy())
+
+        if "y" in batch:
+            Ys.append(batch["y"].view(-1).cpu().numpy())
+        ROW_IDX.extend([int(i) for i in batch["row_index"]])
+
+    X = np.concatenate(Xs, axis=0) if Xs else np.empty((0, 0), dtype=np.float32)
+    y = np.concatenate(Ys, axis=0) if Ys else None
+    return X, y, ROW_IDX
 
 
 def append_predictions(
