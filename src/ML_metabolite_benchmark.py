@@ -77,7 +77,7 @@ def main():
         data_dir = (
             data_dir
             / f"{args.dataset}_dataset"
-            / f"{args.dataset}_{args.reaction}{args.embedding}_embedding_{args.splitmode}"
+            / f"{args.dataset}_{args.reaction}_{args.embedding}_embedding_{args.splitmode}"
         )
         logger.info(f"Data dir: {data_dir}")
 
@@ -169,7 +169,7 @@ def main():
 
         model_filename = (
             model_dir
-            / f"{model_name.replace(' ', '_')}_{args.embedding}_{args.dataset}_{args.splitmode}_model_regression.pkl"
+            / f"{model_name.replace(' ', '_')}_{args.dataset}_{args.reaction}_{args.splitmode}_{args.embedding}_model_regression.pkl"
         )
         save_model(model, model_name, model_filename)
 
