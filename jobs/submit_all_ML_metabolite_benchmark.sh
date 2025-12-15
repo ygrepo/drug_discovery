@@ -4,10 +4,10 @@ set -euo pipefail
 
 DATASETS=( "EITLEM" "MPEK" "catpred" )
 REACTION=( "kcat" "kkm" "km" "kd" "ki" )
-SPLITMODES=( "random" )
-EMBEDDINGS=( "ESMv1" )
-# SPLITMODES=( "random" "cold_protein" "cold_drug" )
-# EMBEDDINGS=( "ESMv1" "ESM2" "MUTAPLM" "ProteinCLIP" )
+# SPLITMODES=( "random" )
+# EMBEDDINGS=( "ESMv1" )
+SPLITMODES=( "random" "cold_protein" "cold_drug" )
+EMBEDDINGS=( "ESMv1" "ESM2" "MUTAPLM" "ProteinCLIP" )
 
 ACCOUNT="acc_DiseaseGeneCell"
 QUEUE="premium"
