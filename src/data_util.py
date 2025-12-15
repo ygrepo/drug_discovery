@@ -29,6 +29,11 @@ def load_data(
     val_data = pd.read_parquet(data_dir / "val.parquet")
     test_data = pd.read_parquet(data_dir / "test.parquet")
 
+    logger.info(
+        f"Loaded dataset: {len(train_data)} train, {len(val_data)} val, {len(test_data)} test"
+    )
+    logger.info(f"train_data columns: {train_data.columns}")
+    logger.info(f"train_data: {train_data.head()}")
     # Limit rows if N is specified
     if N is not None and N > 0:
         train_data = train_data.head(N)

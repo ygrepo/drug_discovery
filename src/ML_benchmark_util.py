@@ -193,6 +193,7 @@ def evaluate_model_with_loaders(
 def evaluate_model_with_loaders_no_smiles(
     metrics_df: pd.DataFrame,
     data_name: str,
+    reaction_name: str,
     embedding_name: str,
     split_name: str,
     model_name: str,
@@ -250,6 +251,7 @@ def evaluate_model_with_loaders_no_smiles(
         rows.append(
             {
                 "Data": data_name,
+                "Reaction": reaction_name,
                 "Embedding": embedding_name,
                 "Split": split_name,
                 "Model": model_name,

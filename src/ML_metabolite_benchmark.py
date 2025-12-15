@@ -42,6 +42,7 @@ def parse_args():
     p.add_argument("--log_fn", type=str, default="")
     p.add_argument("--log_level", type=str, default="INFO")
     p.add_argument("--dataset", type=str, default="")
+    p.add_argument("--reaction", type=str, default="")
     p.add_argument("--splitmode", type=str, default="")
     p.add_argument("--embedding", type=str, default="")
     p.add_argument("--N", type=int, default=0)
@@ -74,7 +75,9 @@ def main():
         logger.info(f"Data dir: {args.data_dir}")
         data_dir = Path(args.data_dir)
         data_dir = (
-            data_dir / f"{args.dataset}_{args.embedding}_embedding_{args.splitmode}"
+            data_dir
+            / f"{args.dataset}_dataset"
+            / f"{args.dataset}_{args.reaction}{args.embedding}_embedding_{args.splitmode}"
         )
         logger.info(f"Data dir: {data_dir}")
 
@@ -122,6 +125,7 @@ def main():
         metrics_df = pd.DataFrame(
             columns=[
                 "Data",
+                "Reaction",
                 "Embedding",
                 "Split",
                 "Model",
@@ -148,6 +152,7 @@ def main():
         metrics_df, (test_row_idx, test_pred) = evaluate_model_with_loaders_no_smiles(
             metrics_df=metrics_df,
             data_name=args.dataset,
+            reaction_name=args.reaction,
             embedding_name=args.embedding,
             split_name=args.splitmode,
             model_name=model_name,

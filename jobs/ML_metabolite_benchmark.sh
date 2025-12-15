@@ -2,14 +2,15 @@
 # jobs/ML_metabolite_benchmark.sh — runs one combo inside an LSF job
 set -euo pipefail
 
-if [[ $# -ne 3 ]]; then
-  echo "Usage: $0 <DATASET> <SPLITMODE> <EMBEDDING>"
+if [[ $# -ne 4 ]]; then
+  echo "Usage: $0 <DATASET> <REACTION> <SPLITMODE> <EMBEDDING>"
   exit 2
 fi
 
-DATASET="$1"       # e.g., EITLEM_kkm | EITLEM_kcat | catpred_kcat
-SPLITMODE="$2"     # random | cold_protein | cold_drug
-EMBEDDING="$3"     # ESMv1 | ESM2 | MUTAPLM | ProteinCLIP
+DATASET="$1"       # e.g., EITLEM | catpred
+REACTION="$2"      # kcat | kkm | km | kd | ki | kd | ki
+SPLITMODE="$3"     # random | cold_protein | cold_drug
+EMBEDDING="$4"     # ESMv1 | ESM2 | MUTAPLM | ProteinCLIP
 
 # --- Modules / env ---
 module purge
@@ -41,7 +42,7 @@ BASE_DATA_DIR="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/drug_discove
 MAIN="src/ML_metabolite_benchmark.py"
 N=10
 
-combo="${DATASET}_${EMBEDDING}_embedding_${SPLITMODE}"
+combo="${DATASET}_${REACTION}_${EMBEDDING}_embedding_${SPLITMODE}"
 ts=$(date +"%Y%m%d_%H%M%S")
 log_file="${LOG_DIR}/${ts}_ML_metabolite_benchmark_${combo}.log"
 
@@ -56,6 +57,7 @@ set +e
   --log_level "${LOG_LEVEL}" \
   --data_dir "${BASE_DATA_DIR}" \
   --dataset "${DATASET}" \
+  --reaction "${REACTION}" \
   --splitmode "${SPLITMODE}" \
   --embedding "${EMBEDDING}" \
   --N "${N}" \
