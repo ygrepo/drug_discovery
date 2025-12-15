@@ -123,6 +123,7 @@ def main():
             columns=[
                 "Data",
                 "Embedding",
+                "Split",
                 "Model",
                 "Dataset",
                 "RMSE",
@@ -148,6 +149,7 @@ def main():
             metrics_df=metrics_df,
             data_name=args.dataset,
             embedding_name=args.embedding,
+            split_name=args.splitmode,
             model_name=model_name,
             model=model,
             train_loader=train_loader,
