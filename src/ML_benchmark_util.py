@@ -164,7 +164,7 @@ def evaluate_model_with_loaders(
 
     # Metrics
     rows = []
-    for split_name, (y_true, y_hat) in {
+    for data_split, (y_true, y_hat) in {
         "Training": (y_train, train_pred),
         "Validation": (y_val, val_pred),
         "Test": (y_test, test_pred),
@@ -175,7 +175,7 @@ def evaluate_model_with_loaders(
         rows.append(
             {
                 "Model": model_name,
-                "Dataset": split_name,
+                "Data_Split": data_split,
                 "RMSE": rmse,
                 "MSE": mse,
                 "MAE": mae,
@@ -240,7 +240,7 @@ def evaluate_model_with_loaders_no_smiles(
 
     # Metrics
     rows = []
-    for split_name, (y_true, y_hat) in {
+    for data_split, (y_true, y_hat) in {
         "Training": (y_train, train_pred),
         "Validation": (y_val, val_pred),
         "Test": (y_test, test_pred),
@@ -254,8 +254,8 @@ def evaluate_model_with_loaders_no_smiles(
                 "Reaction": reaction_name,
                 "Embedding": embedding_name,
                 "Split": split_name,
+                "Data_Split": data_split,
                 "Model": model_name,
-                "Dataset": split_name,
                 "RMSE": rmse,
                 "MSE": mse,
                 "MAE": mae,
