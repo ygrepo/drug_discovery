@@ -40,7 +40,7 @@ LOG_LEVEL="INFO"
 
 BASE_DATA_DIR="/sc/arion/projects/DiseaseGeneCell/Huang_lab_project/drug_discovery/output/data/enzyme_embeddings_dataset"
 MAIN="src/ML_metabolite_benchmark.py"
-N=10
+N=0
 
 combo="${DATASET}_${REACTION}_${EMBEDDING}_embedding_${SPLITMODE}"
 ts=$(date +"%Y%m%d_%H%M%S")
