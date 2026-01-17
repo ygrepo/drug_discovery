@@ -23,7 +23,6 @@ from src.utils import (
     norm_smiles,
     norm_text_insensitive,
     dedupe_with_norm,
-    add_sequence_hashes,
 )
 from src.data_util import (
     load_data,

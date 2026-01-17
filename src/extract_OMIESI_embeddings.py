@@ -3,7 +3,13 @@ import os
 from pathlib import Path
 import pandas as pd
 import argparse
+import numpy as np
 from datetime import datetime
+from typing import Optional
+
+
+from rdkit import Chem
+from rdkit.Chem import rdMolDescriptors
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
@@ -17,6 +23,84 @@ from src.model_util import (
 from src.utils import setup_logging, save_csv_parquet_torch, get_logger, setup_logging
 
 logger = get_logger(__name__)
+
+
+def smiles_to_morgan_fingerprint(
+    smiles: str, radius: int = 2, n_bits: int = 2048
+) -> Optional[np.ndarray]:
+    """
+    Convert SMILES string to Morgan fingerprint.
+
+    Args:
+        smiles: SMILES string
+        radius: Morgan fingerprint radius (default: 2)
+        n_bits: Number of bits in fingerprint (default: 2048)
+
+    Returns:
+        numpy array of fingerprint bits, or None if conversion fails
+    """
+
+    try:
+        mol = Chem.MolFromSmiles(smiles)
+        if mol is None:
+            logger.warning(f"Could not parse SMILES: {smiles}")
+            return None
+
+        # Generate Morgan fingerprint
+        fp = rdMolDescriptors.GetMorganFingerprintAsBitVect(
+            mol, radius=radius, nBits=n_bits
+        )
+        # Convert to numpy array
+        return np.array(fp, dtype=np.float32)
+
+    except Exception as e:
+        logger.warning(f"Error generating fingerprint for {smiles}: {e}")
+        return None
+
+
+def add_smiles_fingerprints(
+    df: pd.DataFrame, smiles_col: str = "SMILES"
+) -> pd.DataFrame:
+    """
+    Add Morgan fingerprints for SMILES column.
+
+    Args:
+        df: DataFrame with SMILES column
+        smiles_col: Name of SMILES column
+
+    Returns:
+        DataFrame with added fingerprint column
+    """
+    if smiles_col not in df.columns:
+        logger.warning(
+            f"Column {smiles_col} not found. Skipping fingerprint generation."
+        )
+        return df
+
+    logger.info(f"Generating Morgan fingerprints for {len(df)} SMILES...")
+
+    fingerprints = []
+    failed_count = 0
+
+    for smiles in df[smiles_col]:
+        fp = smiles_to_morgan_fingerprint(smiles)
+        if fp is not None:
+            fingerprints.append(fp)
+        else:
+            # Use zero vector for failed conversions
+            fingerprints.append(np.zeros(2048, dtype=np.float32))
+            failed_count += 1
+
+    df = df.copy()
+    df[f"{smiles_col}_fingerprint"] = fingerprints
+
+    if failed_count > 0:
+        logger.warning(f"Failed to generate fingerprints for {failed_count} SMILES")
+
+    logger.info(
+        f"Successfully generated fingerprints for {len(df) - failed_count} SMILES"
+    )
+    return df
 
 
 def load_data(data_fn: Path, n: int) -> pd.DataFrame:
@@ -96,6 +180,11 @@ def parse_args():
         default="INFO",
         help="Logging level (e.g., 'INFO', 'DEBUG')",
     )
+    parser.add_argument(
+        "--generate_fingerprints",
+        action="store_true",
+        help="Generate Morgan fingerprints from SMILES column",
+    )
 
     return parser.parse_args()
 
@@ -119,6 +208,10 @@ def main():
 
         # Load data
         df = load_data(Path(args.data_fn), args.n)
+
+        # Add SMILES fingerprints if requested
+        if args.generate_fingerprints:
+            df = add_smiles_fingerprints(df, smiles_col="SMILES")
 
         target_col = "Protein"
         logger.info(f"Target col: {target_col}")

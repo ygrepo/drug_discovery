@@ -40,6 +40,7 @@ OUTPUT_FN="${OUTPUT_DIR}/OMIESI_train_embeddings.csv"
 NROWS=200
 LOG_DIR="logs"
 LOG_LEVEL="INFO"
+GENERATE_FINGERPRINTS=true
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -49,6 +50,7 @@ while [[ $# -gt 0 ]]; do
     --n) NROWS="$2"; shift 2 ;;
     --log_dir) LOG_DIR="$2"; shift 2 ;;
     --log_level) LOG_LEVEL="$2"; shift 2 ;;
+    --generate_fingerprints) GENERATE_FINGERPRINTS="$2"; shift 2 ;;
     *) echo "Unknown parameter: $1"; exit 1 ;;
   esac
 done
@@ -72,20 +74,21 @@ echo "  Data fn: ${DATA_FN}" | tee -a "$LOG_FILE"
 echo "  Output fn: ${OUTPUT_FN}" | tee -a "$LOG_FILE"
 echo "  N: ${NROWS}" | tee -a "$LOG_FILE"
 echo "  Log level: ${LOG_LEVEL}" | tee -a "$LOG_FILE"
+echo "  Generate fingerprints: ${GENERATE_FINGERPRINTS}" | tee -a "$LOG_FILE"
 echo "  Log file: ${LOG_FILE}" | tee -a "$LOG_FILE"
 
 export CUDA_LAUNCH_BLOCKING=1
 
 PYTHON="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.conda/envs/drug_discovery_env/bin/python"
 
-$PYTHON \
-    "src/extract_OMIESI_embeddings.py" \
-    --data_fn "$DATA_FN" \
-    --output_fn "$OUTPUT_FN" \
-    --log_fn "$LOG_FILE" \
-    --log_level "$LOG_LEVEL" \
-    --n "$NROWS" \
-    2>&1 | tee -a "$LOG_FILE"
+# Build command with conditional fingerprint flag
+PYTHON_CMD="$PYTHON src/extract_OMIESI_embeddings.py --data_fn \"$DATA_FN\" --output_fn \"$OUTPUT_FN\" --log_fn \"$LOG_FILE\" --log_level \"$LOG_LEVEL\" --n \"$NROWS\""
+
+if [ "$GENERATE_FINGERPRINTS" = "true" ]; then
+    PYTHON_CMD="$PYTHON_CMD --generate_fingerprints"
+fi
+
+eval "$PYTHON_CMD"
 
 # Check the exit status of the Python script
 EXIT_CODE=${PIPESTATUS[0]}
