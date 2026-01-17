@@ -37,7 +37,7 @@ DATA_FN="data/OMIESI/mut_classify/train.csv"
 OUTPUT_DIR="output/data"
 OUTPUT_FN="${OUTPUT_DIR}/OMIESI_train_embeddings.csv"
 
-NROWS=200
+NROWS=0
 LOG_DIR="logs"
 LOG_LEVEL="INFO"
 GENERATE_FINGERPRINTS=true

@@ -20,7 +20,13 @@ from src.model_util import (
     load_model_factory,
     ModelType,
 )
-from src.utils import setup_logging, save_csv_parquet_torch, get_logger, setup_logging
+from src.utils import (
+    setup_logging,
+    save_csv_parquet_torch,
+    get_logger,
+    setup_logging,
+    norm_smiles,
+)
 
 logger = get_logger(__name__)
 
@@ -63,6 +69,7 @@ def add_smiles_fingerprints(
 ) -> pd.DataFrame:
     """
     Add Morgan fingerprints for SMILES column.
+    Deduplicates SMILES before processing for efficiency.
 
     Args:
         df: DataFrame with SMILES column
@@ -77,29 +84,54 @@ def add_smiles_fingerprints(
         )
         return df
 
-    logger.info(f"Generating Morgan fingerprints for {len(df)} SMILES...")
+    logger.info(f"Generating Morgan fingerprints for {len(df)} rows...")
 
-    fingerprints = []
+    # Normalize SMILES first to handle variations
+    df_normalized = df.copy()
+    df_normalized[f"{smiles_col}_normalized"] = norm_smiles(df[smiles_col])
+
+    # Get unique normalized SMILES for efficient processing
+    unique_smiles = df_normalized[f"{smiles_col}_normalized"].drop_duplicates()
+    logger.info(
+        f"Found {len(unique_smiles)} unique SMILES to process (after normalization)"
+    )
+
+    # Generate fingerprints for unique SMILES only
+    smiles_to_fp = {}
     failed_count = 0
 
-    for smiles in df[smiles_col]:
+    for smiles in unique_smiles:
         fp = smiles_to_morgan_fingerprint(smiles)
         if fp is not None:
-            fingerprints.append(fp)
+            smiles_to_fp[smiles] = fp
         else:
             # Use zero vector for failed conversions
-            fingerprints.append(np.zeros(2048, dtype=np.float32))
+            smiles_to_fp[smiles] = np.zeros(2048, dtype=np.float32)
             failed_count += 1
+
+    # Map fingerprints back to all rows using normalized SMILES
+    fingerprints = [
+        smiles_to_fp[smiles] for smiles in df_normalized[f"{smiles_col}_normalized"]
+    ]
 
     df = df.copy()
     df[f"{smiles_col}_fingerprint"] = fingerprints
 
     if failed_count > 0:
-        logger.warning(f"Failed to generate fingerprints for {failed_count} SMILES")
+        logger.warning(
+            f"Failed to generate fingerprints for {failed_count} unique SMILES"
+        )
 
+    success_count = len(unique_smiles) - failed_count
+    efficiency_ratio = len(df) / len(unique_smiles) if len(unique_smiles) > 0 else 1
     logger.info(
-        f"Successfully generated fingerprints for {len(df) - failed_count} SMILES"
+        f"Successfully generated fingerprints for {success_count} unique SMILES"
     )
+    logger.info(f"Mapped fingerprints to {len(df)} total rows")
+    logger.info(
+        f"Efficiency gain: {efficiency_ratio:.1f}x (processed {len(unique_smiles)} instead of {len(df)})"
+    )
+
     return df
 
 
