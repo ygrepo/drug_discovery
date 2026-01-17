@@ -285,6 +285,31 @@ def main():
             except Exception as e:
                 logger.exception(f"Failed to extract embeddings for {mt}: {e}")
 
+        # Reorganize columns in desired order
+        desired_columns = [
+            "WA",
+            "Pos",
+            "MA",
+            "Protein",
+            "ESMv1_embedding",
+            "ESM2_embedding",
+            "MUTAPLM_embedding",
+            "ProteinCLIP_embedding",
+            "SMILES",
+            "SMILES_fingerprint",
+            "Y",
+        ]
+
+        # Only include columns that exist in the DataFrame
+        available_columns = [col for col in desired_columns if col in df.columns]
+
+        # Add any remaining columns that weren't in the desired order
+        remaining_columns = [col for col in df.columns if col not in available_columns]
+        final_columns = available_columns + remaining_columns
+
+        df = df[final_columns]
+        logger.info(f"Reorganized columns: {list(df.columns)}")
+
         timestamp = datetime.now().strftime("%Y%m%d")
 
         if args.output_fn:
@@ -295,6 +320,7 @@ def main():
         else:
             output_file = Path(f"{timestamp}_embeddings.csv")
 
+        logger.info(f"Final DataFrame shape: {df.shape}")
         logger.info(f"Saving embeddings to: {output_file}")
         save_csv_parquet_torch(df, output_file)
 
