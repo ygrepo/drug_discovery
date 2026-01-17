@@ -3,26 +3,31 @@ import sys
 from pathlib import Path
 import argparse
 import os
+import ast
+import json
 import numpy as np
 import pandas as pd
 from datetime import datetime
-from typing import Tuple, List
+from typing import Tuple, Dict, List
 
 # Scikit-learn imports for classification
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
 from sklearn.neural_network import MLPClassifier
+
 from sklearn.metrics import (
     accuracy_score,
     precision_score,
     recall_score,
     f1_score,
     roc_auc_score,
-    confusion_matrix,
-    classification_report,
 )
-from sklearn.model_selection import train_test_split
+
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.base import BaseEstimator, TransformerMixin
+
 from xgboost import XGBClassifier
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -33,6 +38,9 @@ from src.ML_benchmark_util import save_model
 
 logger = get_logger(__name__)
 SEED = 42
+
+AA20 = list("ACDEFGHIKLMNPQRSTVWY")
+AA2IDX = {aa: i for i, aa in enumerate(AA20)}
 
 
 def parse_args():
@@ -47,212 +55,307 @@ def parse_args():
     )
     p.add_argument("--log_fn", type=str, default="logs/omiesi_benchmark.log")
     p.add_argument("--log_level", type=str, default="INFO")
-    p.add_argument("--output_dir", type=str, default="output/omiesi_benchmark")
-    p.add_argument("--model_dir", type=str, default="models/omiesi_benchmark")
+    p.add_argument("--output_dir", type=str, default="output/data/omiesi_benchmark")
+    p.add_argument("--model_dir", type=str, default="output/models/omiesi_benchmark")
+    p.add_argument("--prefix", type=str, default=None)
+
     p.add_argument(
         "--use_fingerprints",
         action="store_true",
-        help="Include SMILES fingerprints as features",
+        help="Include SMILES_fingerprint column as features (must exist in CSV)",
+    )
+
+    # Mutation feature encoding
+    p.add_argument(
+        "--mutation_encoding",
+        type=str,
+        default="onehot",
+        choices=["onehot", "physchem", "both"],
+        help="How to encode WA/Pos/MA features.",
     )
     p.add_argument(
-        "--embedding_models",
-        nargs="+",
-        default=["ESMv1", "ESM2", "MUTAPLM", "ProteinCLIP"],
-        help="Which embedding models to use",
+        "--use_pos_norm",
+        action="store_true",
+        help="Normalize Pos by protein length (requires Protein column). If missing, falls back to raw Pos.",
     )
+
+    # Scaling control
+    p.add_argument(
+        "--scale_for_linear",
+        action="store_true",
+        help="Apply StandardScaler to mutation+embedding blocks for LR/SVM/MLP.",
+    )
+
     return p.parse_args()
 
 
-def load_omiesi_data(data_path: Path) -> pd.DataFrame:
-    """Load OMIESI data with expected columns."""
-    expected_columns = [
-        "WA",
-        "Pos",
-        "MA",
-        "ESMv1_embedding",
-        "ESM2_embedding",
-        "MUTAPLM_embedding",
-        "ProteinCLIP_embedding",
-        "SMILES_fingerprint",
-        "Y",
-    ]
+# -----------------------------
+# Robust vector parsing helpers
+# -----------------------------
+def _safe_parse_vector(x, fallback_dim: int = 0) -> np.ndarray:
+    """
+    Parse vectors stored as:
+      - python lists
+      - numpy arrays
+      - strings like "[0.1 0.2 ...]" or "[0.1, 0.2, ...]"
+      - JSON-like strings
+    """
+    if isinstance(x, np.ndarray):
+        return x.astype(np.float32)
+    if isinstance(x, list):
+        return np.asarray(x, dtype=np.float32)
 
+    if isinstance(x, str):
+        s = x.strip()
+        if s == "" or s.lower() in {"nan", "none", "null"}:
+            return (
+                np.zeros((fallback_dim,), dtype=np.float32)
+                if fallback_dim > 0
+                else np.array([], dtype=np.float32)
+            )
+
+        # literal_eval handles python list formatting
+        try:
+            obj = ast.literal_eval(s)
+            if isinstance(obj, (list, tuple)):
+                return np.asarray(obj, dtype=np.float32)
+        except Exception:
+            pass
+
+        # JSON
+        try:
+            obj = json.loads(s)
+            if isinstance(obj, list):
+                return np.asarray(obj, dtype=np.float32)
+        except Exception:
+            pass
+
+        # fallback: numeric parse
+        s2 = s.strip("[]()")
+        s2 = s2.replace(",", " ")
+        arr = np.fromstring(s2, sep=" ", dtype=np.float32)
+        if arr.size > 0:
+            return arr
+
+        return (
+            np.zeros((fallback_dim,), dtype=np.float32)
+            if fallback_dim > 0
+            else np.array([], dtype=np.float32)
+        )
+
+    return (
+        np.zeros((fallback_dim,), dtype=np.float32)
+        if fallback_dim > 0
+        else np.array([], dtype=np.float32)
+    )
+
+
+def _stack_vector_column(df: pd.DataFrame, col: str, fallback_dim: int) -> np.ndarray:
+    vecs = [_safe_parse_vector(v, fallback_dim=fallback_dim) for v in df[col].values]
+    dims = [v.size for v in vecs if v.size > 0]
+    dim = max(dims) if dims else fallback_dim
+
+    out = np.zeros((len(vecs), dim), dtype=np.float32)
+    for i, v in enumerate(vecs):
+        if v.size == dim:
+            out[i] = v
+        elif v.size > 0:
+            out[i, : min(dim, v.size)] = v[:dim]
+    return out
+
+
+# -----------------------------
+# Data loading
+# -----------------------------
+def load_omiesi_data(data_path: Path) -> pd.DataFrame:
     logger.info(f"Loading data from {data_path}")
     df = pd.read_csv(data_path)
-
-    # Check for required columns
-    missing_cols = [col for col in expected_columns if col not in df.columns]
-    if missing_cols:
-        logger.warning(f"Missing columns: {missing_cols}")
-
     logger.info(f"Loaded {len(df)} rows with columns: {list(df.columns)}")
     return df
 
 
-def encode_amino_acid_features(df: pd.DataFrame) -> np.ndarray:
+def detect_embedding_columns(df: pd.DataFrame) -> List[str]:
     """
-    Convert WA, Pos, MA mutation information into numerical features.
-
-    Args:
-        df: DataFrame with WA, Pos, MA columns
-
-    Returns:
-        Feature matrix with amino acid properties
+    Auto-detect embedding columns of the form '*_embedding'.
+    Example: ESMv1_embedding, ESM2_embedding, MUTAPLM_embedding, ProteinCLIP_embedding
     """
-    # Amino acid properties (basic physicochemical properties)
+    emb_cols = [c for c in df.columns if c.endswith("_embedding")]
+    emb_cols = sorted(emb_cols)
+    logger.info(f"Detected embedding columns: {emb_cols}")
+    return emb_cols
+
+
+# -----------------------------
+# Mutation feature encoding
+# -----------------------------
+def _onehot_aa(series: pd.Series) -> np.ndarray:
+    n = len(series)
+    mat = np.zeros((n, 20), dtype=np.float32)
+    for i, aa in enumerate(series.astype(str).values):
+        idx = AA2IDX.get(aa, None)
+        if idx is not None:
+            mat[i, idx] = 1.0
+    return mat
+
+
+def encode_mutation_features(
+    df: pd.DataFrame,
+    mutation_encoding: str = "onehot",
+    use_pos_norm: bool = False,
+) -> np.ndarray:
+    if not {"WA", "Pos", "MA"}.issubset(df.columns):
+        raise ValueError("Missing one or more required columns: WA, Pos, MA")
+
+    pos = df["Pos"].astype(float).values.reshape(-1, 1).astype(np.float32)
+
+    if use_pos_norm and "Protein" in df.columns:
+        prot_len = (
+            df["Protein"].astype(str).map(len).values.astype(np.float32).reshape(-1, 1)
+        )
+        prot_len = np.clip(prot_len, 1.0, None)
+        pos_feat = pos / prot_len
+        logger.info("Using Pos normalized by protein length")
+    else:
+        pos_feat = pos
+        if use_pos_norm:
+            logger.warning(
+                "Requested --use_pos_norm but Protein column missing. Using raw Pos."
+            )
+
+    wa_oh = _onehot_aa(df["WA"])
+    ma_oh = _onehot_aa(df["MA"])
+    onehot_block = np.hstack([pos_feat, wa_oh, ma_oh])  # 41 dims
+
+    if mutation_encoding == "onehot":
+        return onehot_block
+
     aa_properties = {
-        "A": [
-            89.1,
-            1.8,
-            6.0,
-            0,
-            0,
-            0,
-        ],  # Ala: MW, hydrophobicity, pKa, aromatic, charged, polar
-        "R": [174.2, -4.5, 10.8, 0, 1, 1],  # Arg
-        "N": [132.1, -3.5, 5.4, 0, 0, 1],  # Asn
-        "D": [133.1, -3.5, 1.9, 0, -1, 1],  # Asp
-        "C": [121.0, 2.5, 10.8, 0, 0, 0],  # Cys
-        "Q": [146.1, -3.5, 5.7, 0, 0, 1],  # Gln
-        "E": [147.1, -3.5, 4.2, 0, -1, 1],  # Glu
-        "G": [75.1, -0.4, 6.0, 0, 0, 0],  # Gly
-        "H": [155.2, -3.2, 7.6, 1, 1, 1],  # His
-        "I": [131.2, 4.5, 6.0, 0, 0, 0],  # Ile
-        "L": [131.2, 3.8, 6.0, 0, 0, 0],  # Leu
-        "K": [146.2, -3.9, 9.7, 0, 1, 1],  # Lys
-        "M": [149.2, 1.9, 5.7, 0, 0, 0],  # Met
-        "F": [165.2, 2.8, 5.5, 1, 0, 0],  # Phe
-        "P": [115.1, -1.6, 6.3, 0, 0, 0],  # Pro
-        "S": [105.1, -0.8, 5.7, 0, 0, 1],  # Ser
-        "T": [119.1, -0.7, 5.6, 0, 0, 1],  # Thr
-        "W": [204.2, -0.9, 5.9, 1, 0, 0],  # Trp
-        "Y": [181.2, -1.3, 5.7, 1, 0, 1],  # Tyr
-        "V": [117.1, 4.2, 6.0, 0, 0, 0],  # Val
+        "A": [89.1, 1.8, 6.0, 0, 0, 0],
+        "R": [174.2, -4.5, 10.8, 0, 1, 1],
+        "N": [132.1, -3.5, 5.4, 0, 0, 1],
+        "D": [133.1, -3.5, 1.9, 0, -1, 1],
+        "C": [121.0, 2.5, 10.8, 0, 0, 0],
+        "Q": [146.1, -3.5, 5.7, 0, 0, 1],
+        "E": [147.1, -3.5, 4.2, 0, -1, 1],
+        "G": [75.1, -0.4, 6.0, 0, 0, 0],
+        "H": [155.2, -3.2, 7.6, 1, 1, 1],
+        "I": [131.2, 4.5, 6.0, 0, 0, 0],
+        "L": [131.2, 3.8, 6.0, 0, 0, 0],
+        "K": [146.2, -3.9, 9.7, 0, 1, 1],
+        "M": [149.2, 1.9, 5.7, 0, 0, 0],
+        "F": [165.2, 2.8, 5.5, 1, 0, 0],
+        "P": [115.1, -1.6, 6.3, 0, 0, 0],
+        "S": [105.1, -0.8, 5.7, 0, 0, 1],
+        "T": [119.1, -0.7, 5.6, 0, 0, 1],
+        "W": [204.2, -0.9, 5.9, 1, 0, 0],
+        "Y": [181.2, -1.3, 5.7, 1, 0, 1],
+        "V": [117.1, 4.2, 6.0, 0, 0, 0],
     }
 
-    features = []
+    wa_props = np.vstack(
+        [aa_properties.get(a, [0] * 6) for a in df["WA"].astype(str).values]
+    ).astype(np.float32)
+    ma_props = np.vstack(
+        [aa_properties.get(a, [0] * 6) for a in df["MA"].astype(str).values]
+    ).astype(np.float32)
+    delta_props = (ma_props - wa_props).astype(np.float32)
 
-    for _, row in df.iterrows():
-        wa = row["WA"]  # Wild-type amino acid
-        ma = row["MA"]  # Mutant amino acid
-        pos = row["Pos"]  # Position
+    physchem_block = np.hstack([pos_feat, wa_props, ma_props, delta_props])  # 19 dims
 
-        # Get amino acid properties
-        wa_props = aa_properties.get(wa, [0] * 6)
-        ma_props = aa_properties.get(ma, [0] * 6)
+    if mutation_encoding == "physchem":
+        return physchem_block
 
-        # Create feature vector
-        mutation_features = [
-            pos,  # Position (1 feature)
-            *wa_props,  # Wild-type AA properties (6 features)
-            *ma_props,  # Mutant AA properties (6 features)
-            *[
-                ma_props[i] - wa_props[i] for i in range(6)
-            ],  # Property differences (6 features)
-        ]
-
-        features.append(mutation_features)
-
-    feature_matrix = np.array(features, dtype=np.float32)
-    logger.info(
-        f"Encoded amino acid features: {feature_matrix.shape} (19 features per mutation)"
-    )
-
-    return feature_matrix
+    # both
+    return np.hstack([onehot_block, physchem_block])
 
 
+# -----------------------------
+# Feature preparation
+# -----------------------------
 def prepare_single_embedding_features(
-    df: pd.DataFrame, embedding_model: str, use_fingerprints: bool = True
-) -> Tuple[np.ndarray, np.ndarray]:
+    df: pd.DataFrame,
+    embedding_col: str,
+    use_fingerprints: bool = True,
+    mutation_encoding: str = "onehot",
+    use_pos_norm: bool = False,
+    fp_dim_default: int = 2048,
+    emb_dim_default: int = 512,
+) -> Tuple[np.ndarray, np.ndarray, Dict[str, Tuple[int, int]]]:
     """
-    Prepare feature matrix from OMIESI data for a single embedding model.
-    Features: [amino_acid_features, embedding_features, fingerprint_features]
-
-    Args:
-        df: DataFrame with OMIESI data
-        embedding_model: Single embedding model to use (e.g., "ESMv1")
-        use_fingerprints: Whether to include SMILES fingerprints
-
-    Returns:
-        X: Feature matrix
-        y: Target labels
+    Prepare features for ONE embedding column name (e.g. 'ESM2_embedding').
     """
-    features = []
-    feature_names = []
+    if "Y" not in df.columns:
+        raise ValueError("Missing required target column: Y")
+    if embedding_col not in df.columns:
+        raise ValueError(f"Embedding column not found: {embedding_col}")
 
-    # 1. Add amino acid mutation features (WA, Pos, MA -> 19 features)
-    aa_features = encode_amino_acid_features(df)
-    features.append(aa_features)
-    feature_names.extend([f"aa_{i}" for i in range(aa_features.shape[1])])
-    logger.info(f"Added amino acid features: {aa_features.shape}")
-
-    # 2. Add single protein embedding
-    col_name = f"{embedding_model}_embedding"
-    if col_name in df.columns:
-        # Convert embedding strings/arrays to numpy arrays
-        embeddings = []
-        for emb in df[col_name]:
-            if isinstance(emb, str):
-                # Handle string representation of arrays
-                emb_array = np.fromstring(emb.strip("[]"), sep=" ")
-            elif isinstance(emb, (list, np.ndarray)):
-                emb_array = np.array(emb)
-            else:
-                logger.warning(
-                    f"Unexpected embedding format for {embedding_model}: {type(emb)}"
-                )
-                emb_array = np.zeros(512)  # Default size
-            embeddings.append(emb_array)
-
-        embeddings = np.vstack(embeddings)
-        features.append(embeddings)
-        feature_names.extend(
-            [f"{embedding_model}_{i}" for i in range(embeddings.shape[1])]
-        )
-        logger.info(f"Added {embedding_model} embeddings: {embeddings.shape}")
-    else:
-        raise ValueError(f"Embedding column {col_name} not found in data")
-
-    # 3. Add SMILES fingerprints if requested
-    if use_fingerprints and "SMILES_fingerprint" in df.columns:
-        fingerprints = []
-        for fp in df["SMILES_fingerprint"]:
-            if isinstance(fp, str):
-                fp_array = np.fromstring(fp.strip("[]"), sep=" ")
-            elif isinstance(fp, (list, np.ndarray)):
-                fp_array = np.array(fp)
-            else:
-                logger.warning(f"Unexpected fingerprint format: {type(fp)}")
-                fp_array = np.zeros(2048)  # Default Morgan fingerprint size
-            fingerprints.append(fp_array)
-
-        fingerprints = np.vstack(fingerprints)
-        features.append(fingerprints)
-        feature_names.extend([f"fp_{i}" for i in range(fingerprints.shape[1])])
-        logger.info(f"Added SMILES fingerprints: {fingerprints.shape}")
-
-    # Concatenate all features
-    if features:
-        X = np.hstack(features)
-    else:
-        raise ValueError("No features could be extracted from the data")
-
-    # Get target labels
-    y = df["Y"].values
-
-    logger.info(f"Final feature matrix shape for {embedding_model}: {X.shape}")
-    logger.info(
-        f"Feature breakdown: AA({aa_features.shape[1]}) + Embedding({embeddings.shape[1]}) + Fingerprints({fingerprints.shape[1] if use_fingerprints else 0})"
+    mut = encode_mutation_features(
+        df, mutation_encoding=mutation_encoding, use_pos_norm=use_pos_norm
     )
-    logger.info(f"Target distribution: {np.bincount(y)}")
+    n_mut = mut.shape[1]
 
-    return X, y
+    emb = _stack_vector_column(df, embedding_col, fallback_dim=emb_dim_default)
+    n_emb = emb.shape[1]
+
+    blocks = {
+        "mutation": (0, n_mut),
+        "embedding": (n_mut, n_mut + n_emb),
+    }
+
+    parts = [mut, emb]
+
+    if use_fingerprints:
+        if "SMILES_fingerprint" not in df.columns:
+            logger.warning(
+                "Requested fingerprints but SMILES_fingerprint column missing. Skipping fingerprints."
+            )
+        else:
+            fp = _stack_vector_column(
+                df, "SMILES_fingerprint", fallback_dim=fp_dim_default
+            )
+            n_fp = fp.shape[1]
+            parts.append(fp)
+            blocks["fingerprint"] = (n_mut + n_emb, n_mut + n_emb + n_fp)
+
+    X = np.hstack(parts).astype(np.float32)
+    y = df["Y"].astype(int).values
+    return X, y, blocks
 
 
+# -----------------------------
+# Scaling wrapper (optional)
+# -----------------------------
+class BlockStandardScaler(BaseEstimator, TransformerMixin):
+    """
+    StandardScaler applied ONLY to specified blocks (feature slices).
+    Keeps binary fingerprints untouched.
+    """
+
+    def __init__(self, blocks: List[Tuple[int, int]]):
+        self.blocks = blocks
+        self.scalers: List[StandardScaler] = []
+
+    def fit(self, X, y=None):
+        self.scalers = []
+        for a, b in self.blocks:
+            sc = StandardScaler()
+            sc.fit(X[:, a:b])
+            self.scalers.append(sc)
+        return self
+
+    def transform(self, X):
+        X2 = X.copy()
+        for sc, (a, b) in zip(self.scalers, self.blocks):
+            X2[:, a:b] = sc.transform(X2[:, a:b])
+        return X2
+
+
+# -----------------------------
+# Evaluation
+# -----------------------------
 def evaluate_classifier(
     model, X_test: np.ndarray, y_test: np.ndarray, model_name: str
 ) -> dict:
-    """Evaluate a classifier and return metrics."""
     y_pred = model.predict(X_test)
     y_pred_proba = (
         model.predict_proba(X_test)[:, 1] if hasattr(model, "predict_proba") else None
@@ -261,144 +364,169 @@ def evaluate_classifier(
     metrics = {
         "Model": model_name,
         "Accuracy": accuracy_score(y_test, y_pred),
-        "Precision": precision_score(y_test, y_pred, average="binary"),
-        "Recall": recall_score(y_test, y_pred, average="binary"),
-        "F1": f1_score(y_test, y_pred, average="binary"),
+        "Precision": precision_score(y_test, y_pred, average="binary", zero_division=0),
+        "Recall": recall_score(y_test, y_pred, average="binary", zero_division=0),
+        "F1": f1_score(y_test, y_pred, average="binary", zero_division=0),
     }
-
     if y_pred_proba is not None:
         metrics["ROC_AUC"] = roc_auc_score(y_test, y_pred_proba)
-
-    logger.info(f"{model_name} Results:")
-    for metric, value in metrics.items():
-        if metric != "Model":
-            logger.info(f"  {metric}: {value:.4f}")
-
     return metrics
 
 
+# -----------------------------
+# Main
+# -----------------------------
 def main():
     args = parse_args()
     setup_logging(Path(args.log_fn), args.log_level)
+
+    np.random.seed(SEED)
+    os.environ["PYTHONHASHSEED"] = str(SEED)
 
     try:
         logger.info("Starting OMIESI binary classification benchmark")
         logger.info(f"Arguments: {vars(args)}")
 
-        # Create output directories
         output_dir = Path(args.output_dir)
         model_dir = Path(args.model_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
         model_dir.mkdir(parents=True, exist_ok=True)
 
-        # Load data from directory
         data_dir = Path(args.data_dir)
+        prefix = args.prefix if args.prefix else ""
+        train_path = data_dir / f"{prefix}train.csv"
+        val_path = data_dir / f"{prefix}val.csv"
+        test_path = data_dir / f"{prefix}test.csv"
 
-        train_path = data_dir / "train.csv"
-        val_path = data_dir / "val.csv"
-        test_path = data_dir / "test.csv"
-
-        # Check if all files exist
         for file_path in [train_path, val_path, test_path]:
             if not file_path.exists():
                 raise FileNotFoundError(f"Required file not found: {file_path}")
 
-        # Load all three datasets
         train_df = load_omiesi_data(train_path)
         val_df = load_omiesi_data(val_path)
         test_df = load_omiesi_data(test_path)
 
-        logger.info(f"Training set: {len(train_df)} samples")
-        logger.info(f"Validation set: {len(val_df)} samples")
-        logger.info(f"Test set: {len(test_df)} samples")
+        # Auto-detect embedding columns from training set
+        embedding_cols = detect_embedding_columns(train_df)
+        if not embedding_cols:
+            raise ValueError(
+                "No embedding columns found (expected '*_embedding' columns)."
+            )
 
-        # Define classifiers
-        classifiers = {
-            "Random Forest": RandomForestClassifier(
-                n_estimators=100, random_state=SEED, n_jobs=-1
-            ),
-            "Gradient Boosting": GradientBoostingClassifier(
-                n_estimators=100, random_state=SEED
-            ),
-            "XGBoost": XGBClassifier(
-                n_estimators=100, random_state=SEED, eval_metric="logloss"
-            ),
-            "Logistic Regression": LogisticRegression(random_state=SEED, max_iter=1000),
-            "SVM": SVC(random_state=SEED, probability=True),
-            "MLP": MLPClassifier(
-                hidden_layer_sizes=(100, 50), random_state=SEED, max_iter=500
-            ),
-        }
-
-        # Train and evaluate models for each embedding type
+        # Define base models
         results = []
 
-        for embedding_model in args.embedding_models:
-            logger.info(f"\n{'='*50}")
-            logger.info(f"Processing embedding: {embedding_model}")
-            logger.info(f"{'='*50}")
+        for embedding_col in embedding_cols:
+            embedding_name = embedding_col.replace("_embedding", "")
 
-            # Prepare features for this embedding
+            logger.info(f"\n{'='*70}")
+            logger.info(f"Embedding: {embedding_col}")
+            logger.info(f"{'='*70}")
+
+            # Prepare features
             try:
-                X_train, y_train = prepare_single_embedding_features(
-                    train_df, embedding_model, args.use_fingerprints
+                X_train, y_train, blocks_train = prepare_single_embedding_features(
+                    train_df,
+                    embedding_col=embedding_col,
+                    use_fingerprints=args.use_fingerprints,
+                    mutation_encoding=args.mutation_encoding,
+                    use_pos_norm=args.use_pos_norm,
                 )
-
-                X_val, y_val = prepare_single_embedding_features(
-                    val_df, embedding_model, args.use_fingerprints
+                X_test, y_test, blocks_test = prepare_single_embedding_features(
+                    test_df,
+                    embedding_col=embedding_col,
+                    use_fingerprints=args.use_fingerprints,
+                    mutation_encoding=args.mutation_encoding,
+                    use_pos_norm=args.use_pos_norm,
                 )
-                X_test, y_test = prepare_single_embedding_features(
-                    test_df, embedding_model, args.use_fingerprints
-                )
-
-                logger.info(
-                    f"Training set: {X_train.shape[0]} samples, {X_train.shape[1]} features"
-                )
-                logger.info(f"Validation set: {X_val.shape[0]} samples")
-                logger.info(f"Test set: {X_test.shape[0]} samples")
-
-            except ValueError as e:
-                logger.warning(f"Skipping {embedding_model}: {e}")
+            except Exception as e:
+                logger.warning(f"Skipping {embedding_col} due to feature error: {e}")
                 continue
 
-            # Train each classifier for this embedding
-            for model_name, model_class in classifiers.items():
-                logger.info(f"\nTraining {model_name} with {embedding_model}...")
+            # scale blocks for LR/SVM/MLP: scale mutation + embedding, keep fingerprint raw
+            scale_blocks = [blocks_train["mutation"], blocks_train["embedding"]]
 
-                # Create fresh model instance
-                if model_name == "Random Forest":
-                    model = RandomForestClassifier(
-                        n_estimators=100, random_state=SEED, n_jobs=-1
-                    )
-                elif model_name == "Gradient Boosting":
-                    model = GradientBoostingClassifier(
-                        n_estimators=100, random_state=SEED
-                    )
-                elif model_name == "XGBoost":
-                    model = XGBClassifier(
-                        n_estimators=100, random_state=SEED, eval_metric="logloss"
-                    )
-                elif model_name == "Logistic Regression":
-                    model = LogisticRegression(random_state=SEED, max_iter=1000)
-                elif model_name == "SVM":
-                    model = SVC(random_state=SEED, probability=True)
-                elif model_name == "MLP":
-                    model = MLPClassifier(
-                        hidden_layer_sizes=(100, 50), random_state=SEED, max_iter=500
-                    )
+            # class imbalance support
+            pos = int(np.sum(y_train == 1))
+            neg = int(np.sum(y_train == 0))
+            scale_pos_weight = (neg / max(pos, 1)) if pos > 0 else 1.0
 
-                # Train model
+            classifiers = {
+                "RandomForest": RandomForestClassifier(
+                    n_estimators=300,
+                    random_state=SEED,
+                    n_jobs=-1,
+                    class_weight="balanced",
+                ),
+                "GradientBoosting": GradientBoostingClassifier(
+                    n_estimators=200,
+                    random_state=SEED,
+                ),
+                "XGBoost": XGBClassifier(
+                    n_estimators=500,
+                    random_state=SEED,
+                    eval_metric="logloss",
+                    learning_rate=0.05,
+                    max_depth=6,
+                    subsample=0.9,
+                    colsample_bytree=0.9,
+                    reg_lambda=1.0,
+                    scale_pos_weight=scale_pos_weight,
+                    n_jobs=-1,
+                ),
+                "LogisticRegression": LogisticRegression(
+                    random_state=SEED,
+                    max_iter=3000,
+                    class_weight="balanced",
+                    solver="lbfgs",
+                ),
+                "SVM": SVC(
+                    random_state=SEED,
+                    probability=True,
+                    class_weight="balanced",
+                    kernel="rbf",
+                ),
+                "MLP": MLPClassifier(
+                    hidden_layer_sizes=(256, 128),
+                    random_state=SEED,
+                    max_iter=800,
+                    early_stopping=True,
+                    validation_fraction=0.1,
+                ),
+            }
+
+            for model_name, clf in classifiers.items():
+                logger.info(f"Training {model_name} on {embedding_name}...")
+
+                if args.scale_for_linear and model_name in {
+                    "LogisticRegression",
+                    "SVM",
+                    "MLP",
+                }:
+                    model = Pipeline(
+                        steps=[
+                            ("block_scaler", BlockStandardScaler(blocks=scale_blocks)),
+                            ("clf", clf),
+                        ]
+                    )
+                else:
+                    model = Pipeline(steps=[("clf", clf)])
+
                 model.fit(X_train, y_train)
 
-                # Evaluate on test set
                 metrics = evaluate_classifier(
-                    model, X_test, y_test, f"{model_name}_{embedding_model}"
+                    model, X_test, y_test, model_name=f"{model_name}_{embedding_name}"
                 )
-                metrics["Embedding_Type"] = embedding_model
+                metrics["Embedding_Type"] = embedding_name
+                metrics["Mutation_Encoding"] = args.mutation_encoding
+                metrics["Use_Fingerprints"] = bool(args.use_fingerprints)
+                metrics["Use_Pos_Norm"] = bool(args.use_pos_norm)
+                metrics["Scaled_Linear_MLP"] = bool(args.scale_for_linear)
+
                 results.append(metrics)
 
                 # Save model
-                model_filename = f"{model_name.replace(' ', '_').lower()}_{embedding_model.lower()}.joblib"
+                model_filename = f"{model_name.lower()}_{embedding_name.lower()}.joblib"
                 model_path = model_dir / model_filename
                 save_model(model, model_path)
                 logger.info(f"Saved model to {model_path}")
@@ -406,52 +534,40 @@ def main():
         # Save consolidated results
         if results:
             results_df = pd.DataFrame(results)
-
-            # Reorder columns for better readability
             column_order = [
                 "Model",
                 "Embedding_Type",
+                "Mutation_Encoding",
+                "Use_Fingerprints",
+                "Use_Pos_Norm",
+                "Scaled_Linear_MLP",
                 "Accuracy",
                 "Precision",
                 "Recall",
                 "F1",
                 "ROC_AUC",
             ]
-            available_columns = [
-                col for col in column_order if col in results_df.columns
+            columns = [c for c in column_order if c in results_df.columns] + [
+                c for c in results_df.columns if c not in column_order
             ]
-            remaining_columns = [
-                col for col in results_df.columns if col not in available_columns
-            ]
-            final_columns = available_columns + remaining_columns
-            results_df = results_df[final_columns]
+            results_df = results_df[columns]
 
-            # Save to CSV
             results_path = (
                 output_dir
                 / f"omiesi_classification_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
             )
             results_df.to_csv(results_path, index=False)
-            logger.info(f"Saved consolidated results to {results_path}")
 
-            # Print summary
             logger.info("\n=== BENCHMARK SUMMARY ===")
-            logger.info("Results by Embedding Type and Model:")
             logger.info(results_df.to_string(index=False))
 
-            # Print best performing models per embedding
-            logger.info("\n=== BEST MODELS PER EMBEDDING ===")
-            for embedding in args.embedding_models:
-                embedding_results = results_df[
-                    results_df["Embedding_Type"] == embedding
-                ]
-                if not embedding_results.empty:
-                    best_model = embedding_results.loc[embedding_results["F1"].idxmax()]
-                    logger.info(
-                        f"{embedding}: {best_model['Model']} (F1: {best_model['F1']:.4f})"
-                    )
+            logger.info("\n=== BEST MODELS PER EMBEDDING (by F1) ===")
+            for emb in sorted(results_df["Embedding_Type"].unique()):
+                sub = results_df[results_df["Embedding_Type"] == emb]
+                best = sub.loc[sub["F1"].idxmax()]
+                logger.info(f"{emb}: {best['Model']} (F1={best['F1']:.4f})")
         else:
-            logger.warning("No results to save - all embeddings may have failed")
+            logger.warning("No results produced (all embeddings failed or missing).")
 
     except Exception as e:
         logger.exception(f"Error in main: {e}")
