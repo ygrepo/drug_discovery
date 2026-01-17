@@ -3,8 +3,6 @@ import os
 from pathlib import Path
 import pandas as pd
 import argparse
-import torch
-import joblib
 from datetime import datetime
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -23,7 +21,7 @@ logger = get_logger(__name__)
 
 def load_data(data_fn: Path, n: int) -> pd.DataFrame:
     """Load the dataset."""
-    df = torch.load(data_fn, weights_only=False)
+    df = pd.read_csv(data_fn)
     logger.info(f"Loaded dataset: {len(df)} rows")
     if n > 0:
         df = df.head(n)
