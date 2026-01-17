@@ -528,7 +528,7 @@ def main():
                 # Save model
                 model_filename = f"{model_name.lower()}_{embedding_name.lower()}.joblib"
                 model_path = model_dir / model_filename
-                save_model(model, model_path)
+                save_model(model, model_name, model_path)
                 logger.info(f"Saved model to {model_path}")
 
         # Save consolidated results
