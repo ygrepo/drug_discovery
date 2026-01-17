@@ -33,9 +33,9 @@ export TORCH_HOME="/sc/arion/projects/DiseaseGeneCell/Huang_lab_data/.torch_hub"
 mkdir -p "$TORCH_HOME"
 
 # Default configuration
-DATA_FN="data/OMIESI/mut_classify/train.csv"
+DATA_FN="data/OMIESI/mut_classify/test.csv"
 OUTPUT_DIR="output/data"
-OUTPUT_FN="${OUTPUT_DIR}/OMIESI_train_embeddings.csv"
+OUTPUT_FN="${OUTPUT_DIR}/OMIESI/test_embeddings.csv"
 
 NROWS=0
 LOG_DIR="logs"
