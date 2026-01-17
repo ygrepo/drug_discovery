@@ -33,6 +33,7 @@ mkdir -p "$TORCH_HOME"
 
 # Default configuration
 BASE_DATA_DIR="output/data/OMIESI"
+PREFIX="20260117_"
 LOG_DIR="logs"
 LOG_LEVEL="INFO"
 
@@ -56,6 +57,7 @@ echo "Logging to: $LOG_FILE" | tee -a "$LOG_FILE"
 
 echo "Starting with the following configuration:" | tee -a "$LOG_FILE"
 echo "  Data dir: ${BASE_DATA_DIR}" | tee -a "$LOG_FILE"
+echo "  Prefix: ${PREFIX}" | tee -a "$LOG_FILE"
 echo "  Log level: ${LOG_LEVEL}" | tee -a "$LOG_FILE"
 echo "  Log file: ${LOG_FILE}" | tee -a "$LOG_FILE"
 
@@ -69,6 +71,7 @@ set +e
   --log_fn "${LOG_FILE}" \
   --log_level "${LOG_LEVEL}" \
   --data_dir "${BASE_DATA_DIR}" \
+  --prefix "${PREFIX}" \
   --use_fingerprints \
   --scale_for_linear \
   --mutation_encoding both \
