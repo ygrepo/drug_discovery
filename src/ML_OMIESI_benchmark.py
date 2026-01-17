@@ -394,9 +394,9 @@ def main():
 
         data_dir = Path(args.data_dir)
         prefix = args.prefix if args.prefix else ""
-        train_path = data_dir / f"{prefix}train.csv"
-        val_path = data_dir / f"{prefix}val.csv"
-        test_path = data_dir / f"{prefix}test.csv"
+        train_path = data_dir / f"{prefix}train_embeddings.csv"
+        val_path = data_dir / f"{prefix}val_embeddings.csv"
+        test_path = data_dir / f"{prefix}test_embeddings.csv"
 
         for file_path in [train_path, val_path, test_path]:
             if not file_path.exists():
