@@ -115,13 +115,12 @@ def main():
         logger.info(f"Config: {args.config}")
         logger.info(f"Data fn: {args.data_fn}")
         logger.info(f"Output fn: {args.output_fn}")
-        logger.info(f"Number of samples: {args.n_samples}")
-        logger.info(f"Number of rows: {args.nrows}")
+        logger.info(f"Number of rows: {args.n}")
 
         logger.info("Loading model...")
 
         # Load data
-        df = load_data(Path(args.data_fn), args.nrows)
+        df = load_data(Path(args.data_fn), args.n)
 
         target_col = "Protein"
         logger.info(f"Target col: {target_col}")
