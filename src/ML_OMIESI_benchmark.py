@@ -22,6 +22,7 @@ from sklearn.metrics import (
     recall_score,
     f1_score,
     roc_auc_score,
+    matthews_corrcoef,
 )
 
 from sklearn.pipeline import Pipeline
@@ -367,6 +368,7 @@ def evaluate_classifier(
         "Precision": precision_score(y_test, y_pred, average="binary", zero_division=0),
         "Recall": recall_score(y_test, y_pred, average="binary", zero_division=0),
         "F1": f1_score(y_test, y_pred, average="binary", zero_division=0),
+        "MCC": matthews_corrcoef(y_test, y_pred),
     }
     if y_pred_proba is not None:
         metrics["ROC_AUC"] = roc_auc_score(y_test, y_pred_proba)
@@ -405,6 +407,24 @@ def main():
         train_df = load_omiesi_data(train_path)
         val_df = load_omiesi_data(val_path)
         test_df = load_omiesi_data(test_path)
+
+        # Show class distribution for each dataset
+        train_pos = (train_df["Y"] == 1).sum()
+        train_neg = (train_df["Y"] == 0).sum()
+        val_pos = (val_df["Y"] == 1).sum()
+        val_neg = (val_df["Y"] == 0).sum()
+        test_pos = (test_df["Y"] == 1).sum()
+        test_neg = (test_df["Y"] == 0).sum()
+
+        logger.info(
+            f"Training set: {len(train_df)} samples (Positive: {train_pos}, Negative: {train_neg}, Ratio: {train_pos/len(train_df):.3f})"
+        )
+        logger.info(
+            f"Validation set: {len(val_df)} samples (Positive: {val_pos}, Negative: {val_neg}, Ratio: {val_pos/len(val_df):.3f})"
+        )
+        logger.info(
+            f"Test set: {len(test_df)} samples (Positive: {test_pos}, Negative: {test_neg}, Ratio: {test_pos/len(test_df):.3f})"
+        )
 
         # Auto-detect embedding columns from training set
         embedding_cols = detect_embedding_columns(train_df)
